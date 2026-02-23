@@ -1,18 +1,23 @@
-from sqlalchemy import Column, Integer, String, Boolean
-from sqlalchemy.orm import relationship
+"""User model — operators, QA staff, and managers."""
+
+from sqlalchemy import Column, Integer, Boolean, VARCHAR
+from sqlalchemy.dialects.postgresql import TIMESTAMP
+from sqlalchemy.sql import func
 
 from app.core.database import Base
+from app.models.enums import UserRoleType
 
 
 class User(Base):
-    """User model"""
     __tablename__ = "users"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True, nullable=False)
-    password_hash = Column(String, nullable=False)
-    role = Column(String, nullable=False)  # Operator, QA, Manager
-    is_active = Column(Boolean, default=True)
-    
-    # Relationships
-    cooking_logs = relationship("CookingLog", back_populates="operator")
+    username = Column(VARCHAR(50), unique=True, nullable=False, index=True)
+    password_hash = Column(VARCHAR(255), nullable=False)
+    full_name = Column(VARCHAR(100), nullable=False, server_default="")
+    email = Column(VARCHAR(255), nullable=True)
+    role = Column(UserRoleType, nullable=False, server_default="Operator")
+    is_active = Column(Boolean, nullable=False, default=True, server_default="true")
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    # Note: updated_at is auto-managed by DB trigger trg_users_updated_at

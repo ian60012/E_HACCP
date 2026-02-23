@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs:*)",
+      "Bash(git -C \"C:\\\\Users\\\\ianht\\\\OneDrive\\\\Documents\\\\E_HACCP\\\\.claude\\\\worktrees\\\\amazing-volhard\" log --oneline -10)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(py -c \"from passlib.context import CryptContext; pwd = CryptContext\\(schemes=[''bcrypt''], deprecated=''auto''\\); print\\(pwd.hash\\(''password123''\\)\\)\")",
+      "Bash(node -e:*)",
+      "Bash(npx:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(timeout /t 8 /nobreak)",
+      "Bash(curl:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker volume ls:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(dir:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker compose up:*)",
+      "Bash(docker ps:*)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(docker info:*)",
+      "Bash(start \"\" \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\")",
+      "Bash(powershell -Command:*)",
+      "Bash(docker cp:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

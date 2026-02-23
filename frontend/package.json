@@ -1,25 +1,26 @@
 {
   "name": "haccp-eqms-frontend",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc && vite build",
-    "preview": "vite preview",
-    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore"
+    "build": "tsc && vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.4.15",
-    "vue-router": "^4.2.5",
-    "pinia": "^2.1.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.0",
+    "react-hook-form": "^7.50.0",
     "axios": "^1.6.5",
-    "@headlessui/vue": "^1.7.16",
-    "@heroicons/vue": "^2.1.1"
+    "@heroicons/react": "^2.1.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.0.3",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
     "typescript": "^5.3.3",
-    "vue-tsc": "^1.8.27",
     "vite": "^5.0.11",
     "tailwindcss": "^3.4.1",
     "autoprefixer": "^10.4.17",

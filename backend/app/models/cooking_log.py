@@ -1,31 +1,32 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum
+"""Cooking CCP Log model (FSP-LOG-004)."""
+
+from sqlalchemy import Column, Integer, Numeric, Text, ForeignKey, VARCHAR
+from sqlalchemy.dialects.postgresql import TIMESTAMP
 from sqlalchemy.orm import relationship
-from datetime import datetime
-import enum
 
 from app.core.database import Base
+from app.models.enums import CCPStatusType
+from app.models.base import ALCOAMixin
 
 
-class LogStatus(str, enum.Enum):
-    """Log status enumeration"""
-    PASS = "PASS"
-    FAIL = "FAIL"
-
-
-class CookingLog(Base):
-    """Cooking log model"""
+class CookingLog(ALCOAMixin, Base):
     __tablename__ = "cooking_logs"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    batch_no = Column(String, unique=True, nullable=False, index=True)
+
+    # Business fields
+    batch_id = Column(VARCHAR(50), nullable=False, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    operator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime, nullable=False)
-    core_temp = Column(Float, nullable=False)
-    status = Column(Enum(LogStatus), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    product = relationship("Product", back_populates="cooking_logs")
-    operator = relationship("User", back_populates="cooking_logs")
+    equipment_id = Column(Integer, ForeignKey("equipment.id"), nullable=True)
+    start_time = Column(TIMESTAMP(timezone=True), nullable=False)
+    end_time = Column(TIMESTAMP(timezone=True), nullable=True)
+    core_temp = Column(Numeric(5, 2), nullable=True)
+    ccp_status = Column(CCPStatusType, nullable=True)
+    corrective_action = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    # Relationships (lazy="raise" prevents N+1 — must use selectinload())
+    product = relationship("Product", lazy="raise", foreign_keys=[product_id])
+    equipment = relationship("Equipment", lazy="raise", foreign_keys=[equipment_id])
+    operator = relationship("User", lazy="raise", foreign_keys="CookingLog.operator_id")
+    verifier = relationship("User", lazy="raise", foreign_keys="CookingLog.verified_by")
