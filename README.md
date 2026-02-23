@@ -21,7 +21,7 @@ docker-compose up -d
 ```
 
 这将启动：
-- PostgreSQL 数据库（端口 5432）
+- PostgreSQL 数据库（端口 5555）
 - FastAPI 后端（端口 8000）
 - Vue 3 前端界面（端口 3000）⭐
 - Adminer 数据库管理工具（端口 8080）

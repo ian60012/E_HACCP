@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
     POSTGRES_HOST: str = "postgres"
-    POSTGRES_PORT: int = 5432
+    POSTGRES_PORT: int = 5555
     POSTGRES_USER: str = "haccp_user"
     POSTGRES_PASSWORD: str = "haccp_password"
     POSTGRES_DB: str = "haccp_db"

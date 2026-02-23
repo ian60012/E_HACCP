@@ -8,12 +8,14 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-haccp_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-haccp_password}
       POSTGRES_DB: ${POSTGRES_DB:-haccp_db}
+    command: -p 5555
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     ports:
-      - "5432:5432"
+      - "5555:5555"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-haccp_user}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-haccp_user} -d ${POSTGRES_DB:-haccp_db} -p 5555"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -25,9 +27,9 @@ services:
       dockerfile: Dockerfile
     container_name: haccp_backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-haccp_user}:${POSTGRES_PASSWORD:-haccp_password}@postgres:5432/${POSTGRES_DB:-haccp_db}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-haccp_user}:${POSTGRES_PASSWORD:-haccp_password}@postgres:5555/${POSTGRES_DB:-haccp_db}
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
+      POSTGRES_PORT: 5555
       POSTGRES_USER: ${POSTGRES_USER:-haccp_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-haccp_password}
       POSTGRES_DB: ${POSTGRES_DB:-haccp_db}
@@ -51,8 +53,6 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8000
     depends_on:
       - backend
     restart: unless-stopped
@@ -62,7 +62,7 @@ services:
     image: adminer:latest
     container_name: haccp_adminer
     ports:
-      - "8080:8080"
+      - "9090:8080"
     environment:
       ADMINER_DEFAULT_SERVER: postgres
     depends_on:

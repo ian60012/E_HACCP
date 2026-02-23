@@ -1,40 +1,38 @@
-import axios from 'axios'
+import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+// Auto-detect backend URL based on current browser location
+// In production/NAS: same host, port 8000
+// Dev override via VITE_API_BASE_URL env var
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  `${window.location.protocol}//${window.location.hostname}:8000`;
 
-export const apiClient = axios.create({
+const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-})
+});
 
-// Request interceptor
-apiClient.interceptors.request.use(
-  (config) => {
-    // Add auth token if available
-    const token = localStorage.getItem('auth_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => {
-    return Promise.reject(error)
+// Request interceptor: add JWT token
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
-)
+  return config;
+});
 
-// Response interceptor
+// Response interceptor: handle 401
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle common errors
     if (error.response?.status === 401) {
-      // Handle unauthorized
-      localStorage.removeItem('auth_token')
+      localStorage.removeItem('auth_token');
+      window.location.href = '/login';
     }
-    return Promise.reject(error)
+    return Promise.reject(error);
   }
-)
+);
 
-export default apiClient
+export default apiClient;
