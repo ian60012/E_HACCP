@@ -37,6 +37,16 @@ async def lifespan(app: FastAPI):
     # Startup: Verify database connection (schema created by init.sql, NOT ORM)
     async with engine.begin() as conn:
         await conn.execute(text("SELECT 1"))
+        # Idempotent column migrations (for databases created before this column was added)
+        await conn.execute(
+            text("ALTER TABLE cooking_logs ADD COLUMN IF NOT EXISTS quantity NUMERIC(8,3)")
+        )
+        await conn.execute(
+            text("ALTER TABLE receiving_logs ADD COLUMN IF NOT EXISTS quantity NUMERIC(10,3)")
+        )
+        await conn.execute(
+            text("ALTER TABLE receiving_logs ADD COLUMN IF NOT EXISTS quantity_unit VARCHAR(10)")
+        )
     yield
     # Shutdown: Close database connections
     await engine.dispose()

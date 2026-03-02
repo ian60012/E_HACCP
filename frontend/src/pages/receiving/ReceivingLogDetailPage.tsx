@@ -143,6 +143,14 @@ export default function ReceivingLogDetailPage() {
             <p className="text-xs text-gray-400"><Bi k="field.productName" /></p>
             <p className="font-medium text-gray-800">{log.product_name || '—'}</p>
           </div>
+          {log.quantity && (
+            <div>
+              <p className="text-xs text-gray-400"><Bi k="field.receivingQuantity" /></p>
+              <p className="font-medium text-gray-800">
+                {log.quantity} {log.quantity_unit || ''}
+              </p>
+            </div>
+          )}
           <div>
             <p className="text-xs text-gray-400"><Bi k="field.acceptanceStatus" /></p>
             <div className="mt-0.5">

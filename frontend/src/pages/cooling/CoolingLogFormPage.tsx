@@ -15,6 +15,18 @@ function nowLocalISO(): string {
   return d.toISOString().slice(0, 16);
 }
 
+/** Convert a UTC ISO string (from API) to local datetime-local input format */
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+
+/** Convert a datetime-local input string (local time) to UTC ISO string for the API */
+function toUTCISO(local: string): string {
+  return new Date(local).toISOString();
+}
+
 export default function CoolingLogFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -49,11 +61,11 @@ export default function CoolingLogFormPage() {
       const data = await coolingLogsApi.get(Number(id));
       setExistingLog(data);
       setBatchId(data.batch_id);
-      setStartTime(data.start_time ? data.start_time.slice(0, 16) : '');
+      setStartTime(data.start_time ? toLocalInput(data.start_time) : '');
       setStartTemp(data.start_temp);
-      setStage1Time(data.stage1_time ? data.stage1_time.slice(0, 16) : '');
+      setStage1Time(data.stage1_time ? toLocalInput(data.stage1_time) : '');
       setStage1Temp(data.stage1_temp || '');
-      setEndTime(data.end_time ? data.end_time.slice(0, 16) : '');
+      setEndTime(data.end_time ? toLocalInput(data.end_time) : '');
       setEndTemp(data.end_temp || '');
       setGoesToFreezer(data.goes_to_freezer);
       setCorrectiveAction(data.corrective_action || '');
@@ -135,13 +147,13 @@ export default function CoolingLogFormPage() {
 
         // Only send stage1 fields if they were previously empty and now have values
         if (!existingHasStage1 && stage1Time && stage1Temp) {
-          updateData.stage1_time = stage1Time;
+          updateData.stage1_time = toUTCISO(stage1Time);
           updateData.stage1_temp = stage1Temp;
         }
 
         // Only send end fields if stage2 is needed, previously empty and now have values
         if (needsStage2 && !existingHasEnd && endTime && endTemp) {
-          updateData.end_time = endTime;
+          updateData.end_time = toUTCISO(endTime);
           updateData.end_temp = endTemp;
         }
 
@@ -150,11 +162,11 @@ export default function CoolingLogFormPage() {
       } else {
         const createData: CoolingLogCreate = {
           batch_id: batchId.trim(),
-          start_time: startTime,
+          start_time: toUTCISO(startTime),
           start_temp: startTemp,
-          stage1_time: stage1Time || undefined,
+          stage1_time: stage1Time ? toUTCISO(stage1Time) : undefined,
           stage1_temp: stage1Temp || undefined,
-          end_time: needsStage2 ? (endTime || undefined) : undefined,
+          end_time: needsStage2 ? (endTime ? toUTCISO(endTime) : undefined) : undefined,
           end_temp: needsStage2 ? (endTemp || undefined) : undefined,
           goes_to_freezer: goesToFreezer,
           corrective_action: correctiveAction || undefined,

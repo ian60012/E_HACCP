@@ -17,6 +17,8 @@ class ReceivingLog(ALCOAMixin, Base):
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)
     po_number = Column(VARCHAR(50), nullable=True)
     product_name = Column(VARCHAR(200), nullable=False)
+    quantity = Column(Numeric(10, 3), nullable=True)
+    quantity_unit = Column(VARCHAR(10), nullable=True)
     temp_chilled = Column(Numeric(5, 2), nullable=True)
     temp_frozen = Column(Numeric(5, 2), nullable=True)
     vehicle_cleanliness = Column(PassFailType, nullable=False)
