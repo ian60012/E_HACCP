@@ -93,7 +93,9 @@ export default function ReceivingLogDetailPage() {
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-800"><Bi k="page.receiving.detail" /></h1>
-            <p className="text-sm text-gray-500 mt-0.5"><Bi k="misc.record" /> #{log.id}</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {log.po_number ? `PO: ${log.po_number}` : `${bi('misc.record')} #${log.id}`}
+            </p>
           </div>
         </div>
         {!log.is_locked && !log.is_voided && (

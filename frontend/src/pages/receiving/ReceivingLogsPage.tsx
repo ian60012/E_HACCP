@@ -24,6 +24,7 @@ function formatDateTime(iso: string): string {
 
 const exportColumns: ExportColumn<ReceivingLog>[] = [
   { key: 'id', header: 'ID' },
+  { key: 'po_number', header: '採購單號 PO Number' },
   { key: 'supplier_name', header: '供應商 Supplier' },
   { key: 'product_name', header: '產品 Product' },
   { key: 'temp_chilled', header: '冷藏溫度 Chilled Temp (°C)' },
@@ -145,6 +146,9 @@ export default function ReceivingLogsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-gray-800">
+                      {log.po_number || `#${log.id}`}
+                    </span>
+                    <span className="text-sm text-gray-500">
                       {log.supplier_name || `${bi('field.supplier')} #${log.supplier_id}`}
                     </span>
                     <StatusBadge status={log.acceptance_status} />
