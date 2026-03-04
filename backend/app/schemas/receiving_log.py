@@ -39,6 +39,7 @@ class ReceivingLogUpdate(BaseModel):
     acceptance_status: Optional[str] = None
     corrective_action: Optional[str] = None
     notes: Optional[str] = None
+    inv_item_id: Optional[int] = None
 
 
 class ReceivingLogResponse(ALCOAResponseMixin):
@@ -59,3 +60,6 @@ class ReceivingLogResponse(ALCOAResponseMixin):
     acceptance_status: str
     corrective_action: Optional[str] = None
     notes: Optional[str] = None
+    inv_item_id: Optional[int] = None
+    inv_item_name: Optional[str] = None
+    inv_stock_doc_id: Optional[int] = None

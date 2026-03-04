@@ -18,6 +18,9 @@ export interface ReceivingLog extends ALCOAFields {
   acceptance_status: 'Accept' | 'Reject' | 'Hold';
   corrective_action: string | null;
   notes: string | null;
+  inv_item_id: number | null;
+  inv_item_name: string | null;
+  inv_stock_doc_id: number | null;
 }
 
 export interface ReceivingLogCreate {

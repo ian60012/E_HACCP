@@ -86,3 +86,18 @@ SeverityType = SAEnum(Severity, name="severity_enum", create_type=False, values_
 ImmediateActionType = SAEnum(ImmediateAction, name="immediate_action_enum", create_type=False, values_callable=_vals)
 ChemicalType = SAEnum(Chemical, name="chemical_enum", create_type=False, values_callable=_vals)
 LogTypeType = SAEnum(LogType, name="log_type_enum", create_type=False, values_callable=_vals)
+
+
+class InvDocType(str, enum.Enum):
+    IN = "IN"
+    OUT = "OUT"
+
+
+class InvDocStatus(str, enum.Enum):
+    DRAFT = "Draft"
+    POSTED = "Posted"
+    VOIDED = "Voided"
+
+
+InvDocTypeType = SAEnum(InvDocType, name="inv_doc_type_enum", create_type=False, values_callable=_vals)
+InvDocStatusType = SAEnum(InvDocStatus, name="inv_doc_status_enum", create_type=False, values_callable=_vals)

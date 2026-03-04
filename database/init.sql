@@ -698,10 +698,106 @@ ON CONFLICT (name) DO NOTHING;
 
 
 -- ============================================================================
+-- SECTION 9: INVENTORY MODULE (出入庫管理)
+-- ============================================================================
+
+DO $$ BEGIN
+    CREATE TYPE inv_doc_type_enum AS ENUM ('IN', 'OUT');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE inv_doc_status_enum AS ENUM ('Draft', 'Posted', 'Voided');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Item master (品項)
+CREATE TABLE IF NOT EXISTS inv_items (
+    id            SERIAL PRIMARY KEY,
+    code          VARCHAR(50)  UNIQUE NOT NULL,
+    name          VARCHAR(200) NOT NULL,
+    category      VARCHAR(100),
+    base_unit     VARCHAR(20)  NOT NULL DEFAULT 'PCS',
+    description   TEXT,
+    supplier_id   INTEGER REFERENCES suppliers(id),
+    is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+-- Warehouse locations (儲位)
+CREATE TABLE IF NOT EXISTS inv_locations (
+    id        SERIAL PRIMARY KEY,
+    code      VARCHAR(50)  UNIQUE NOT NULL,
+    name      VARCHAR(200) NOT NULL,
+    zone      VARCHAR(100),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+-- Stock documents / headers (入出庫單)
+CREATE TABLE IF NOT EXISTS inv_stock_docs (
+    id               SERIAL PRIMARY KEY,
+    doc_number       VARCHAR(30)         UNIQUE NOT NULL,
+    doc_type         inv_doc_type_enum   NOT NULL,
+    status           inv_doc_status_enum NOT NULL DEFAULT 'Draft',
+    location_id      INTEGER REFERENCES inv_locations(id),
+    receiving_log_id INTEGER REFERENCES receiving_logs(id),
+    ref_number       VARCHAR(100),
+    notes            TEXT,
+    void_reason      TEXT,
+    operator_id      INTEGER REFERENCES users(id),
+    operator_name    VARCHAR(100),
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    posted_at        TIMESTAMPTZ,
+    voided_at        TIMESTAMPTZ
+);
+
+-- Document lines (明細)
+CREATE TABLE IF NOT EXISTS inv_stock_lines (
+    id        SERIAL PRIMARY KEY,
+    doc_id    INTEGER NOT NULL REFERENCES inv_stock_docs(id) ON DELETE CASCADE,
+    item_id   INTEGER NOT NULL REFERENCES inv_items(id),
+    quantity  NUMERIC(12,3) NOT NULL CHECK (quantity > 0),
+    unit      VARCHAR(20) NOT NULL,
+    unit_cost NUMERIC(12,2),
+    notes     TEXT
+);
+
+-- Running stock balance (庫存)
+CREATE TABLE IF NOT EXISTS inv_stock_balance (
+    item_id     INTEGER NOT NULL REFERENCES inv_items(id),
+    location_id INTEGER NOT NULL REFERENCES inv_locations(id),
+    quantity    NUMERIC(12,3) NOT NULL DEFAULT 0,
+    PRIMARY KEY (item_id, location_id)
+);
+
+-- Movement ledger / audit trail (異動紀錄)
+CREATE TABLE IF NOT EXISTS inv_stock_movements (
+    id            SERIAL PRIMARY KEY,
+    doc_id        INTEGER NOT NULL REFERENCES inv_stock_docs(id),
+    item_id       INTEGER NOT NULL REFERENCES inv_items(id),
+    location_id   INTEGER NOT NULL REFERENCES inv_locations(id),
+    delta         NUMERIC(12,3) NOT NULL,
+    balance_after NUMERIC(12,3) NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Indexes for inventory module
+CREATE INDEX IF NOT EXISTS idx_inv_stock_docs_location  ON inv_stock_docs(location_id);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_docs_type      ON inv_stock_docs(doc_type);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_docs_status    ON inv_stock_docs(status);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_docs_created   ON inv_stock_docs(created_at);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_lines_doc      ON inv_stock_lines(doc_id);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_lines_item     ON inv_stock_lines(item_id);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_movements_doc  ON inv_stock_movements(doc_id);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_movements_item ON inv_stock_movements(item_id, location_id);
+CREATE INDEX IF NOT EXISTS idx_inv_items_supplier       ON inv_items(supplier_id) WHERE supplier_id IS NOT NULL;
+
+
+-- ============================================================================
 -- INITIALIZATION COMPLETE
 -- ============================================================================
--- Schema version: 2.0.0
--- Tables created: 12 (5 reference + 6 log + 1 audit)
--- Enum types: 8
+-- Schema version: 2.1.0
+-- Tables created: 17 (5 reference + 6 log + 1 audit + 5 inventory)
+-- Enum types: 10
 -- Triggers: 14 (7 delete prevention + 6 lock protection + 1 updated_at)
 -- ============================================================================

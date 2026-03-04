@@ -27,7 +27,13 @@ class ReceivingLog(ALCOAMixin, Base):
     corrective_action = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
 
+    # Inventory integration links (optional)
+    inv_item_id = Column(Integer, ForeignKey("inv_items.id"), nullable=True)
+    inv_stock_doc_id = Column(Integer, ForeignKey("inv_stock_docs.id"), nullable=True)
+
     # Relationships
     supplier = relationship("Supplier", lazy="raise", foreign_keys=[supplier_id])
     operator = relationship("User", lazy="raise", foreign_keys="ReceivingLog.operator_id")
     verifier = relationship("User", lazy="raise", foreign_keys="ReceivingLog.verified_by")
+    inv_item = relationship("InvItem", lazy="raise", foreign_keys=[inv_item_id])
+    inv_stock_doc = relationship("InvStockDoc", lazy="raise", foreign_keys=[inv_stock_doc_id])

@@ -10,10 +10,16 @@ from app.models.sanitising_log import SanitisingLog
 from app.models.assembly_packing_log import AssemblyPackingLog
 from app.models.deviation_log import DeviationLog
 from app.models.audit_log import AuditLog
+from app.models.inventory import (
+    InvItem, InvLocation, InvStockDoc, InvStockLine,
+    InvStockBalance, InvStockMovement,
+)
 
 __all__ = [
     "User", "Product", "Supplier", "Equipment", "Area",
     "CookingLog", "ReceivingLog", "CoolingLog",
     "SanitisingLog", "AssemblyPackingLog",
     "DeviationLog", "AuditLog",
+    "InvItem", "InvLocation", "InvStockDoc", "InvStockLine",
+    "InvStockBalance", "InvStockMovement",
 ]

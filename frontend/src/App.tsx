@@ -45,6 +45,15 @@ import AreasPage from '@/pages/reference/AreasPage';
 // System management
 import UsersPage from '@/pages/users/UsersPage';
 
+// Inventory module
+import InventoryItemsPage from '@/pages/inventory/InventoryItemsPage';
+import InventoryItemFormPage from '@/pages/inventory/InventoryItemFormPage';
+import InventoryLocationsPage from '@/pages/inventory/InventoryLocationsPage';
+import InventoryStockDocListPage from '@/pages/inventory/InventoryStockDocListPage';
+import InventoryStockDocFormPage from '@/pages/inventory/InventoryStockDocFormPage';
+import InventoryStockDocDetailPage from '@/pages/inventory/InventoryStockDocDetailPage';
+import InventoryBalancePage from '@/pages/inventory/InventoryBalancePage';
+
 export default function App() {
   return (
     <AuthProvider>
@@ -105,6 +114,16 @@ export default function App() {
 
           {/* System management */}
           <Route path="/users" element={<UsersPage />} />
+
+          {/* Inventory module */}
+          <Route path="/inventory/balance" element={<InventoryBalancePage />} />
+          <Route path="/inventory/docs" element={<InventoryStockDocListPage />} />
+          <Route path="/inventory/docs/new" element={<InventoryStockDocFormPage />} />
+          <Route path="/inventory/docs/:id" element={<InventoryStockDocDetailPage />} />
+          <Route path="/inventory/items" element={<InventoryItemsPage />} />
+          <Route path="/inventory/items/new" element={<InventoryItemFormPage />} />
+          <Route path="/inventory/items/:id/edit" element={<InventoryItemFormPage />} />
+          <Route path="/inventory/locations" element={<InventoryLocationsPage />} />
 
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />

@@ -13,6 +13,9 @@ import {
   XMarkIcon,
   HomeIcon,
   UserGroupIcon,
+  ArchiveBoxIcon,
+  DocumentTextIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
 import Bi from '@/components/Bi';
@@ -52,6 +55,16 @@ const navSections: NavSection[] = [
       { to: '/reference/suppliers', label: '供應商管理', labelKey: 'nav.suppliers', icon: BuildingStorefrontIcon },
       { to: '/reference/equipment', label: '設備管理', labelKey: 'nav.equipment', icon: WrenchScrewdriverIcon },
       { to: '/reference/areas', label: '區域管理', labelKey: 'nav.areas', icon: MapPinIcon },
+    ],
+  },
+  {
+    title: '出入庫管理',
+    titleKey: 'nav.inventory',
+    items: [
+      { to: '/inventory/balance', label: '庫存查詢', labelKey: 'nav.invBalance', icon: ChartBarIcon },
+      { to: '/inventory/docs', label: '入出庫單', labelKey: 'nav.invDocs', icon: DocumentTextIcon },
+      { to: '/inventory/items', label: '品項管理', labelKey: 'nav.invItems', icon: ArchiveBoxIcon },
+      { to: '/inventory/locations', label: '儲位管理', labelKey: 'nav.invLocations', icon: MapPinIcon },
     ],
   },
   {
