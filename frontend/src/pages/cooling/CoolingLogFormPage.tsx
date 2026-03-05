@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, FormEvent } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { coolingLogsApi } from '@/api/cooling-logs';
 import { CoolingLog, CoolingLogCreate, CoolingLogUpdate } from '@/types/cooling-log';
@@ -29,6 +29,7 @@ function toUTCISO(local: string): string {
 
 export default function CoolingLogFormPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
 
@@ -78,8 +79,24 @@ export default function CoolingLogFormPage() {
   }, [id]);
 
   useEffect(() => {
-    if (isEdit) fetchLog();
-  }, [isEdit, fetchLog]);
+    if (isEdit) {
+      fetchLog();
+    } else {
+      // Pre-fill from URL params (e.g. navigating from a cooking log)
+      const paramBatchId = searchParams.get('batch_id');
+      const paramStartTemp = searchParams.get('start_temp');
+      const paramStartTime = searchParams.get('start_time');
+      if (paramBatchId) setBatchId(paramBatchId);
+      if (paramStartTemp) setStartTemp(paramStartTemp);
+      if (paramStartTime) {
+        try {
+          setStartTime(toLocalInput(paramStartTime));
+        } catch {
+          // ignore invalid time strings
+        }
+      }
+    }
+  }, [isEdit, fetchLog, searchParams]);
 
   // Determine which stage sections to show in edit mode
   const existingHasStage1 = existingLog?.stage1_temp !== null && existingLog?.stage1_temp !== undefined;

@@ -668,7 +668,12 @@ INSERT INTO products (name, ccp_limit_temp, is_active) VALUES
     ('Beef Dumplings',          75.00, TRUE),
     ('Vegetable Dumplings',     75.00, TRUE),
     ('Spring Rolls',            75.00, TRUE),
-    ('Fried Rice',              75.00, TRUE)
+    ('Fried Rice',              75.00, TRUE),
+    ('豬肚',                    75.00, TRUE),
+    ('雞肉塊',                  75.00, TRUE),
+    ('牛肉粒',                  75.00, TRUE),
+    ('牛湯骨',                  75.00, TRUE),
+    ('肥腸',                    75.00, TRUE)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO suppliers (name, contact_name, phone, is_active) VALUES

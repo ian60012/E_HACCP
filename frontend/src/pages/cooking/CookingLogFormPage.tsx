@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { cookingLogsApi } from '@/api/cooking-logs';
 import { productsApi } from '@/api/products';
 import { equipmentApi } from '@/api/equipment';
+import { prodBatchesApi } from '@/api/production';
 import { Product } from '@/types/product';
 import { Equipment } from '@/types/equipment';
+import { ProdBatch } from '@/types/production';
 import { CookingLog } from '@/types/cooking-log';
 import FormField from '@/components/FormField';
 import CCPIndicator from '@/components/CCPIndicator';
@@ -14,11 +16,13 @@ import Bi, { bi } from '@/components/Bi';
 
 export default function CookingLogFormPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isEdit = !!id;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+  const [openBatches, setOpenBatches] = useState<ProdBatch[]>([]);
   const [existingLog, setExistingLog] = useState<CookingLog | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -33,18 +37,21 @@ export default function CookingLogFormPage() {
   const [coreTemp, setCoreTemp] = useState('');
   const [correctiveAction, setCorrectiveAction] = useState('');
   const [notes, setNotes] = useState('');
+  const [prodBatchId, setProdBatchId] = useState<number | ''>('');
 
   const selectedProduct = products.find(p => p.id === productId);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [prodRes, equipRes] = await Promise.all([
+        const [prodRes, equipRes, batchRes] = await Promise.all([
           productsApi.list(0, 200),
           equipmentApi.list(0, 200),
+          isEdit ? Promise.resolve(null) : prodBatchesApi.list({ status: 'open', limit: 100 }),
         ]);
         setProducts(prodRes.items.filter(p => p.is_active));
         setEquipmentList(equipRes.items.filter(e => e.is_active));
+        if (batchRes) setOpenBatches(batchRes.items);
 
         if (isEdit) {
           const log = await cookingLogsApi.get(Number(id));
@@ -57,10 +64,25 @@ export default function CookingLogFormPage() {
           setCoreTemp(log.core_temp || '');
           setCorrectiveAction(log.corrective_action || '');
           setNotes(log.notes || '');
+          setProdBatchId(log.prod_batch_id ?? '');
         } else {
           // Defaults for new record
           const now = new Date();
           setStartTime(now.toISOString().slice(0, 16));
+          const paramProdBatchId = searchParams.get('prod_batch_id');
+          if (paramProdBatchId) {
+            setProdBatchId(Number(paramProdBatchId));
+            // Auto-match HACCP product by production batch's product_name
+            const linkedBatch = batchRes?.items.find(b => b.id === Number(paramProdBatchId));
+            if (linkedBatch) {
+              const matchedProduct = prodRes.items.find(
+                p => p.is_active && p.name === linkedBatch.product_name
+              );
+              if (matchedProduct) setProductId(matchedProduct.id);
+            }
+          }
+          const paramBatchCode = searchParams.get('batch_code');
+          if (paramBatchCode) setBatchId(paramBatchCode);
         }
       } catch {
         setError('無法載入資料');
@@ -69,7 +91,7 @@ export default function CookingLogFormPage() {
       }
     };
     loadData();
-  }, [id, isEdit]);
+  }, [id, isEdit, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,8 +117,15 @@ export default function CookingLogFormPage() {
           core_temp: coreTemp || undefined,
           corrective_action: correctiveAction || undefined,
           notes: notes || undefined,
+          prod_batch_id: prodBatchId ? Number(prodBatchId) : undefined,
         });
-        navigate(`/cooking-logs/${created.id}`);
+        // If came from a production batch, go back there
+        const returnToBatch = searchParams.get('prod_batch_id');
+        if (returnToBatch) {
+          navigate(`/production/batches/${returnToBatch}`);
+        } else {
+          navigate(`/cooking-logs/${created.id}`);
+        }
       }
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
@@ -154,6 +183,28 @@ export default function CookingLogFormPage() {
             ))}
           </select>
         </FormField>
+
+        {/* Production batch linkage (optional) */}
+        {!isEdit && (
+          <FormField label={<Bi k="field.prodBatch" />}>
+            <select value={prodBatchId} onChange={(e) => setProdBatchId(e.target.value ? Number(e.target.value) : '')}
+              className="input">
+              <option value="">— {bi('placeholder.selectBatch')} —</option>
+              {openBatches.map(b => (
+                <option key={b.id} value={b.id}>{b.batch_code} · {b.product_name}</option>
+              ))}
+            </select>
+          </FormField>
+        )}
+        {isEdit && existingLog?.prod_batch_id && (
+          <FormField label={<Bi k="field.prodBatch" />}>
+            <p className="text-sm text-gray-700 py-2">
+              <Link to={`/production/batches/${existingLog.prod_batch_id}`} className="text-blue-600 hover:underline">
+                #{existingLog.prod_batch_id}
+              </Link>
+            </p>
+          </FormField>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField label={<Bi k="field.startTime" />} required>

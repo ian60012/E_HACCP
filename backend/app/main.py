@@ -33,6 +33,10 @@ from app.routers.api.v1 import inventory_items
 from app.routers.api.v1 import inventory_locations
 from app.routers.api.v1 import inventory_docs
 from app.routers.api.v1 import inventory_balance
+from app.routers.api.v1 import production_products
+from app.routers.api.v1 import production_pack_types
+from app.routers.api.v1 import production_batches
+from app.routers.api.v1 import production_repack
 
 
 @asynccontextmanager
@@ -142,6 +146,218 @@ async def lifespan(app: FastAPI):
         await conn.execute(text(
             "ALTER TABLE receiving_logs ADD COLUMN IF NOT EXISTS inv_stock_doc_id INTEGER REFERENCES inv_stock_docs(id)"
         ))
+
+        # ----- Production module -----
+        await conn.execute(text("""
+            DO $$ BEGIN
+                CREATE TYPE prod_batch_status_enum AS ENUM ('open', 'closed');
+            EXCEPTION WHEN duplicate_object THEN NULL;
+            END $$
+        """))
+        await conn.execute(text("""
+            DO $$ BEGIN
+                CREATE TYPE prod_shift_enum AS ENUM ('Morning', 'Night');
+            EXCEPTION WHEN duplicate_object THEN NULL;
+            END $$
+        """))
+        await conn.execute(text("""
+            DO $$ BEGIN
+                CREATE TYPE prod_pack_type_enum AS ENUM ('4KG_SEMI', '1KG_FG', '0.5KG_FG', 'BULK_KG');
+            EXCEPTION WHEN duplicate_object THEN NULL;
+            END $$
+        """))
+        await conn.execute(text(
+            "ALTER TYPE prod_pack_type_enum ADD VALUE IF NOT EXISTS 'BULK_KG'"
+        ))
+        await conn.execute(text("""
+            DO $$ BEGIN
+                CREATE TYPE prod_product_type_enum AS ENUM ('forming', 'hot_process');
+            EXCEPTION WHEN duplicate_object THEN NULL;
+            END $$
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_products (
+                id SERIAL PRIMARY KEY,
+                code VARCHAR(50) UNIQUE NOT NULL,
+                name VARCHAR(200) NOT NULL,
+                pack_size_kg NUMERIC(8,3),
+                product_type prod_product_type_enum NOT NULL DEFAULT 'forming',
+                inv_item_id INTEGER REFERENCES inv_items(id) ON DELETE SET NULL,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text(
+            "ALTER TABLE prod_products ADD COLUMN IF NOT EXISTS product_type prod_product_type_enum NOT NULL DEFAULT 'forming'"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE prod_products ADD COLUMN IF NOT EXISTS inv_item_id INTEGER REFERENCES inv_items(id) ON DELETE SET NULL"
+        ))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_batches (
+                id SERIAL PRIMARY KEY,
+                batch_code VARCHAR(50) UNIQUE NOT NULL,
+                product_code VARCHAR(50) NOT NULL,
+                product_name VARCHAR(200) NOT NULL,
+                production_date DATE NOT NULL,
+                shift prod_shift_enum,
+                spec_piece_weight_g NUMERIC(8,2) NOT NULL DEFAULT 0,
+                start_time TIMESTAMPTZ,
+                end_time TIMESTAMPTZ,
+                status prod_batch_status_enum NOT NULL DEFAULT 'open',
+                operator VARCHAR(100),
+                supervisor VARCHAR(100),
+                estimated_forming_net_weight_kg NUMERIC(12,3),
+                estimated_forming_pieces INTEGER,
+                input_weight_kg NUMERIC(12,3),
+                inv_stock_doc_id INTEGER REFERENCES inv_stock_docs(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text(
+            "ALTER TABLE prod_batches ADD COLUMN IF NOT EXISTS input_weight_kg NUMERIC(12,3)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE prod_batches ADD COLUMN IF NOT EXISTS inv_stock_doc_id INTEGER REFERENCES inv_stock_docs(id) ON DELETE SET NULL"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE cooking_logs ADD COLUMN IF NOT EXISTS prod_batch_id INTEGER REFERENCES prod_batches(id) ON DELETE SET NULL"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_cooking_logs_prod_batch_id ON cooking_logs(prod_batch_id) WHERE prod_batch_id IS NOT NULL"
+        ))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_forming_trolleys (
+                id SERIAL PRIMARY KEY,
+                batch_id INTEGER NOT NULL REFERENCES prod_batches(id) ON DELETE CASCADE,
+                trolley_no VARCHAR(20) NOT NULL,
+                sampled_tray_count INTEGER NOT NULL,
+                sampled_gross_weight_sum_kg NUMERIC(10,3) NOT NULL,
+                tray_tare_weight_kg NUMERIC(8,3) NOT NULL,
+                total_trays_on_trolley INTEGER NOT NULL,
+                partial_trays_count INTEGER NOT NULL DEFAULT 0,
+                partial_fill_ratio NUMERIC(4,2) NOT NULL DEFAULT 0.5,
+                avg_tray_net_weight_kg NUMERIC(10,4),
+                equivalent_tray_count NUMERIC(10,2),
+                estimated_net_weight_kg NUMERIC(12,3),
+                remark TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_packing_records (
+                id SERIAL PRIMARY KEY,
+                batch_id INTEGER NOT NULL REFERENCES prod_batches(id) ON DELETE CASCADE,
+                pack_type prod_pack_type_enum NOT NULL,
+                product_id INTEGER REFERENCES prod_products(id),
+                bag_count INTEGER NOT NULL,
+                nominal_weight_kg NUMERIC(8,3) NOT NULL,
+                theoretical_total_weight_kg NUMERIC(12,3),
+                remark TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_packing_trim (
+                id SERIAL PRIMARY KEY,
+                batch_id INTEGER NOT NULL REFERENCES prod_batches(id) ON DELETE CASCADE,
+                trim_type VARCHAR(100) NOT NULL,
+                weight_kg NUMERIC(10,3) NOT NULL,
+                remark TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_repack_jobs (
+                id SERIAL PRIMARY KEY,
+                new_batch_code VARCHAR(50) NOT NULL,
+                date DATE NOT NULL,
+                operator VARCHAR(100),
+                remark TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_repack_inputs (
+                id SERIAL PRIMARY KEY,
+                repack_job_id INTEGER NOT NULL REFERENCES prod_repack_jobs(id) ON DELETE CASCADE,
+                from_batch_id INTEGER REFERENCES prod_batches(id),
+                product_id INTEGER REFERENCES prod_products(id),
+                bag_count INTEGER NOT NULL,
+                nominal_weight_kg NUMERIC(8,3) NOT NULL,
+                total_weight_kg NUMERIC(12,3),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_repack_outputs (
+                id SERIAL PRIMARY KEY,
+                repack_job_id INTEGER NOT NULL REFERENCES prod_repack_jobs(id) ON DELETE CASCADE,
+                pack_type prod_pack_type_enum NOT NULL,
+                product_id INTEGER REFERENCES prod_products(id),
+                bag_count INTEGER NOT NULL,
+                nominal_weight_kg NUMERIC(8,3) NOT NULL,
+                total_weight_kg NUMERIC(12,3),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_repack_trim (
+                id SERIAL PRIMARY KEY,
+                repack_job_id INTEGER NOT NULL REFERENCES prod_repack_jobs(id) ON DELETE CASCADE,
+                trim_type VARCHAR(100) NOT NULL,
+                weight_kg NUMERIC(10,3) NOT NULL,
+                remark TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        # Seed production products (forming)
+        await conn.execute(text("""
+            INSERT INTO prod_products (code, name, pack_size_kg, product_type, is_active)
+            SELECT v.code, v.name, v.pack_size_kg, 'forming', TRUE
+            FROM (VALUES
+                ('DC-PC-BASE', '餃子皮+餡料基礎', NULL::NUMERIC),
+                ('DC-PC-SEMIFIN-4KG', '4kg半成品袋', 4.0),
+                ('DC-PC-FG-1KG', '1kg成品', 1.0),
+                ('DC-PC-FG-0.5KG', '0.5kg成品', 0.5)
+            ) AS v(code, name, pack_size_kg)
+            WHERE NOT EXISTS (SELECT 1 FROM prod_products WHERE prod_products.code = v.code)
+        """))
+        # Seed inventory items for hot-process products
+        await conn.execute(text("""
+            INSERT INTO inv_items (code, name, category, base_unit)
+            SELECT v.code, v.name, '熱加工', 'KG'
+            FROM (VALUES
+                ('HP-PD', '豬肚'),
+                ('HP-CC', '雞肉塊'),
+                ('HP-BC', '牛肉粒'),
+                ('HP-SB', '牛湯骨'),
+                ('HP-FI', '肥腸')
+            ) AS v(code, name)
+            WHERE NOT EXISTS (SELECT 1 FROM inv_items WHERE inv_items.code = v.code)
+        """))
+        # Seed production products (hot-process) linked to inventory items
+        await conn.execute(text("""
+            INSERT INTO prod_products (code, name, product_type, inv_item_id, is_active)
+            SELECT v.code, v.name, 'hot_process', (SELECT id FROM inv_items WHERE code = v.item_code), TRUE
+            FROM (VALUES
+                ('PD', '豬肚',   'HP-PD'),
+                ('CC', '雞肉塊', 'HP-CC'),
+                ('BC', '牛肉粒', 'HP-BC'),
+                ('SB', '牛湯骨', 'HP-SB'),
+                ('FI', '肥腸',   'HP-FI')
+            ) AS v(code, name, item_code)
+            WHERE NOT EXISTS (SELECT 1 FROM prod_products WHERE prod_products.code = v.code)
+        """))
+        # Seed HACCP products for hot-process items (needed for cooking log CCP monitoring)
+        await conn.execute(text("""
+            INSERT INTO products (name, ccp_limit_temp, is_active)
+            SELECT v.name, 75.00, TRUE
+            FROM (VALUES
+                ('豬肚'), ('雞肉塊'), ('牛肉粒'), ('牛湯骨'), ('肥腸')
+            ) AS v(name)
+            WHERE NOT EXISTS (SELECT 1 FROM products WHERE products.name = v.name)
+        """))
     yield
     # Shutdown: Close database connections
     await engine.dispose()
@@ -190,6 +406,12 @@ app.include_router(inventory_items.router, prefix="/api/v1")
 app.include_router(inventory_locations.router, prefix="/api/v1")
 app.include_router(inventory_docs.router, prefix="/api/v1")
 app.include_router(inventory_balance.router, prefix="/api/v1")
+
+# Production module
+app.include_router(production_products.router, prefix="/api/v1")
+app.include_router(production_pack_types.router, prefix="/api/v1")
+app.include_router(production_batches.router, prefix="/api/v1")
+app.include_router(production_repack.router, prefix="/api/v1")
 
 
 @app.get("/")

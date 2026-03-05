@@ -23,7 +23,8 @@ from app.schemas.sanitising_log import (
 )
 from app.schemas.common import PaginatedResponse, VoidRequest
 from app.dependencies.auth import get_current_active_user, require_role
-from app.services.sanitising_validator import validate_sanitising_atp
+from app.models.enums import PassFail
+from app.services.sanitising_validator import validate_sanitising_atp, ATP_RTE_THRESHOLD
 from app.services.qa_lock_service import lock_record
 from app.services.void_service import void_record
 
@@ -37,10 +38,10 @@ def _to_response(log: SanitisingLog) -> SanitisingLogResponse:
         area_id=log.area_id,
         area_name=log.area.name if log.area else None,
         target_description=log.target_description,
-        chemical=log.chemical.value if log.chemical else None,
+        chemical=str(log.chemical) if log.chemical else None,
         dilution_ratio=log.dilution_ratio,
         atp_result_rlu=log.atp_result_rlu,
-        atp_status=log.atp_status.value if log.atp_status else None,
+        atp_status=str(log.atp_status) if log.atp_status else None,
         corrective_action=log.corrective_action,
         notes=log.notes,
         operator_id=log.operator_id,
@@ -121,12 +122,19 @@ async def create_sanitising_log(
     flush -> validate -> commit pattern.
     ATP validation auto-creates deviation if RLU > 100.
     """
+    # Pre-calculate atp_status so the DB constraint chk_sanitising_atp_consistency
+    # (requires both fields present or both NULL) is satisfied at flush time.
+    pre_atp_status: PassFail | None = None
+    if data.atp_result_rlu is not None:
+        pre_atp_status = PassFail.PASS if data.atp_result_rlu <= ATP_RTE_THRESHOLD else PassFail.FAIL
+
     log = SanitisingLog(
         area_id=data.area_id,
         target_description=data.target_description,
         chemical=data.chemical,
         dilution_ratio=data.dilution_ratio,
         atp_result_rlu=data.atp_result_rlu,
+        atp_status=pre_atp_status,
         corrective_action=data.corrective_action,
         notes=data.notes,
         operator_id=current_user.id,
@@ -134,7 +142,7 @@ async def create_sanitising_log(
     db.add(log)
     await db.flush()
 
-    # ATP validation — determines atp_status (Pass/Fail/None)
+    # Full validator for side-effects (auto-creates deviation on Fail)
     atp_status = await validate_sanitising_atp(
         db=db,
         sanitising_log_id=log.id,

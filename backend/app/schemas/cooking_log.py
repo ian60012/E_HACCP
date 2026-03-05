@@ -12,6 +12,7 @@ from app.schemas.common import ALCOAResponseMixin
 class CookingLogCreate(BaseModel):
     """Create a cooking log. operator_id comes from JWT (not request body)."""
     batch_id: str = Field(..., max_length=50)
+    prod_batch_id: Optional[int] = None
     product_id: int
     equipment_id: Optional[int] = None
     start_time: datetime
@@ -29,6 +30,7 @@ class CookingLogCreate(BaseModel):
 
 class CookingLogUpdate(BaseModel):
     """Update a cooking log (only allowed on non-locked records)."""
+    prod_batch_id: Optional[int] = None
     end_time: Optional[datetime] = None
     core_temp: Optional[Decimal] = Field(None, ge=0, le=250)
     corrective_action: Optional[str] = None
@@ -41,6 +43,7 @@ class CookingLogResponse(ALCOAResponseMixin):
 
     id: int
     batch_id: str
+    prod_batch_id: Optional[int] = None
     product_id: int
     product_name: Optional[str] = None
     equipment_id: Optional[int] = None

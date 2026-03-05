@@ -14,6 +14,11 @@ from app.models.inventory import (
     InvItem, InvLocation, InvStockDoc, InvStockLine,
     InvStockBalance, InvStockMovement,
 )
+from app.models.production import (
+    ProdProduct, ProdBatch, ProdFormingTrolley,
+    ProdPackingRecord, ProdPackingTrim,
+    ProdRepackJob, ProdRepackInput, ProdRepackOutput, ProdRepackTrim,
+)
 
 __all__ = [
     "User", "Product", "Supplier", "Equipment", "Area",
@@ -22,4 +27,7 @@ __all__ = [
     "DeviationLog", "AuditLog",
     "InvItem", "InvLocation", "InvStockDoc", "InvStockLine",
     "InvStockBalance", "InvStockMovement",
+    "ProdProduct", "ProdBatch", "ProdFormingTrolley",
+    "ProdPackingRecord", "ProdPackingTrim",
+    "ProdRepackJob", "ProdRepackInput", "ProdRepackOutput", "ProdRepackTrim",
 ]

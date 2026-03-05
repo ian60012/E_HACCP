@@ -101,3 +101,35 @@ class InvDocStatus(str, enum.Enum):
 
 InvDocTypeType = SAEnum(InvDocType, name="inv_doc_type_enum", create_type=False, values_callable=_vals)
 InvDocStatusType = SAEnum(InvDocStatus, name="inv_doc_status_enum", create_type=False, values_callable=_vals)
+
+
+# ---------------------------------------------------------------------------
+# Production module enums
+# ---------------------------------------------------------------------------
+
+class ProdBatchStatus(str, enum.Enum):
+    OPEN = "open"
+    CLOSED = "closed"
+
+
+class ProdShift(str, enum.Enum):
+    MORNING = "Morning"
+    NIGHT = "Night"
+
+
+class ProdPackType(str, enum.Enum):
+    SEMI_4KG = "4KG_SEMI"
+    FG_1KG = "1KG_FG"
+    FG_05KG = "0.5KG_FG"
+    BULK_KG = "BULK_KG"
+
+
+class ProdProductType(str, enum.Enum):
+    FORMING = "forming"
+    HOT_PROCESS = "hot_process"
+
+
+ProdBatchStatusType = SAEnum(ProdBatchStatus, name="prod_batch_status_enum", create_type=False, values_callable=_vals)
+ProdShiftType = SAEnum(ProdShift, name="prod_shift_enum", create_type=False, values_callable=_vals)
+ProdPackTypeType = SAEnum(ProdPackType, name="prod_pack_type_enum", create_type=False, values_callable=_vals)
+ProdProductTypeType = SAEnum(ProdProductType, name="prod_product_type_enum", create_type=False, values_callable=_vals)

@@ -41,6 +41,7 @@ def _to_response(log: CookingLog) -> CookingLogResponse:
     return CookingLogResponse(
         id=log.id,
         batch_id=log.batch_id,
+        prod_batch_id=log.prod_batch_id,
         product_id=log.product_id,
         product_name=log.product.name if log.product else None,
         equipment_id=log.equipment_id,
@@ -79,6 +80,7 @@ async def list_cooking_logs(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=10000),
     batch_id: Optional[str] = None,
+    prod_batch_id: Optional[int] = None,
     is_voided: bool = Query(False),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
@@ -93,6 +95,9 @@ async def list_cooking_logs(
     if batch_id:
         query = query.where(CookingLog.batch_id == batch_id)
         count_query = count_query.where(CookingLog.batch_id == batch_id)
+    if prod_batch_id is not None:
+        query = query.where(CookingLog.prod_batch_id == prod_batch_id)
+        count_query = count_query.where(CookingLog.prod_batch_id == prod_batch_id)
 
     total = (await db.execute(count_query)).scalar()
     result = await db.execute(
@@ -145,6 +150,7 @@ async def create_cooking_log(
 
     log = CookingLog(
         batch_id=data.batch_id,
+        prod_batch_id=data.prod_batch_id,
         product_id=data.product_id,
         equipment_id=data.equipment_id,
         start_time=data.start_time,

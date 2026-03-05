@@ -4,7 +4,20 @@ import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
+import PortalPage from '@/pages/PortalPage';
 import NotFoundPage from '@/pages/NotFoundPage';
+
+// Production module
+import ProductionDashboardPage from '@/pages/production/ProductionDashboardPage';
+import ProdBatchListPage from '@/pages/production/ProdBatchListPage';
+import ProdBatchFormPage from '@/pages/production/ProdBatchFormPage';
+import ProdBatchDetailPage from '@/pages/production/ProdBatchDetailPage';
+import ProdPackingPage from '@/pages/production/ProdPackingPage';
+import ProdRepackListPage from '@/pages/production/ProdRepackListPage';
+import ProdRepackFormPage from '@/pages/production/ProdRepackFormPage';
+import ProdRepackDetailPage from '@/pages/production/ProdRepackDetailPage';
+import ProdProductsPage from '@/pages/production/ProdProductsPage';
+import ProdPackTypesPage from '@/pages/production/ProdPackTypesPage';
 
 // Cooking logs
 import CookingLogsPage from '@/pages/cooking/CookingLogsPage';
@@ -69,7 +82,19 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="/" element={<DashboardPage />} />
+          <Route path="/" element={<PortalPage />} />
+          <Route path="/haccp" element={<DashboardPage />} />
+          {/* Production module */}
+          <Route path="/production" element={<ProductionDashboardPage />} />
+          <Route path="/production/batches" element={<ProdBatchListPage />} />
+          <Route path="/production/batches/new" element={<ProdBatchFormPage />} />
+          <Route path="/production/batches/:id" element={<ProdBatchDetailPage />} />
+          <Route path="/production/batches/:id/packing" element={<ProdPackingPage />} />
+          <Route path="/production/repack" element={<ProdRepackListPage />} />
+          <Route path="/production/repack/new" element={<ProdRepackFormPage />} />
+          <Route path="/production/repack/:id" element={<ProdRepackDetailPage />} />
+          <Route path="/production/products" element={<ProdProductsPage />} />
+          <Route path="/production/pack-types" element={<ProdPackTypesPage />} />
 
           {/* Cooking logs */}
           <Route path="/cooking-logs" element={<CookingLogsPage />} />

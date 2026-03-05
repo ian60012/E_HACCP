@@ -76,9 +76,9 @@ class InvLocationResponse(BaseModel):
 
 class InvStockLineCreate(BaseModel):
     item_id: int
-    quantity: Decimal = Field(..., gt=0, max_digits=12, decimal_places=3)
+    quantity: Decimal = Field(..., gt=0)
     unit: str = Field(..., max_length=20)
-    unit_cost: Optional[Decimal] = Field(None, max_digits=12, decimal_places=2)
+    unit_cost: Optional[Decimal] = Field(None, ge=0)
     notes: Optional[str] = None
 
 
