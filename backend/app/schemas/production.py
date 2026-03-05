@@ -44,6 +44,7 @@ class ProdPackTypeConfigResponse(BaseModel):
 class ProdProductCreate(BaseModel):
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=200)
+    ccp_limit_temp: Decimal = Decimal("75.00")
     pack_size_kg: Optional[Decimal] = None
     loss_rate_warn_pct: Optional[Decimal] = None
     product_type: str = "forming"
@@ -52,6 +53,7 @@ class ProdProductCreate(BaseModel):
 
 class ProdProductUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=200)
+    ccp_limit_temp: Optional[Decimal] = None
     pack_size_kg: Optional[Decimal] = None
     loss_rate_warn_pct: Optional[Decimal] = None
     product_type: Optional[str] = None
@@ -65,6 +67,7 @@ class ProdProductResponse(BaseModel):
     id: int
     code: str
     name: str
+    ccp_limit_temp: Decimal
     pack_size_kg: Optional[Decimal] = None
     loss_rate_warn_pct: Optional[Decimal] = None
     product_type: str = "forming"
@@ -78,6 +81,7 @@ class FormingOption(BaseModel):
     code: str
     name: str
     product_type: str
+    ccp_limit_temp: Optional[Decimal] = None
     pack_size_kg: Optional[Decimal] = None
     loss_rate_warn_pct: Optional[Decimal] = None
 

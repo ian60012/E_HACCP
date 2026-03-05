@@ -4,7 +4,9 @@ export interface CookingLog extends ALCOAFields {
   id: number;
   batch_id: string;
   prod_batch_id: number | null;
-  product_id: number;
+  prod_product_id: number | null;
+  prod_product_name: string | null;
+  product_id: number | null;
   product_name: string | null;
   equipment_id: number | null;
   equipment_name: string | null;
@@ -19,7 +21,8 @@ export interface CookingLog extends ALCOAFields {
 export interface CookingLogCreate {
   batch_id: string;
   prod_batch_id?: number;
-  product_id: number;
+  prod_product_id?: number;
+  product_id?: number;
   equipment_id?: number;
   start_time: string;
   end_time?: string;

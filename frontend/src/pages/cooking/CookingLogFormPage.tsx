@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { cookingLogsApi } from '@/api/cooking-logs';
-import { productsApi } from '@/api/products';
+import { prodProductsApi, prodBatchesApi } from '@/api/production';
 import { equipmentApi } from '@/api/equipment';
-import { prodBatchesApi } from '@/api/production';
-import { Product } from '@/types/product';
+import { ProdProduct } from '@/types/production';
 import { Equipment } from '@/types/equipment';
 import { ProdBatch } from '@/types/production';
 import { CookingLog } from '@/types/cooking-log';
@@ -20,7 +19,7 @@ export default function CookingLogFormPage() {
   const navigate = useNavigate();
   const isEdit = !!id;
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProdProduct[]>([]);
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
   const [openBatches, setOpenBatches] = useState<ProdBatch[]>([]);
   const [existingLog, setExistingLog] = useState<CookingLog | null>(null);
@@ -30,7 +29,7 @@ export default function CookingLogFormPage() {
 
   // Form state
   const [batchId, setBatchId] = useState('');
-  const [productId, setProductId] = useState<number | ''>('');
+  const [prodProductId, setProdProductId] = useState<number | ''>('');
   const [equipmentId, setEquipmentId] = useState<number | ''>('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
@@ -39,13 +38,13 @@ export default function CookingLogFormPage() {
   const [notes, setNotes] = useState('');
   const [prodBatchId, setProdBatchId] = useState<number | ''>('');
 
-  const selectedProduct = products.find(p => p.id === productId);
+  const selectedProduct = products.find(p => p.id === prodProductId);
 
   useEffect(() => {
     const loadData = async () => {
       try {
         const [prodRes, equipRes, batchRes] = await Promise.all([
-          productsApi.list(0, 200),
+          prodProductsApi.list({ limit: 200 }),
           equipmentApi.list(0, 200),
           isEdit ? Promise.resolve(null) : prodBatchesApi.list({ status: 'open', limit: 100 }),
         ]);
@@ -57,7 +56,13 @@ export default function CookingLogFormPage() {
           const log = await cookingLogsApi.get(Number(id));
           setExistingLog(log);
           setBatchId(log.batch_id);
-          setProductId(log.product_id);
+          // Use prod_product_id if set, otherwise find matching product by name
+          if (log.prod_product_id) {
+            setProdProductId(log.prod_product_id);
+          } else if (log.product_name) {
+            const matched = prodRes.items.find(p => p.name === log.product_name);
+            if (matched) setProdProductId(matched.id);
+          }
           setEquipmentId(log.equipment_id || '');
           setStartTime(log.start_time ? log.start_time.slice(0, 16) : '');
           setEndTime(log.end_time ? log.end_time.slice(0, 16) : '');
@@ -72,13 +77,13 @@ export default function CookingLogFormPage() {
           const paramProdBatchId = searchParams.get('prod_batch_id');
           if (paramProdBatchId) {
             setProdBatchId(Number(paramProdBatchId));
-            // Auto-match HACCP product by production batch's product_name
+            // Auto-match product by production batch's product_name
             const linkedBatch = batchRes?.items.find(b => b.id === Number(paramProdBatchId));
             if (linkedBatch) {
               const matchedProduct = prodRes.items.find(
                 p => p.is_active && p.name === linkedBatch.product_name
               );
-              if (matchedProduct) setProductId(matchedProduct.id);
+              if (matchedProduct) setProdProductId(matchedProduct.id);
             }
           }
           const paramBatchCode = searchParams.get('batch_code');
@@ -110,7 +115,7 @@ export default function CookingLogFormPage() {
       } else {
         const created = await cookingLogsApi.create({
           batch_id: batchId,
-          product_id: Number(productId),
+          prod_product_id: prodProductId ? Number(prodProductId) : undefined,
           equipment_id: equipmentId ? Number(equipmentId) : undefined,
           start_time: new Date(startTime).toISOString(),
           end_time: endTime ? new Date(endTime).toISOString() : undefined,
@@ -165,7 +170,7 @@ export default function CookingLogFormPage() {
         </FormField>
 
         <FormField label={<Bi k="field.product" />} required>
-          <select value={productId} onChange={(e) => setProductId(e.target.value ? Number(e.target.value) : '')}
+          <select value={prodProductId} onChange={(e) => setProdProductId(e.target.value ? Number(e.target.value) : '')}
             className="input" required disabled={isEdit}>
             <option value="">請選擇產品</option>
             {products.map(p => (

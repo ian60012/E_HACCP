@@ -36,6 +36,7 @@ export interface FormingOption {
   code: string;
   name: string;
   product_type: ProdProductType;
+  ccp_limit_temp: string | null;
   pack_size_kg: number | null;
   loss_rate_warn_pct: number | null;
 }
@@ -45,6 +46,7 @@ export interface ProdProduct {
   id: number;
   code: string;
   name: string;
+  ccp_limit_temp: string;
   pack_size_kg: number | null;
   loss_rate_warn_pct: number | null;
   product_type: ProdProductType;
@@ -56,6 +58,7 @@ export interface ProdProduct {
 export interface ProdProductCreate {
   code: string;
   name: string;
+  ccp_limit_temp?: string;
   pack_size_kg?: number | null;
   loss_rate_warn_pct?: number | null;
   product_type?: ProdProductType;
@@ -64,6 +67,7 @@ export interface ProdProductCreate {
 
 export interface ProdProductUpdate {
   name?: string;
+  ccp_limit_temp?: string;
   pack_size_kg?: number | null;
   loss_rate_warn_pct?: number | null;
   product_type?: ProdProductType;

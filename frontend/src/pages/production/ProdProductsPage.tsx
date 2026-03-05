@@ -22,6 +22,7 @@ export default function ProdProductsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formCode, setFormCode] = useState('');
   const [formName, setFormName] = useState('');
+  const [formCcpLimitTemp, setFormCcpLimitTemp] = useState('75.00');
   const [formPackSize, setFormPackSize] = useState('');
   const [formLossRateWarn, setFormLossRateWarn] = useState('');
   const [formSaving, setFormSaving] = useState(false);
@@ -51,6 +52,7 @@ export default function ProdProductsPage() {
     setEditingId(null);
     setFormCode('');
     setFormName('');
+    setFormCcpLimitTemp('75.00');
     setFormPackSize('');
     setFormLossRateWarn('');
   };
@@ -66,6 +68,7 @@ export default function ProdProductsPage() {
     setEditingId(product.id);
     setFormCode(product.code);
     setFormName(product.name);
+    setFormCcpLimitTemp(product.ccp_limit_temp ?? '75.00');
     setFormPackSize(product.pack_size_kg != null ? String(product.pack_size_kg) : '');
     setFormLossRateWarn(product.loss_rate_warn_pct != null ? String(product.loss_rate_warn_pct) : '');
   };
@@ -81,6 +84,7 @@ export default function ProdProductsPage() {
       if (editingId) {
         await prodProductsApi.update(editingId, {
           name: formName,
+          ccp_limit_temp: formCcpLimitTemp || '75.00',
           pack_size_kg: formPackSize ? Number(formPackSize) : null,
           loss_rate_warn_pct: formLossRateWarn ? Number(formLossRateWarn) : null,
         });
@@ -88,6 +92,7 @@ export default function ProdProductsPage() {
         const data: ProdProductCreate = {
           code: formCode,
           name: formName,
+          ccp_limit_temp: formCcpLimitTemp || '75.00',
           pack_size_kg: formPackSize ? Number(formPackSize) : null,
           loss_rate_warn_pct: formLossRateWarn ? Number(formLossRateWarn) : null,
         };
@@ -152,7 +157,7 @@ export default function ProdProductsPage() {
               <XMarkIcon className="h-4 w-4 text-gray-400" />
             </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
             <div>
               <label className="label text-xs"><Bi k="field.code" /></label>
               <input
@@ -170,6 +175,19 @@ export default function ProdProductsPage() {
                 type="text"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
+                className="input"
+                required
+              />
+            </div>
+            <div>
+              <label className="label text-xs"><Bi k="field.ccpLimitTempUnit" /></label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="250"
+                value={formCcpLimitTemp}
+                onChange={(e) => setFormCcpLimitTemp(e.target.value)}
                 className="input"
                 required
               />
@@ -227,6 +245,7 @@ export default function ProdProductsPage() {
                 <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
                   <th className="pb-2 pr-4"><Bi k="field.code" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.name" /></th>
+                  <th className="pb-2 pr-4"><Bi k="th.ccpLimit" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.packSizeKg" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.lossRateWarnPct" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.isActive" /></th>
@@ -238,6 +257,7 @@ export default function ProdProductsPage() {
                   <tr key={product.id} className={!product.is_active ? 'opacity-50' : ''}>
                     <td className="py-2 pr-4 font-medium text-gray-800">{product.code}</td>
                     <td className="py-2 pr-4 text-gray-700">{product.name}</td>
+                    <td className="py-2 pr-4 text-gray-500">{product.ccp_limit_temp}°C</td>
                     <td className="py-2 pr-4 text-gray-500">{product.pack_size_kg ?? '—'}</td>
                     <td className="py-2 pr-4 text-gray-500">{product.loss_rate_warn_pct != null ? `${product.loss_rate_warn_pct}%` : '—'}</td>
                     <td className="py-2 pr-4">

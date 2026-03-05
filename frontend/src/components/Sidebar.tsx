@@ -56,7 +56,7 @@ const haccpSections: NavSection[] = [
     title: '參考資料',
     titleKey: 'nav.reference',
     items: [
-      { to: '/reference/products', label: '產品管理', labelKey: 'nav.products', icon: CubeIcon },
+      { to: '/production/products', label: '產品管理', labelKey: 'nav.products', icon: CubeIcon },
       { to: '/reference/suppliers', label: '供應商管理', labelKey: 'nav.suppliers', icon: BuildingStorefrontIcon },
       { to: '/reference/equipment', label: '設備管理', labelKey: 'nav.equipment', icon: WrenchScrewdriverIcon },
       { to: '/reference/areas', label: '區域管理', labelKey: 'nav.areas', icon: MapPinIcon },

@@ -26,6 +26,7 @@ def _to_response(product: ProdProduct) -> ProdProductResponse:
         id=product.id,
         code=product.code,
         name=product.name,
+        ccp_limit_temp=product.ccp_limit_temp,
         pack_size_kg=product.pack_size_kg,
         loss_rate_warn_pct=product.loss_rate_warn_pct,
         product_type=product.product_type.value if hasattr(product.product_type, "value") else (product.product_type or "forming"),
@@ -112,6 +113,7 @@ async def get_forming_options(
             code=p.code,
             name=p.name,
             product_type=p.product_type.value if hasattr(p.product_type, "value") else (p.product_type or "forming"),
+            ccp_limit_temp=p.ccp_limit_temp,
             pack_size_kg=p.pack_size_kg,
             loss_rate_warn_pct=p.loss_rate_warn_pct,
         )

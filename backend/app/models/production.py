@@ -27,6 +27,7 @@ class ProdProduct(Base):
     id = Column(Integer, primary_key=True, index=True)
     code = Column(VARCHAR(50), unique=True, nullable=False)
     name = Column(VARCHAR(200), nullable=False)
+    ccp_limit_temp = Column(Numeric(5, 2), nullable=False, server_default="75.00")
     pack_size_kg = Column(Numeric(8, 3), nullable=True)
     loss_rate_warn_pct = Column(Numeric(5, 2), nullable=True)
     product_type = Column(ProdProductTypeType, nullable=False, server_default="forming")

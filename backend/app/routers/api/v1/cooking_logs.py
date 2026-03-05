@@ -21,6 +21,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.models.cooking_log import CookingLog
 from app.models.product import Product
+from app.models.production import ProdProduct
 from app.models.user import User
 from app.schemas.cooking_log import (
     CookingLogCreate,
@@ -38,12 +39,19 @@ router = APIRouter(prefix="/cooking-logs", tags=["cooking-logs"])
 
 def _to_response(log: CookingLog) -> CookingLogResponse:
     """Map ORM model to response schema with eager-loaded relationships."""
+    # Prefer prod_product over legacy product for name
+    product_name = (
+        log.prod_product.name if log.prod_product else
+        (log.product.name if log.product else None)
+    )
     return CookingLogResponse(
         id=log.id,
         batch_id=log.batch_id,
         prod_batch_id=log.prod_batch_id,
+        prod_product_id=log.prod_product_id,
+        prod_product_name=log.prod_product.name if log.prod_product else None,
         product_id=log.product_id,
-        product_name=log.product.name if log.product else None,
+        product_name=product_name,
         equipment_id=log.equipment_id,
         equipment_name=log.equipment.name if log.equipment else None,
         start_time=log.start_time,
@@ -69,6 +77,7 @@ def _base_query():
     """Base query with eager-loaded relationships (prevents N+1)."""
     return select(CookingLog).options(
         selectinload(CookingLog.product),
+        selectinload(CookingLog.prod_product),
         selectinload(CookingLog.equipment),
         selectinload(CookingLog.operator),
         selectinload(CookingLog.verifier),
@@ -140,17 +149,31 @@ async def create_cooking_log(
     3. Set ccp_status on log
     4. Commit (both log and any deviation in single transaction)
     """
-    # Verify product exists and get CCP limit
-    product_result = await db.execute(
-        select(Product).where(Product.id == data.product_id)
-    )
-    product = product_result.scalar_one_or_none()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+    # Resolve the product for CCP limit — prefer prod_product_id (new), fall back to product_id (legacy)
+    ccp_limit = CCP_DEFAULT_TEMP
+    if data.prod_product_id:
+        prod_product_result = await db.execute(
+            select(ProdProduct).where(ProdProduct.id == data.prod_product_id)
+        )
+        prod_product = prod_product_result.scalar_one_or_none()
+        if not prod_product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        ccp_limit = prod_product.ccp_limit_temp or CCP_DEFAULT_TEMP
+    elif data.product_id:
+        product_result = await db.execute(
+            select(Product).where(Product.id == data.product_id)
+        )
+        product = product_result.scalar_one_or_none()
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        ccp_limit = product.ccp_limit_temp or CCP_DEFAULT_TEMP
+    else:
+        raise HTTPException(status_code=422, detail="Either prod_product_id or product_id is required")
 
     log = CookingLog(
         batch_id=data.batch_id,
         prod_batch_id=data.prod_batch_id,
+        prod_product_id=data.prod_product_id,
         product_id=data.product_id,
         equipment_id=data.equipment_id,
         start_time=data.start_time,
@@ -168,7 +191,7 @@ async def create_cooking_log(
         db=db,
         cooking_log_id=log.id,
         core_temp=data.core_temp,
-        ccp_limit=product.ccp_limit_temp or CCP_DEFAULT_TEMP,
+        ccp_limit=ccp_limit,
         operator_id=current_user.id,
     )
     log.ccp_status = ccp_status
@@ -177,7 +200,7 @@ async def create_cooking_log(
     if ccp_status and ccp_status.value != "Pass" and not log.corrective_action:
         log.corrective_action = (
             f"CCP failure detected: core temp {data.core_temp}C below limit "
-            f"{product.ccp_limit_temp}C. Deviation auto-created. Hold for QA review."
+            f"{ccp_limit}C. Deviation auto-created. Hold for QA review."
         )
 
     await db.commit()
@@ -211,15 +234,25 @@ async def update_cooking_log(
 
     # Re-validate CCP if core_temp was updated
     if "core_temp" in update_data:
-        product_result = await db.execute(
-            select(Product).where(Product.id == log.product_id)
-        )
-        product = product_result.scalar_one()
+        ccp_limit = CCP_DEFAULT_TEMP
+        if log.prod_product_id:
+            prod_product_result = await db.execute(
+                select(ProdProduct).where(ProdProduct.id == log.prod_product_id)
+            )
+            prod_product = prod_product_result.scalar_one()
+            ccp_limit = prod_product.ccp_limit_temp or CCP_DEFAULT_TEMP
+        elif log.product_id:
+            product_result = await db.execute(
+                select(Product).where(Product.id == log.product_id)
+            )
+            product = product_result.scalar_one()
+            ccp_limit = product.ccp_limit_temp or CCP_DEFAULT_TEMP
+
         ccp_status = await validate_cooking_ccp(
             db=db,
             cooking_log_id=log.id,
             core_temp=log.core_temp,
-            ccp_limit=product.ccp_limit_temp or CCP_DEFAULT_TEMP,
+            ccp_limit=ccp_limit,
             operator_id=current_user.id,
         )
         log.ccp_status = ccp_status
@@ -228,7 +261,7 @@ async def update_cooking_log(
         if ccp_status and ccp_status.value != "Pass" and not log.corrective_action:
             log.corrective_action = (
                 f"CCP failure detected: core temp {log.core_temp}C below limit "
-                f"{product.ccp_limit_temp}C. Deviation auto-created. Hold for QA review."
+                f"{ccp_limit}C. Deviation auto-created. Hold for QA review."
             )
 
     await db.commit()
