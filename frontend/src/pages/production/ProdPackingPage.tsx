@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { prodBatchesApi, prodProductsApi, packTypesApi } from '@/api/production';
+import { invItemsApi } from '@/api/inventory';
 import {
   ProdBatch, ProdProduct, ProdPackType,
   ProdPackingRecordCreate, ProdPackingTrimCreate, PackTypeConfig,
 } from '@/types/production';
+import { InvItem } from '@/types/inventory';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import Bi, { bi } from '@/components/Bi';
@@ -15,6 +17,7 @@ const num = (v: any): number => (v == null ? 0 : Number(v));
 interface LocalPackRecord {
   pack_type: ProdPackType;
   product_id: number | '';
+  inv_item_id: number | '';
   bag_count: string;
   nominal_weight_kg: string;
   remark: string;
@@ -38,6 +41,7 @@ export default function ProdPackingPage() {
   const [batch, setBatch] = useState<ProdBatch | null>(null);
   const [products, setProducts] = useState<ProdProduct[]>([]);
   const [packTypeConfigs, setPackTypeConfigs] = useState<PackTypeConfig[]>([]);
+  const [invItems, setInvItems] = useState<InvItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -58,6 +62,7 @@ export default function ProdPackingPage() {
           data.packing_records.map((r) => ({
             pack_type: r.pack_type,
             product_id: r.product_id || '',
+            inv_item_id: r.inv_item_id || '',
             bag_count: String(r.bag_count),
             nominal_weight_kg: String(r.nominal_weight_kg),
             remark: r.remark || '',
@@ -83,6 +88,7 @@ export default function ProdPackingPage() {
   useEffect(() => { fetchBatch(); }, [fetchBatch]);
   useEffect(() => {
     prodProductsApi.list({ limit: 500 }).then((r) => setProducts(r.items)).catch(() => {});
+    invItemsApi.list({ is_active: true, limit: 500 }).then((r) => setInvItems(r.items)).catch(() => {});
   }, []);
 
   // Determine product type from the matched product
@@ -105,6 +111,7 @@ export default function ProdPackingPage() {
       setRecords([{
         pack_type: defaultPackType,
         product_id: matchedProduct?.id || '',
+        inv_item_id: '',
         bag_count: '',
         nominal_weight_kg: packSizeKg != null ? String(packSizeKg) : '',
         remark: '',
@@ -119,13 +126,13 @@ export default function ProdPackingPage() {
       const defaultPackType = (packTypeConfigs[0]?.code || 'BULK_KG') as ProdPackType;
       setRecords((prev) => [
         ...prev,
-        { pack_type: defaultPackType, product_id: defaultProductId, bag_count: '', nominal_weight_kg: packSizeKg != null ? String(packSizeKg) : '', remark: '' },
+        { pack_type: defaultPackType, product_id: defaultProductId, inv_item_id: '', bag_count: '', nominal_weight_kg: packSizeKg != null ? String(packSizeKg) : '', remark: '' },
       ]);
     } else {
       const defaultPackType = (packTypeConfigs[0]?.code || '4KG_SEMI') as ProdPackType;
       setRecords((prev) => [
         ...prev,
-        { pack_type: defaultPackType, product_id: defaultProductId, bag_count: '', nominal_weight_kg: '', remark: '' },
+        { pack_type: defaultPackType, product_id: defaultProductId, inv_item_id: '', bag_count: '', nominal_weight_kg: '', remark: '' },
       ]);
     }
   };
@@ -178,6 +185,7 @@ export default function ProdPackingPage() {
       .map((r) => ({
         pack_type: r.pack_type,
         product_id: r.product_id ? Number(r.product_id) : undefined,
+        inv_item_id: r.inv_item_id ? Number(r.inv_item_id) : undefined,
         bag_count: Number(r.bag_count),
         nominal_weight_kg: Number(r.nominal_weight_kg),
         remark: r.remark || undefined,
@@ -248,6 +256,7 @@ export default function ProdPackingPage() {
               <thead>
                 <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
                   <th className="pb-2 pr-3"><Bi k="field.packType" /></th>
+                  <th className="pb-2 pr-3">庫存品項</th>
                   <th className="pb-2 pr-3"><Bi k="field.nominalWeight" /></th>
                   <th className="pb-2 pr-3"><Bi k="field.bagCount" /></th>
                   <th className="pb-2 pr-3"><Bi k="field.theoreticalTotal" /></th>
@@ -273,6 +282,24 @@ export default function ProdPackingPage() {
                           >
                             {packTypeConfigs.map((pt) => (
                               <option key={pt.code} value={pt.code}>{pt.name}</option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                      <td className="py-2 pr-3">
+                        {isReadOnly ? (
+                          <span className="text-gray-700 text-xs">
+                            {invItems.find((i) => i.id === Number(rec.inv_item_id))?.name || '—'}
+                          </span>
+                        ) : (
+                          <select
+                            value={rec.inv_item_id}
+                            onChange={(e) => updateRecord(index, 'inv_item_id', Number(e.target.value) || '')}
+                            className="input w-auto text-xs"
+                          >
+                            <option value="">— 未指定 —</option>
+                            {invItems.map((item) => (
+                              <option key={item.id} value={item.id}>{item.code} — {item.name}</option>
                             ))}
                           </select>
                         )}
@@ -414,7 +441,7 @@ export default function ProdPackingPage() {
             <thead>
               <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
                 <th className="pb-2 pr-3"><Bi k="field.packType" /></th>
-                <th className="pb-2 pr-3"><Bi k="field.product" /></th>
+                <th className="pb-2 pr-3">庫存品項</th>
                 <th className="pb-2 pr-3"><Bi k="field.bagCount" /></th>
                 <th className="pb-2 pr-3"><Bi k="field.nominalWeight" /></th>
                 <th className="pb-2 pr-3"><Bi k="field.theoreticalTotal" /></th>
@@ -446,18 +473,18 @@ export default function ProdPackingPage() {
                     </td>
                     <td className="py-2 pr-3">
                       {isReadOnly ? (
-                        <span className="text-gray-700">
-                          {products.find((p) => p.id === Number(rec.product_id))?.name || '—'}
+                        <span className="text-gray-700 text-xs">
+                          {invItems.find((i) => i.id === Number(rec.inv_item_id))?.name || '—'}
                         </span>
                       ) : (
                         <select
-                          value={rec.product_id}
-                          onChange={(e) => updateRecord(index, 'product_id', Number(e.target.value) || '')}
-                          className="input w-auto"
+                          value={rec.inv_item_id}
+                          onChange={(e) => updateRecord(index, 'inv_item_id', Number(e.target.value) || '')}
+                          className="input w-auto text-xs"
                         >
-                          <option value="">{bi('placeholder.selectProduct')}</option>
-                          {products.map((p) => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
+                          <option value="">— 未指定 —</option>
+                          {invItems.map((item) => (
+                            <option key={item.id} value={item.id}>{item.code} — {item.name}</option>
                           ))}
                         </select>
                       )}

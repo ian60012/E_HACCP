@@ -9,6 +9,13 @@ from app.core.database import Base
 from app.models.enums import InvDocTypeType, InvDocStatusType
 
 
+class InvItemAllowedLocation(Base):
+    __tablename__ = "inv_item_allowed_locations"
+
+    item_id = Column(Integer, ForeignKey("inv_items.id", ondelete="CASCADE"), primary_key=True)
+    location_id = Column(Integer, ForeignKey("inv_locations.id", ondelete="CASCADE"), primary_key=True)
+
+
 class InvItem(Base):
     __tablename__ = "inv_items"
 
@@ -24,6 +31,11 @@ class InvItem(Base):
 
     supplier = relationship("Supplier", lazy="raise", foreign_keys=[supplier_id])
     lines = relationship("InvStockLine", back_populates="item", lazy="raise")
+    allowed_locations = relationship(
+        "InvLocation",
+        secondary="inv_item_allowed_locations",
+        lazy="raise",
+    )
 
 
 class InvLocation(Base):
@@ -67,6 +79,7 @@ class InvStockLine(Base):
     id = Column(Integer, primary_key=True, index=True)
     doc_id = Column(Integer, ForeignKey("inv_stock_docs.id", ondelete="CASCADE"), nullable=False)
     item_id = Column(Integer, ForeignKey("inv_items.id"), nullable=False)
+    location_id = Column(Integer, ForeignKey("inv_locations.id"), nullable=False)
     quantity = Column(Numeric(12, 3), nullable=False)
     unit = Column(VARCHAR(20), nullable=False)
     unit_cost = Column(Numeric(12, 2), nullable=True)
@@ -74,6 +87,7 @@ class InvStockLine(Base):
 
     doc = relationship("InvStockDoc", back_populates="lines", lazy="raise")
     item = relationship("InvItem", back_populates="lines", lazy="raise")
+    location = relationship("InvLocation", lazy="raise", foreign_keys=[location_id])
 
 
 class InvStockBalance(Base):

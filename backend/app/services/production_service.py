@@ -19,6 +19,7 @@ from app.models.production import (
     ProdFormingTrolley,
     ProdPackingRecord,
     ProdPackingTrim,
+    ProdHotInput,
     ProdRepackJob,
     ProdRepackInput,
     ProdRepackOutput,
@@ -245,7 +246,17 @@ async def calculate_hot_process_balance(
         float(r.theoretical_total_weight_kg or (r.bag_count * r.nominal_weight_kg))
         for r in batch.packing_records
     )
-    input_kg = float(batch.input_weight_kg) if batch.input_weight_kg else None
+    # Sum from hot_inputs if any exist, otherwise fall back to legacy input_weight_kg
+    hot_input_result = await session.execute(
+        select(sa_func.sum(ProdHotInput.weight_kg)).where(ProdHotInput.prod_batch_id == batch_id)
+    )
+    hot_input_sum = hot_input_result.scalar()
+    if hot_input_sum is not None and hot_input_sum > 0:
+        input_kg = float(hot_input_sum)
+    elif batch.input_weight_kg:
+        input_kg = float(batch.input_weight_kg)
+    else:
+        input_kg = None
 
     if input_kg and input_kg > 0:
         loss_kg = input_kg - packed_kg
@@ -266,8 +277,11 @@ async def enter_batch_to_inventory(
     session: AsyncSession, batch_id: int, location_id: int, operator_id: int
 ) -> InvStockDoc:
     """Create and post a stock-IN document for a closed production batch.
-    Entry quantity = total packed weight (packing is the weight measurement).
+    Entry quantity = total packed bags grouped by product.
+    Supports both hot_process and forming batches with per-product inventory lines.
     """
+    from collections import defaultdict
+
     # Load batch with packing records
     result = await session.execute(
         select(ProdBatch)
@@ -290,26 +304,66 @@ async def enter_batch_to_inventory(
             detail="Stock has already been entered for this batch"
         )
 
-    # Find the production product to get inv_item_id
-    prod_result = await session.execute(
+    # Load the batch's main product (by batch.product_code) to get product_type and fallback id
+    main_prod_result = await session.execute(
         select(ProdProduct).where(ProdProduct.code == batch.product_code)
     )
-    product = prod_result.scalar_one_or_none()
-    if not product or not product.inv_item_id:
+    main_product = main_prod_result.scalar_one_or_none()
+    if not main_product:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Production product has no inventory item linked"
+            detail="Production product not found"
         )
 
-    # Calculate total packed weight
-    packed_kg = sum(
-        float(r.theoretical_total_weight_kg or (r.bag_count * r.nominal_weight_kg))
-        for r in batch.packing_records
-    )
-    if packed_kg <= 0:
+    if not batch.packing_records:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No packing weight recorded for this batch"
+            detail="No packing records recorded for this batch"
+        )
+
+    # Resolve inv_item_id for each packing record:
+    # Primary: rec.inv_item_id (set at packing time)
+    # Fallback: product.inv_item_id (from ProdProduct linked to the record or batch main product)
+    # Collect all product_ids that need fallback resolution
+    fallback_product_ids: set[int] = set()
+    for rec in batch.packing_records:
+        if rec.inv_item_id is None:
+            fallback_product_ids.add(rec.product_id if rec.product_id is not None else main_product.id)
+
+    products_by_id: dict[int, ProdProduct] = {}
+    if fallback_product_ids:
+        prods_result = await session.execute(
+            select(ProdProduct).where(ProdProduct.id.in_(list(fallback_product_ids)))
+        )
+        products_by_id = {p.id: p for p in prods_result.scalars().all()}
+
+    # Build bags_by_inv_item, collecting any records that can't be resolved
+    bags_by_inv_item: dict[int, int] = defaultdict(int)
+    unresolvable: list[str] = []
+    for rec in batch.packing_records:
+        iid = rec.inv_item_id
+        if iid is None:
+            pid = rec.product_id if rec.product_id is not None else main_product.id
+            product = products_by_id.get(pid)
+            if product and product.inv_item_id:
+                iid = product.inv_item_id
+            else:
+                label = f"包裝類型 {rec.pack_type}（袋數: {rec.bag_count}）"
+                unresolvable.append(label)
+                continue
+        bags_by_inv_item[iid] += int(rec.bag_count)
+
+    if unresolvable:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"以下裝袋記錄未設定庫存品項，也找不到產品的庫存品項連結：{', '.join(unresolvable)}"
+        )
+
+    total_bags = sum(bags_by_inv_item.values())
+    if total_bags <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No packing records recorded for this batch"
         )
 
     # Generate doc number (reuse inventory_service logic inline)
@@ -333,13 +387,16 @@ async def enter_batch_to_inventory(
     session.add(doc)
     await session.flush()
 
-    line = InvStockLine(
-        doc_id=doc.id,
-        item_id=product.inv_item_id,
-        quantity=Decimal(str(round(packed_kg, 3))),
-        unit="KG",
-    )
-    session.add(line)
+    # Create one InvStockLine per inv_item_id group
+    for iid, bags in bags_by_inv_item.items():
+        line = InvStockLine(
+            doc_id=doc.id,
+            item_id=iid,
+            location_id=location_id,
+            quantity=Decimal(str(bags)),
+            unit="包",
+        )
+        session.add(line)
     await session.flush()
 
     # Post the document using inventory_service

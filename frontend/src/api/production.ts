@@ -4,6 +4,7 @@ import {
   ProdBatch, ProdBatchCreate, ProdBatchUpdate,
   ProdFormingTrolley, ProdFormingTrolleyCreate,
   ProdPackingSaveRequest,
+  ProdHotInput, ProdHotInputCreate,
   ProdRepackJob, ProdRepackJobCreate,
   ProdRepackInput, ProdRepackInputCreate,
   ProdRepackOutput, ProdRepackOutputCreate,
@@ -87,6 +88,13 @@ export const prodBatchesApi = {
   enterStock: async (batchId: number, locationId: number): Promise<ProdBatch> => {
     const res = await apiClient.post<ProdBatch>(`/api/v1/production/batches/${batchId}/enter-stock`, { location_id: locationId });
     return res.data;
+  },
+  addHotInput: async (batchId: number, data: ProdHotInputCreate): Promise<ProdBatch> => {
+    const res = await apiClient.post<ProdBatch>(`/api/v1/production/batches/${batchId}/hot-inputs`, data);
+    return res.data;
+  },
+  removeHotInput: async (batchId: number, inputId: number): Promise<void> => {
+    await apiClient.delete(`/api/v1/production/batches/${batchId}/hot-inputs/${inputId}`);
   },
 };
 

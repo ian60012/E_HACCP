@@ -31,6 +31,11 @@ export const invItemsApi = {
     const res = await apiClient.patch<InvItem>(`/api/v1/inventory/items/${id}`, data);
     return res.data;
   },
+
+  setAllowedLocations: async (id: number, location_ids: number[]): Promise<InvItem> => {
+    const res = await apiClient.put<InvItem>(`/api/v1/inventory/items/${id}/allowed-locations`, { location_ids });
+    return res.data;
+  },
 };
 
 // ─── Locations ─────────────────────────────────────────────────────────────
@@ -97,6 +102,13 @@ export const invBalanceApi = {
     skip?: number; limit?: number; item_id?: number; location_id?: number;
   }): Promise<PaginatedResponse<InvStockBalance>> => {
     const res = await apiClient.get<PaginatedResponse<InvStockBalance>>('/api/v1/inventory/balance', { params });
+    return res.data;
+  },
+
+  listByLocation: async (params?: {
+    location_id?: number;
+  }): Promise<PaginatedResponse<InvStockBalance>> => {
+    const res = await apiClient.get<PaginatedResponse<InvStockBalance>>('/api/v1/inventory/balance/by-location', { params });
     return res.data;
   },
 

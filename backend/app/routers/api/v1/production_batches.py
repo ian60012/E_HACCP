@@ -15,7 +15,9 @@ from app.models.production import (
     ProdFormingTrolley,
     ProdPackingRecord,
     ProdPackingTrim,
+    ProdHotInput,
 )
+from app.models.inventory import InvItem
 from app.models.user import User
 from app.schemas.production import (
     ProdBatchCreate,
@@ -30,6 +32,8 @@ from app.schemas.production import (
     PackingTotalsResponse,
     HotProcessBalanceResponse,
     EnterStockRequest,
+    ProdHotInputCreate,
+    ProdHotInputResponse,
 )
 from app.schemas.common import PaginatedResponse
 from app.dependencies.auth import get_current_active_user
@@ -70,6 +74,8 @@ def _packing_record_response(r: ProdPackingRecord) -> ProdPackingRecordResponse:
         pack_type=r.pack_type.value if hasattr(r.pack_type, "value") else r.pack_type,
         product_id=r.product_id,
         product_name=r.product.name if r.product else None,
+        inv_item_id=r.inv_item_id,
+        inv_item_name=r.inv_item.name if r.inv_item else None,
         bag_count=r.bag_count,
         nominal_weight_kg=r.nominal_weight_kg,
         theoretical_total_weight_kg=r.theoretical_total_weight_kg,
@@ -109,6 +115,18 @@ def _to_response(batch: ProdBatch) -> ProdBatchResponse:
         trolleys=[_trolley_response(t) for t in (batch.forming_trolleys or [])],
         packing_records=[_packing_record_response(r) for r in (batch.packing_records or [])],
         packing_trims=[_packing_trim_response(t) for t in (batch.packing_trims or [])],
+        hot_inputs=[_hot_input_response(h) for h in (batch.hot_inputs or [])],
+    )
+
+
+def _hot_input_response(h: ProdHotInput) -> ProdHotInputResponse:
+    return ProdHotInputResponse(
+        id=h.id,
+        prod_batch_id=h.prod_batch_id,
+        seq=h.seq,
+        weight_kg=h.weight_kg,
+        notes=h.notes,
+        created_at=h.created_at,
     )
 
 
@@ -116,7 +134,9 @@ def _base_query():
     return select(ProdBatch).options(
         selectinload(ProdBatch.forming_trolleys),
         selectinload(ProdBatch.packing_records).selectinload(ProdPackingRecord.product),
+        selectinload(ProdBatch.packing_records).selectinload(ProdPackingRecord.inv_item),
         selectinload(ProdBatch.packing_trims),
+        selectinload(ProdBatch.hot_inputs),
     )
 
 
@@ -327,6 +347,66 @@ async def remove_trolley(
 
 
 # ---------------------------------------------------------------------------
+# Hot inputs (多次投料)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{batch_id}/hot-inputs",
+    response_model=ProdBatchResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_hot_input(
+    batch_id: int,
+    data: ProdHotInputCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    batch = await db.get(ProdBatch, batch_id)
+    if not batch:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Batch not found")
+
+    # Auto-increment seq per batch
+    seq_result = await db.execute(
+        select(func.max(ProdHotInput.seq)).where(ProdHotInput.prod_batch_id == batch_id)
+    )
+    next_seq = (seq_result.scalar() or 0) + 1
+
+    hot_input = ProdHotInput(
+        prod_batch_id=batch_id,
+        seq=next_seq,
+        weight_kg=data.weight_kg,
+        notes=data.notes,
+    )
+    db.add(hot_input)
+    await db.flush()
+    await db.commit()
+
+    result = await db.execute(_base_query().where(ProdBatch.id == batch_id))
+    return _to_response(result.scalar_one())
+
+
+@router.delete("/{batch_id}/hot-inputs/{input_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_hot_input(
+    batch_id: int,
+    input_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ProdHotInput).where(
+            ProdHotInput.id == input_id,
+            ProdHotInput.prod_batch_id == batch_id,
+        )
+    )
+    hot_input = result.scalar_one_or_none()
+    if not hot_input:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hot input not found")
+    await db.delete(hot_input)
+    await db.commit()
+
+
+# ---------------------------------------------------------------------------
 # Forming totals
 # ---------------------------------------------------------------------------
 
@@ -377,6 +457,7 @@ async def save_packing(
             batch_id=batch_id,
             pack_type=rec_data.pack_type,
             product_id=rec_data.product_id,
+            inv_item_id=rec_data.inv_item_id,
             bag_count=rec_data.bag_count,
             nominal_weight_kg=rec_data.nominal_weight_kg,
             theoretical_total_weight_kg=rec_data.bag_count * rec_data.nominal_weight_kg,

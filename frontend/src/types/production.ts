@@ -110,6 +110,8 @@ export interface ProdPackingRecord {
   pack_type: ProdPackType;
   product_id: number | null;
   product_name: string | null;
+  inv_item_id: number | null;
+  inv_item_name: string | null;
   bag_count: number;
   nominal_weight_kg: number;
   theoretical_total_weight_kg: number | null;
@@ -119,6 +121,7 @@ export interface ProdPackingRecord {
 export interface ProdPackingRecordCreate {
   pack_type: ProdPackType;
   product_id?: number | null;
+  inv_item_id?: number;
   bag_count: number;
   nominal_weight_kg: number;
   remark?: string;
@@ -143,6 +146,21 @@ export interface ProdPackingSaveRequest {
   trims: ProdPackingTrimCreate[];
 }
 
+// ----- Hot Inputs (熱加工投料) -----
+export interface ProdHotInput {
+  id: number;
+  prod_batch_id: number;
+  seq: number;
+  weight_kg: string;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ProdHotInputCreate {
+  weight_kg: number | string;
+  notes?: string;
+}
+
 // ----- Batches -----
 export interface ProdBatch {
   id: number;
@@ -165,6 +183,7 @@ export interface ProdBatch {
   trolleys: ProdFormingTrolley[];
   packing_records: ProdPackingRecord[];
   packing_trims: ProdPackingTrim[];
+  hot_inputs: ProdHotInput[];
 }
 
 export interface ProdBatchCreate {

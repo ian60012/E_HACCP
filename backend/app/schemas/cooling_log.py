@@ -14,6 +14,8 @@ class CoolingLogCreate(BaseModel):
     If goes_to_freezer=True, only Stage 1 is required; end data is not needed.
     """
     batch_id: str = Field(..., max_length=50)
+    prod_batch_id: Optional[int] = None
+    hot_input_id: Optional[int] = None
     start_time: datetime
     start_temp: Decimal = Field(..., ge=0, le=120)
     stage1_time: Optional[datetime] = None
@@ -71,6 +73,8 @@ class CoolingLogResponse(ALCOAResponseMixin):
 
     id: int
     batch_id: str
+    prod_batch_id: Optional[int] = None
+    hot_input_id: Optional[int] = None
     start_time: datetime
     start_temp: Decimal
     stage1_time: Optional[datetime] = None

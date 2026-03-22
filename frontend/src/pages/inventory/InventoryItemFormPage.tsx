@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { invItemsApi } from '@/api/inventory';
+import { invItemsApi, invLocationsApi } from '@/api/inventory';
+import { InvLocation } from '@/types/inventory';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import FormField from '@/components/FormField';
@@ -20,13 +21,22 @@ export default function InventoryItemFormPage() {
   const [baseUnit, setBaseUnit] = useState('PCS');
   const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [allowedLocationIds, setAllowedLocationIds] = useState<number[]>([]);
 
-  const [loading, setLoading] = useState(isEdit);
+  const [allLocations, setAllLocations] = useState<InvLocation[]>([]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!isEdit || !id) return;
+    invLocationsApi.list({ is_active: true, limit: 200 }).then((r) => setAllLocations(r.items));
+  }, []);
+
+  useEffect(() => {
+    if (!isEdit || !id) {
+      setLoading(false);
+      return;
+    }
     invItemsApi.get(Number(id)).then((item) => {
       setCode(item.code);
       setName(item.name);
@@ -34,12 +44,19 @@ export default function InventoryItemFormPage() {
       setBaseUnit(item.base_unit);
       setDescription(item.description || '');
       setIsActive(item.is_active);
+      setAllowedLocationIds(item.allowed_location_ids ?? []);
       setLoading(false);
     }).catch(() => {
       setError(bi('error.loadFailed'));
       setLoading(false);
     });
   }, [id, isEdit]);
+
+  const toggleLocation = (locId: number) => {
+    setAllowedLocationIds((prev) =>
+      prev.includes(locId) ? prev.filter((x) => x !== locId) : [...prev, locId]
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,12 +70,14 @@ export default function InventoryItemFormPage() {
           base_unit: baseUnit,
           description: description || undefined,
           is_active: isActive,
+          allowed_location_ids: allowedLocationIds,
         });
       } else {
         await invItemsApi.create({
           code, name, category: category || undefined,
           base_unit: baseUnit,
           description: description || undefined,
+          allowed_location_ids: allowedLocationIds,
         });
       }
       navigate('/inventory/items');
@@ -128,6 +147,39 @@ export default function InventoryItemFormPage() {
             rows={2}
           />
         </FormField>
+
+        {/* Allowed locations */}
+        <FormField label="允許儲位 Allowed Locations">
+          {allLocations.length === 0 ? (
+            <p className="text-sm text-gray-400">載入儲位中…</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {allLocations.map((loc) => (
+                <label
+                  key={loc.id}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border cursor-pointer text-sm select-none transition-colors ${
+                    allowedLocationIds.includes(loc.id)
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={allowedLocationIds.includes(loc.id)}
+                    onChange={() => toggleLocation(loc.id)}
+                  />
+                  <span className="font-mono text-xs">{loc.code}</span>
+                  <span>{loc.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+          {allowedLocationIds.length === 0 && (
+            <p className="text-xs text-red-500 mt-1">⚠ 未設定允許儲位，此品項將無法入/出庫</p>
+          )}
+        </FormField>
+
         {isEdit && (
           <FormField label={<Bi k="field.isActive" />}>
             <label className="flex items-center gap-2">

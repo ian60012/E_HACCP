@@ -8,24 +8,13 @@ import ErrorCard from '@/components/ErrorCard';
 import FormField from '@/components/FormField';
 import CCPIndicator from '@/components/CCPIndicator';
 import Bi, { bi } from '@/components/Bi';
+import DateTimeInput from '@/components/DateTimeInput';
 
-function nowLocalISO(): string {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-}
+import { toMelbourneInput, nowMelbourne, melbourneToUTC } from '@/utils/timezone';
 
-/** Convert a UTC ISO string (from API) to local datetime-local input format */
-function toLocalInput(iso: string): string {
-  const d = new Date(iso);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-}
-
-/** Convert a datetime-local input string (local time) to UTC ISO string for the API */
-function toUTCISO(local: string): string {
-  return new Date(local).toISOString();
-}
+function nowLocalISO(): string { return nowMelbourne(); }
+function toLocalInput(iso: string): string { return toMelbourneInput(iso); }
+function toUTCISO(local: string): string { return melbourneToUTC(local); }
 
 export default function CoolingLogFormPage() {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +30,8 @@ export default function CoolingLogFormPage() {
 
   // Form fields
   const [batchId, setBatchId] = useState('');
+  const [prodBatchId, setProdBatchId] = useState<number | undefined>(undefined);
+  const [hotInputId, setHotInputId] = useState<number | undefined>(undefined);
   const [startTime, setStartTime] = useState(nowLocalISO());
   const [startTemp, setStartTemp] = useState('');
   const [stage1Time, setStage1Time] = useState('');
@@ -82,11 +73,15 @@ export default function CoolingLogFormPage() {
     if (isEdit) {
       fetchLog();
     } else {
-      // Pre-fill from URL params (e.g. navigating from a cooking log)
-      const paramBatchId = searchParams.get('batch_id');
+      // Pre-fill from URL params (e.g. navigating from a cooking log or batch detail)
+      const paramBatchId = searchParams.get('batch_id') || searchParams.get('batch_code');
       const paramStartTemp = searchParams.get('start_temp');
       const paramStartTime = searchParams.get('start_time');
+      const paramProdBatchId = searchParams.get('prod_batch_id');
+      const paramHotInputId = searchParams.get('hot_input_id');
       if (paramBatchId) setBatchId(paramBatchId);
+      if (paramProdBatchId) setProdBatchId(Number(paramProdBatchId));
+      if (paramHotInputId) setHotInputId(Number(paramHotInputId));
       if (paramStartTemp) setStartTemp(paramStartTemp);
       if (paramStartTime) {
         try {
@@ -179,6 +174,8 @@ export default function CoolingLogFormPage() {
       } else {
         const createData: CoolingLogCreate = {
           batch_id: batchId.trim(),
+          prod_batch_id: prodBatchId,
+          hot_input_id: hotInputId,
           start_time: toUTCISO(startTime),
           start_temp: startTemp,
           stage1_time: stage1Time ? toUTCISO(stage1Time) : undefined,
@@ -190,7 +187,12 @@ export default function CoolingLogFormPage() {
           notes: notes || undefined,
         };
         const created = await coolingLogsApi.create(createData);
-        navigate(`/cooling-logs/${created.id}`);
+        const returnToBatch = searchParams.get('prod_batch_id');
+        if (returnToBatch) {
+          navigate(`/production/batches/${returnToBatch}`);
+        } else {
+          navigate(`/cooling-logs/${created.id}`);
+        }
       }
     } catch (err: any) {
       const msg = err?.response?.data?.detail;
@@ -207,7 +209,7 @@ export default function CoolingLogFormPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link to={isEdit ? `/cooling-logs/${id}` : '/cooling-logs'} className="p-2 hover:bg-gray-100 rounded-lg">
+        <Link to={isEdit ? `/cooling-logs/${id}` : searchParams.get('prod_batch_id') ? `/production/batches/${searchParams.get('prod_batch_id')}` : '/cooling-logs'} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
         </Link>
         <div>
@@ -235,13 +237,7 @@ export default function CoolingLogFormPage() {
             </FormField>
 
             <FormField label={<Bi k="field.startTime" />} required error={errors.startTime}>
-              <input
-                type="datetime-local"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                disabled={isEdit}
-                className="input"
-              />
+              <DateTimeInput value={startTime} onChange={setStartTime} disabled={isEdit} required />
             </FormField>
 
             <FormField label={<Bi k="field.startTempUnit" />} required error={errors.startTemp}>
@@ -303,13 +299,7 @@ export default function CoolingLogFormPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label={<Bi k="field.stage1Time" />} error={errors.stage1Time}>
-              <input
-                type="datetime-local"
-                value={stage1Time}
-                onChange={(e) => setStage1Time(e.target.value)}
-                disabled={isEdit && existingHasStage1}
-                className="input"
-              />
+              <DateTimeInput value={stage1Time} onChange={setStage1Time} disabled={isEdit && existingHasStage1} />
             </FormField>
 
             <FormField label={<Bi k="field.stage1TempUnit" />} error={errors.stage1Temp}>
@@ -373,13 +363,7 @@ export default function CoolingLogFormPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField label={<Bi k="field.endTime" />} error={errors.endTime}>
-                <input
-                  type="datetime-local"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  disabled={(isEdit && existingHasEnd) || (isEdit && !existingHasStage1)}
-                  className="input"
-                />
+                <DateTimeInput value={endTime} onChange={setEndTime} disabled={(isEdit && existingHasEnd) || (isEdit && !existingHasStage1)} />
               </FormField>
 
               <FormField label={<Bi k="field.endTempUnit" />} error={errors.endTemp}>
@@ -468,7 +452,7 @@ export default function CoolingLogFormPage() {
           <button type="submit" disabled={loading} className="btn btn-primary flex-1 sm:flex-none">
             {loading ? <Bi k="btn.saving" /> : isEdit ? <Bi k="btn.updateRecord" /> : <Bi k="btn.createRecord" />}
           </button>
-          <Link to={isEdit ? `/cooling-logs/${id}` : '/cooling-logs'} className="btn btn-secondary">
+          <Link to={isEdit ? `/cooling-logs/${id}` : searchParams.get('prod_batch_id') ? `/production/batches/${searchParams.get('prod_batch_id')}` : '/cooling-logs'} className="btn btn-secondary">
             <Bi k="btn.cancel" />
           </Link>
         </div>

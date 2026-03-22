@@ -6,6 +6,8 @@ import { FormingOption, ProdShift } from '@/types/production';
 import FormField from '@/components/FormField';
 import ErrorCard from '@/components/ErrorCard';
 import Bi, { bi } from '@/components/Bi';
+import DateTimeInput from '@/components/DateTimeInput';
+import { melbourneToUTC } from '@/utils/timezone';
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -64,7 +66,7 @@ export default function ProdBatchFormPage() {
         production_date: productionDate,
         shift,
         spec_piece_weight_g: Number(specPieceWeightG),
-        start_time: startTime || undefined,
+        start_time: startTime ? melbourneToUTC(startTime) : undefined,
         operator: operator || undefined,
         supervisor: supervisor || undefined,
       });
@@ -142,12 +144,7 @@ export default function ProdBatchFormPage() {
               </FormField>
             )}
             <FormField label={<Bi k="field.startTime" />}>
-              <input
-                type="datetime-local"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="input"
-              />
+              <DateTimeInput value={startTime} onChange={setStartTime} />
             </FormField>
             <FormField label={<Bi k="field.operator" />}>
               <input

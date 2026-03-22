@@ -92,7 +92,9 @@ export function exportToPdf<T extends Record<string, unknown>>(
 export function formatExportDateTime(val: unknown): string {
   if (!val) return '';
   return new Date(String(val)).toLocaleString('zh-TW', {
+    timeZone: 'Australia/Melbourne',
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit',
+    hour12: false,
   });
 }

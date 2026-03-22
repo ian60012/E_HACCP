@@ -17,7 +17,7 @@ const sourceLabels: Record<string, string> = {
   cooking: bi('deviation.source.cooking'),
   cooling: bi('deviation.source.cooling'),
   sanitising: bi('deviation.source.sanitising'),
-  assembly: bi('deviation.source.assembly'),
+  assembly: '組裝包裝 Assembly & Packing',
 };
 
 const sourceRouteMap: Record<string, string> = {
@@ -25,7 +25,6 @@ const sourceRouteMap: Record<string, string> = {
   cooking: 'cooking-logs',
   cooling: 'cooling-logs',
   sanitising: 'sanitising-logs',
-  assembly: 'assembly-logs',
 };
 
 const actionLabels: Record<string, string> = {
@@ -39,11 +38,13 @@ const actionLabels: Record<string, string> = {
 function formatDateTime(iso: string | null): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('zh-TW', {
+    timeZone: 'Australia/Melbourne',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 }
 

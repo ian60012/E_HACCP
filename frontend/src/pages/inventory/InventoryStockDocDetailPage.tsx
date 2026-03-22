@@ -10,8 +10,8 @@ import Bi, { bi } from '@/components/Bi';
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString('zh-TW', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit',
+    timeZone: 'Australia/Melbourne', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
   });
 }
 
@@ -177,6 +177,7 @@ export default function InventoryStockDocDetailPage() {
             <thead>
               <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
                 <th className="pb-2 pr-4"><Bi k="field.item" /></th>
+                <th className="pb-2 pr-4"><Bi k="field.location" /></th>
                 <th className="pb-2 pr-4"><Bi k="field.quantity" /></th>
                 <th className="pb-2 pr-4"><Bi k="field.unit" /></th>
                 <th className="pb-2"><Bi k="field.unitCost" /></th>
@@ -189,6 +190,7 @@ export default function InventoryStockDocDetailPage() {
                     <span className="font-medium text-gray-800">{line.item_name}</span>
                     <span className="text-xs text-gray-400 ml-1">{line.item_code}</span>
                   </td>
+                  <td className="py-2 pr-4 text-gray-600">{line.location_name || '—'}</td>
                   <td className="py-2 pr-4 font-medium">{line.quantity}</td>
                   <td className="py-2 pr-4 text-gray-500">{line.unit}</td>
                   <td className="py-2 text-gray-500">{line.unit_cost || '—'}</td>

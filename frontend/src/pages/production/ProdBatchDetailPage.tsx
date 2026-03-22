@@ -1,18 +1,25 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { prodBatchesApi, prodProductsApi } from '@/api/production';
 import { cookingLogsApi } from '@/api/cooking-logs';
-import { invLocationsApi } from '@/api/inventory';
+import { coolingLogsApi } from '@/api/cooling-logs';
+import { assemblyLogsApi } from '@/api/assembly-logs';
+import { invLocationsApi, invItemsApi } from '@/api/inventory';
 import {
   ProdBatch, ProdFormingTrolley, ProdFormingTrolleyCreate,
+  ProdHotInput, ProdHotInputCreate,
   FormingTotals, HotProcessBalance,
 } from '@/types/production';
 import { CookingLog } from '@/types/cooking-log';
+import { CoolingLog } from '@/types/cooling-log';
+import { AssemblyPackingLog, AssemblyPackingLogCreate } from '@/types/assembly-log';
 import { InvLocation } from '@/types/inventory';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import Bi, { bi } from '@/components/Bi';
+import DateTimeInput from '@/components/DateTimeInput';
+import { toMelbourneInput, nowMelbourne, melbourneToUTC, formatMelbourne } from '@/utils/timezone';
 
 const num = (v: any): number => (v == null ? 0 : Number(v));
 
@@ -69,6 +76,33 @@ export default function ProdBatchDetailPage() {
   const [inputWeightSaving, setInputWeightSaving] = useState(false);
   const [hotBalance, setHotBalance] = useState<HotProcessBalance | null>(null);
   const [cookingLogs, setCookingLogs] = useState<CookingLog[]>([]);
+  const [coolingLogs, setCoolingLogs] = useState<CoolingLog[]>([]);
+
+  // Hot inputs (multiple entries)
+  const [showHotInputForm, setShowHotInputForm] = useState(false);
+  const [hotInputWeight, setHotInputWeight] = useState('');
+  const [hotInputNotes, setHotInputNotes] = useState('');
+  const [hotInputSaving, setHotInputSaving] = useState(false);
+
+  // Assembly packing logs (forming)
+  const [assemblyLogs, setAssemblyLogs] = useState<AssemblyPackingLog[]>([]);
+  const [showAssemblyForm, setShowAssemblyForm] = useState(false);
+  const [editingAssemblyId, setEditingAssemblyId] = useState<number | null>(null);
+  const [assemblySaving, setAssemblySaving] = useState(false);
+  const [assemblyForm, setAssemblyForm] = useState<Omit<AssemblyPackingLogCreate, 'prod_batch_id'>>({
+    is_allergen_declared: false,
+    is_date_code_correct: undefined,
+    target_weight_g: undefined,
+    sample_1_g: undefined,
+    sample_2_g: undefined,
+    sample_3_g: undefined,
+    sample_4_g: undefined,
+    sample_5_g: undefined,
+    seal_integrity: undefined,
+    coding_legibility: undefined,
+    corrective_action: undefined,
+    notes: undefined,
+  });
 
   // Enter stock modal
   const [showEnterStockModal, setShowEnterStockModal] = useState(false);
@@ -86,8 +120,8 @@ export default function ProdBatchDetailPage() {
         prodProductsApi.formingOptions(),
       ]);
       setBatch(data);
-      setEditStartTime(data.start_time ? data.start_time.slice(0, 16) : '');
-      setEditEndTime(data.end_time ? data.end_time.slice(0, 16) : '');
+      setEditStartTime(data.start_time ? toMelbourneInput(data.start_time) : nowMelbourne());
+      setEditEndTime(data.end_time ? toMelbourneInput(data.end_time) : '');
       setEditOperator(data.operator || '');
       setEditSupervisor(data.supervisor || '');
       setEditInputWeight(data.input_weight_kg ?? '');
@@ -124,23 +158,44 @@ export default function ProdBatchDetailPage() {
     } catch { /* ignore */ }
   }, [id]);
 
+  const fetchCoolingLogs = useCallback(async () => {
+    if (!id) return;
+    try {
+      const res = await coolingLogsApi.list({ prod_batch_id: Number(id), limit: 100 });
+      setCoolingLogs(res.items);
+    } catch { /* ignore */ }
+  }, [id]);
+
+  const fetchAssemblyLogs = useCallback(async () => {
+    if (!id) return;
+    try {
+      const res = await assemblyLogsApi.list({ prod_batch_id: Number(id), limit: 100 });
+      setAssemblyLogs(res.items);
+    } catch { /* ignore */ }
+  }, [id]);
+
   useEffect(() => { fetchBatch(); }, [fetchBatch]);
 
   useEffect(() => {
-    if (productType === 'forming') fetchFormingTotals();
+    if (productType === 'forming') {
+      fetchFormingTotals();
+      fetchAssemblyLogs();
+    }
     if (productType === 'hot_process') {
       fetchHotBalance();
       fetchCookingLogs();
+      fetchCoolingLogs();
+      fetchAssemblyLogs();
     }
-  }, [productType, fetchFormingTotals, fetchHotBalance, fetchCookingLogs]);
+  }, [productType, fetchFormingTotals, fetchHotBalance, fetchCookingLogs, fetchCoolingLogs, fetchAssemblyLogs]);
 
   const handleSaveHeader = async () => {
     if (!batch) return;
     setHeaderSaving(true);
     try {
       const updated = await prodBatchesApi.update(batch.id, {
-        start_time: editStartTime || undefined,
-        end_time: editEndTime || undefined,
+        start_time: editStartTime ? melbourneToUTC(editStartTime) : undefined,
+        end_time: editEndTime ? melbourneToUTC(editEndTime) : undefined,
         operator: editOperator || undefined,
         supervisor: editSupervisor || undefined,
       });
@@ -165,6 +220,38 @@ export default function ProdBatchDetailPage() {
       setError(err?.response?.data?.detail || bi('error.updateFailed'));
     } finally {
       setInputWeightSaving(false);
+    }
+  };
+
+  const handleAddHotInput = async () => {
+    if (!batch || !hotInputWeight) return;
+    setHotInputSaving(true);
+    try {
+      await prodBatchesApi.addHotInput(batch.id, {
+        weight_kg: hotInputWeight,
+        notes: hotInputNotes || undefined,
+      } as ProdHotInputCreate);
+      setShowHotInputForm(false);
+      setHotInputWeight('');
+      setHotInputNotes('');
+      await fetchBatch();
+      await fetchHotBalance();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || bi('error.saveFailed'));
+    } finally {
+      setHotInputSaving(false);
+    }
+  };
+
+  const handleRemoveHotInput = async (inputId: number) => {
+    if (!batch) return;
+    if (!confirm('確定要刪除此投料記錄？')) return;
+    try {
+      await prodBatchesApi.removeHotInput(batch.id, inputId);
+      await fetchBatch();
+      await fetchHotBalance();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || bi('error.deleteFailed'));
     }
   };
 
@@ -200,11 +287,50 @@ export default function ProdBatchDetailPage() {
     }
   };
 
+  const handleSaveAssembly = async () => {
+    if (!batch) return;
+    setAssemblySaving(true);
+    try {
+      if (editingAssemblyId !== null) {
+        await assemblyLogsApi.update(editingAssemblyId, assemblyForm);
+      } else {
+        await assemblyLogsApi.create({ ...assemblyForm, prod_batch_id: batch.id });
+      }
+      setShowAssemblyForm(false);
+      setEditingAssemblyId(null);
+      setAssemblyForm({
+        is_allergen_declared: false, is_date_code_correct: undefined,
+        target_weight_g: undefined, sample_1_g: undefined, sample_2_g: undefined,
+        sample_3_g: undefined, sample_4_g: undefined, sample_5_g: undefined,
+        seal_integrity: undefined, coding_legibility: undefined,
+        corrective_action: undefined, notes: undefined,
+      });
+      await fetchAssemblyLogs();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || bi('error.saveFailed'));
+    } finally {
+      setAssemblySaving(false);
+    }
+  };
+
   const openEnterStockModal = async () => {
     try {
-      const res = await invLocationsApi.list({ is_active: true, limit: 100 });
-      setLocations(res.items);
-      setSelectedLocationId(res.items[0]?.id ?? null);
+      const [locsRes, prodsRes] = await Promise.all([
+        invLocationsApi.list({ is_active: true, limit: 100 }),
+        prodProductsApi.list({ search: batch?.product_code, limit: 5 }),
+      ]);
+      const product = prodsRes.items.find((p) => p.code === batch?.product_code);
+      let filteredLocs = locsRes.items;
+      // For hot_process batches, filter locations by the item's allowed_location_ids if set
+      if (productType === 'hot_process' && product?.inv_item_id) {
+        const invItem = await invItemsApi.get(product.inv_item_id);
+        if (invItem.allowed_location_ids?.length) {
+          filteredLocs = locsRes.items.filter((l) => invItem.allowed_location_ids.includes(l.id));
+        }
+      }
+      // For forming batches, show all active locations (multi-product lines, no single item filter)
+      setLocations(filteredLocs);
+      setSelectedLocationId(filteredLocs[0]?.id ?? null);
       setShowEnterStockModal(true);
     } catch {
       setError(bi('error.loadFailed'));
@@ -231,7 +357,7 @@ export default function ProdBatchDetailPage() {
   if (!batch) return <ErrorCard message={bi('error.loadFailed')} />;
 
   const isHot = productType === 'hot_process';
-  const canEnterStock = isHot && batch.status === 'closed' && !batch.inv_stock_doc_id;
+  const canEnterStock = batch.status === 'closed' && !batch.inv_stock_doc_id;
 
   return (
     <div className="space-y-6">
@@ -282,11 +408,11 @@ export default function ProdBatchDetailPage() {
           </div>
           <div>
             <p className="text-xs text-gray-400"><Bi k="field.startTime" /></p>
-            <p className="font-medium text-gray-700">{batch.start_time || '—'}</p>
+            <p className="font-medium text-gray-700">{batch.start_time ? formatMelbourne(batch.start_time, { year: 'numeric' }) : '—'}</p>
           </div>
           <div>
             <p className="text-xs text-gray-400"><Bi k="field.endTime" /></p>
-            <p className="font-medium text-gray-700">{batch.end_time || '—'}</p>
+            <p className="font-medium text-gray-700">{batch.end_time ? formatMelbourne(batch.end_time, { year: 'numeric' }) : '—'}</p>
           </div>
           {isHot && (
             <div>
@@ -304,13 +430,11 @@ export default function ProdBatchDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label text-xs"><Bi k="field.startTime" /></label>
-              <input type="datetime-local" value={editStartTime}
-                onChange={(e) => setEditStartTime(e.target.value)} className="input" />
+              <DateTimeInput value={editStartTime} onChange={setEditStartTime} />
             </div>
             <div>
               <label className="label text-xs"><Bi k="field.endTime" /></label>
-              <input type="datetime-local" value={editEndTime}
-                onChange={(e) => setEditEndTime(e.target.value)} className="input" />
+              <DateTimeInput value={editEndTime} onChange={setEditEndTime} />
             </div>
             <div>
               <label className="label text-xs"><Bi k="field.operator" /></label>
@@ -336,26 +460,95 @@ export default function ProdBatchDetailPage() {
       {/* ── HOT PROCESS SECTIONS ── */}
       {isHot && (
         <>
-          {/* Input weight card */}
-          <div className="card space-y-3">
-            <h2 className="text-lg font-semibold text-gray-800"><Bi k="field.inputWeight" /></h2>
-            <div className="flex items-end gap-3">
-              <div className="flex-1 max-w-xs">
-                <label className="label text-xs"><Bi k="field.inputWeight" /></label>
-                <input
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  value={editInputWeight}
-                  onChange={(e) => setEditInputWeight(e.target.value)}
-                  className="input"
-                  placeholder="0.000"
-                />
-              </div>
-              <button onClick={handleSaveInputWeight} disabled={inputWeightSaving} className="btn btn-primary">
-                {inputWeightSaving ? <Bi k="btn.saving" /> : <Bi k="btn.save" />}
-              </button>
+          {/* Hot inputs (投料) */}
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800">投料記錄 Hot Inputs</h2>
+              {batch.status === 'open' && !showHotInputForm && (
+                <button
+                  onClick={() => setShowHotInputForm(true)}
+                  className="btn btn-secondary text-sm flex items-center gap-1"
+                >
+                  <PlusIcon className="h-4 w-4" />新增投料
+                </button>
+              )}
             </div>
+
+            {(batch.hot_inputs || []).length === 0 && !showHotInputForm && (
+              <p className="text-sm text-gray-400 italic">尚無投料記錄</p>
+            )}
+
+            {(batch.hot_inputs || []).length > 0 && (
+              <div className="space-y-2">
+                {(batch.hot_inputs || []).map((inp: ProdHotInput) => {
+                  const subCode = `${batch.batch_code}-${inp.seq}`;
+                  const params = new URLSearchParams({
+                    prod_batch_id: String(batch.id),
+                    batch_code: subCode,
+                    hot_input_id: String(inp.id),
+                  });
+                  if (batch.start_time) params.set('start_time', batch.start_time);
+                  return (
+                    <div key={inp.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 text-sm">
+                      <div>
+                        <span className="font-medium text-gray-800">#{inp.seq} · {num(inp.weight_kg).toFixed(3)} kg</span>
+                        {inp.notes && <span className="ml-2 text-gray-400 text-xs">{inp.notes}</span>}
+                        <span className="ml-2 text-gray-400 text-xs">{subCode}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => navigate(`/cooking-logs/new?${params.toString()}`)}
+                          className="btn btn-secondary text-xs py-1 px-2"
+                        >+烹煮</button>
+                        <button
+                          onClick={() => navigate(`/cooling-logs/new?${params.toString()}`)}
+                          className="btn btn-secondary text-xs py-1 px-2"
+                        >+冷卻</button>
+                        {batch.status === 'open' && (
+                          <button onClick={() => handleRemoveHotInput(inp.id)} className="p-1 rounded hover:bg-red-50">
+                            <TrashIcon className="h-4 w-4 text-red-400" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {showHotInputForm && (
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700">新增投料</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label text-xs">投料量 (kg)</label>
+                    <input
+                      type="number" step="0.001" min="0"
+                      value={hotInputWeight}
+                      onChange={(e) => setHotInputWeight(e.target.value)}
+                      className="input" placeholder="0.000" required
+                    />
+                  </div>
+                  <div>
+                    <label className="label text-xs"><Bi k="field.notes" /></label>
+                    <input
+                      type="text"
+                      value={hotInputNotes}
+                      onChange={(e) => setHotInputNotes(e.target.value)}
+                      className="input" placeholder="備註（可選）"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => { setShowHotInputForm(false); setHotInputWeight(''); setHotInputNotes(''); }} className="btn btn-secondary text-sm">
+                    <Bi k="btn.cancel" />
+                  </button>
+                  <button type="button" onClick={handleAddHotInput} disabled={hotInputSaving || !hotInputWeight} className="btn btn-primary text-sm">
+                    {hotInputSaving ? <Bi k="btn.saving" /> : <Bi k="btn.add" />}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Cooking logs section */}
@@ -363,7 +556,11 @@ export default function ProdBatchDetailPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-800"><Bi k="section.cookingLogs" /></h2>
               <button
-                onClick={() => navigate(`/cooking-logs/new?prod_batch_id=${batch.id}&batch_code=${encodeURIComponent(batch.batch_code)}`)}
+                onClick={() => {
+                  const params = new URLSearchParams({ prod_batch_id: String(batch.id), batch_code: batch.batch_code });
+                  if (batch.start_time) params.set('start_time', batch.start_time);
+                  navigate(`/cooking-logs/new?${params.toString()}`);
+                }}
                 className="btn btn-secondary text-sm flex items-center gap-1"
               >
                 <PlusIcon className="h-4 w-4" /><Bi k="btn.addCookingLog" />
@@ -373,28 +570,236 @@ export default function ProdBatchDetailPage() {
               <p className="text-sm text-gray-400 italic">—</p>
             ) : (
               <div className="space-y-2">
-                {cookingLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer"
-                    onClick={() => navigate(`/cooking-logs/${log.id}`)}
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">{log.batch_id}</p>
-                      <p className="text-xs text-gray-500">{log.start_time.replace('T', ' ').slice(0, 16)}</p>
+                {cookingLogs.map((log) => {
+                  const linkedInput = log.hot_input_id ? (batch.hot_inputs || []).find((i: ProdHotInput) => i.id === log.hot_input_id) : null;
+                  return (
+                    <div
+                      key={log.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => navigate(`/cooking-logs/${log.id}`)}
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{log.batch_id}</p>
+                        <p className="text-xs text-gray-500">
+                          {formatMelbourne(log.start_time)}
+                          {linkedInput && <span className="ml-2 text-orange-600">投料#{linkedInput.seq}</span>}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {log.core_temp && (
+                          <span className="text-sm text-gray-600">{log.core_temp}°C</span>
+                        )}
+                        {log.ccp_status && (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ccpColors[log.ccp_status] || ''}`}>
+                            {log.ccp_status}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {log.core_temp && (
-                        <span className="text-sm text-gray-600">{log.core_temp}°C</span>
-                      )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Cooling logs section */}
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800">冷卻紀錄 Cooling Logs</h2>
+              <button
+                onClick={() => navigate(`/cooling-logs/new?prod_batch_id=${batch.id}&batch_id=${encodeURIComponent(batch.batch_code)}`)}
+                className="btn btn-secondary text-sm flex items-center gap-1"
+              >
+                <PlusIcon className="h-4 w-4" />新增冷卻
+              </button>
+            </div>
+            {coolingLogs.length === 0 ? (
+              <p className="text-sm text-gray-400 italic">—</p>
+            ) : (
+              <div className="space-y-2">
+                {coolingLogs.map((log) => {
+                  const linkedInput = log.hot_input_id ? (batch.hot_inputs || []).find((i: ProdHotInput) => i.id === log.hot_input_id) : null;
+                  return (
+                    <div
+                      key={log.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => navigate(`/cooling-logs/${log.id}`)}
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{log.batch_id}</p>
+                        <p className="text-xs text-gray-500">
+                          {formatMelbourne(log.start_time)}
+                          {log.start_temp && ` · 起始 ${log.start_temp}°C`}
+                          {log.end_temp && ` → 終止 ${log.end_temp}°C`}
+                          {linkedInput && <span className="ml-2 text-orange-600">投料#{linkedInput.seq}</span>}
+                        </p>
+                      </div>
                       {log.ccp_status && (
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ccpColors[log.ccp_status] || ''}`}>
                           {log.ccp_status}
                         </span>
                       )}
                     </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Assembly packing logs section (hot process) */}
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800">組裝包裝紀錄 Assembly & Packing</h2>
+              {!showAssemblyForm && (
+                <button
+                  onClick={() => { setEditingAssemblyId(null); setShowAssemblyForm(true); }}
+                  className="btn btn-secondary text-sm flex items-center gap-1"
+                >
+                  <PlusIcon className="h-4 w-4" />新增紀錄
+                </button>
+              )}
+            </div>
+
+            {assemblyLogs.length === 0 && !showAssemblyForm ? (
+              <p className="text-sm text-gray-400 italic">—</p>
+            ) : (
+              <div className="space-y-2">
+                {assemblyLogs.map((log) => (
+                  <div key={log.id} className={`flex items-center justify-between p-3 rounded-lg bg-gray-50 ${log.is_voided ? 'opacity-50' : ''}`}>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${log.is_allergen_declared ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          過敏原 {log.is_allergen_declared ? '✓' : '✗'}
+                        </span>
+                        {log.seal_integrity && (
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${log.seal_integrity === 'Pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            封口 {log.seal_integrity}
+                          </span>
+                        )}
+                        {log.average_weight_g && (
+                          <span className="text-xs text-gray-600">平均重量 {log.average_weight_g}g</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">{formatMelbourne(log.created_at)} · {log.operator_name}</p>
+                    </div>
+                    {!log.is_locked && !log.is_voided && (
+                      <button
+                        onClick={() => {
+                          setEditingAssemblyId(log.id);
+                          setAssemblyForm({
+                            is_allergen_declared: log.is_allergen_declared,
+                            is_date_code_correct: log.is_date_code_correct ?? undefined,
+                            target_weight_g: log.target_weight_g ?? undefined,
+                            sample_1_g: log.sample_1_g ?? undefined,
+                            sample_2_g: log.sample_2_g ?? undefined,
+                            sample_3_g: log.sample_3_g ?? undefined,
+                            sample_4_g: log.sample_4_g ?? undefined,
+                            sample_5_g: log.sample_5_g ?? undefined,
+                            seal_integrity: log.seal_integrity ?? undefined,
+                            coding_legibility: log.coding_legibility ?? undefined,
+                            corrective_action: log.corrective_action ?? undefined,
+                            notes: log.notes ?? undefined,
+                          });
+                          setShowAssemblyForm(true);
+                        }}
+                        className="p-1 rounded hover:bg-gray-200 ml-2"
+                      >
+                        <PencilIcon className="h-4 w-4 text-gray-400" />
+                      </button>
+                    )}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {showAssemblyForm && (
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700">
+                  {editingAssemblyId ? '編輯紀錄' : '新增組裝包裝紀錄'}
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="col-span-2 sm:col-span-3">
+                    <label className="label text-xs">過敏原聲明 Allergen Declared *</label>
+                    <div className="flex gap-3 mt-1">
+                      {[true, false].map((val) => (
+                        <label key={String(val)} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                          <input
+                            type="radio"
+                            checked={assemblyForm.is_allergen_declared === val}
+                            onChange={() => setAssemblyForm({ ...assemblyForm, is_allergen_declared: val })}
+                          />
+                          {val ? '已聲明 ✓' : '未聲明 ✗'}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label text-xs">日期碼正確 Date Code</label>
+                    <select
+                      value={assemblyForm.is_date_code_correct === undefined ? '' : String(assemblyForm.is_date_code_correct)}
+                      onChange={(e) => setAssemblyForm({ ...assemblyForm, is_date_code_correct: e.target.value === '' ? undefined : e.target.value === 'true' })}
+                      className="input"
+                    >
+                      <option value="">—</option>
+                      <option value="true">正確 ✓</option>
+                      <option value="false">錯誤 ✗</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label text-xs">封口完整性 Seal</label>
+                    <select
+                      value={assemblyForm.seal_integrity || ''}
+                      onChange={(e) => setAssemblyForm({ ...assemblyForm, seal_integrity: e.target.value || undefined })}
+                      className="input"
+                    >
+                      <option value="">—</option>
+                      <option value="Pass">Pass</option>
+                      <option value="Fail">Fail</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label text-xs">編碼清晰度 Coding</label>
+                    <select
+                      value={assemblyForm.coding_legibility || ''}
+                      onChange={(e) => setAssemblyForm({ ...assemblyForm, coding_legibility: e.target.value || undefined })}
+                      className="input"
+                    >
+                      <option value="">—</option>
+                      <option value="Pass">Pass</option>
+                      <option value="Fail">Fail</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label text-xs">目標重量 Target (g)</label>
+                    <input type="number" step="0.01" min="0" value={assemblyForm.target_weight_g || ''}
+                      onChange={(e) => setAssemblyForm({ ...assemblyForm, target_weight_g: e.target.value || undefined })}
+                      className="input" placeholder="0.00" />
+                  </div>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <div key={n}>
+                      <label className="label text-xs">樣本 {n} (g)</label>
+                      <input type="number" step="0.01" min="0"
+                        value={(assemblyForm as any)[`sample_${n}_g`] || ''}
+                        onChange={(e) => setAssemblyForm({ ...assemblyForm, [`sample_${n}_g`]: e.target.value || undefined })}
+                        className="input" placeholder="0.00" />
+                    </div>
+                  ))}
+                  <div className="col-span-2 sm:col-span-3">
+                    <label className="label text-xs">糾正措施 Corrective Action</label>
+                    <textarea
+                      value={assemblyForm.corrective_action || ''}
+                      onChange={(e) => setAssemblyForm({ ...assemblyForm, corrective_action: e.target.value || undefined })}
+                      className="input" rows={2} />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => { setShowAssemblyForm(false); setEditingAssemblyId(null); }} className="btn btn-secondary text-sm">
+                    <Bi k="btn.cancel" />
+                  </button>
+                  <button type="button" onClick={handleSaveAssembly} disabled={assemblySaving} className="btn btn-primary text-sm">
+                    {assemblySaving ? <Bi k="btn.saving" /> : <Bi k="btn.save" />}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -561,6 +966,166 @@ export default function ProdBatchDetailPage() {
             )}
           </div>
 
+          {/* Assembly packing logs section */}
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800">組裝包裝紀錄 Assembly & Packing</h2>
+              {!showAssemblyForm && (
+                <button
+                  onClick={() => { setEditingAssemblyId(null); setShowAssemblyForm(true); }}
+                  className="btn btn-secondary text-sm flex items-center gap-1"
+                >
+                  <PlusIcon className="h-4 w-4" />新增紀錄
+                </button>
+              )}
+            </div>
+
+            {/* Assembly log list */}
+            {assemblyLogs.length === 0 && !showAssemblyForm ? (
+              <p className="text-sm text-gray-400 italic">—</p>
+            ) : (
+              <div className="space-y-2">
+                {assemblyLogs.map((log) => (
+                  <div key={log.id} className={`flex items-center justify-between p-3 rounded-lg bg-gray-50 ${log.is_voided ? 'opacity-50' : ''}`}>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${log.is_allergen_declared ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          過敏原 {log.is_allergen_declared ? '✓' : '✗'}
+                        </span>
+                        {log.seal_integrity && (
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${log.seal_integrity === 'Pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            封口 {log.seal_integrity}
+                          </span>
+                        )}
+                        {log.average_weight_g && (
+                          <span className="text-xs text-gray-600">平均重量 {log.average_weight_g}g</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">{formatMelbourne(log.created_at)} · {log.operator_name}</p>
+                    </div>
+                    {!log.is_locked && !log.is_voided && (
+                      <button
+                        onClick={() => {
+                          setEditingAssemblyId(log.id);
+                          setAssemblyForm({
+                            is_allergen_declared: log.is_allergen_declared,
+                            is_date_code_correct: log.is_date_code_correct ?? undefined,
+                            target_weight_g: log.target_weight_g ?? undefined,
+                            sample_1_g: log.sample_1_g ?? undefined,
+                            sample_2_g: log.sample_2_g ?? undefined,
+                            sample_3_g: log.sample_3_g ?? undefined,
+                            sample_4_g: log.sample_4_g ?? undefined,
+                            sample_5_g: log.sample_5_g ?? undefined,
+                            seal_integrity: log.seal_integrity ?? undefined,
+                            coding_legibility: log.coding_legibility ?? undefined,
+                            corrective_action: log.corrective_action ?? undefined,
+                            notes: log.notes ?? undefined,
+                          });
+                          setShowAssemblyForm(true);
+                        }}
+                        className="p-1 rounded hover:bg-gray-200 ml-2"
+                      >
+                        <PencilIcon className="h-4 w-4 text-gray-400" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Inline assembly form */}
+            {showAssemblyForm && (
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700">
+                  {editingAssemblyId ? '編輯紀錄' : '新增組裝包裝紀錄'}
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="col-span-2 sm:col-span-3">
+                    <label className="label text-xs">過敏原聲明 Allergen Declared *</label>
+                    <div className="flex gap-3 mt-1">
+                      {[true, false].map((val) => (
+                        <label key={String(val)} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                          <input
+                            type="radio"
+                            checked={assemblyForm.is_allergen_declared === val}
+                            onChange={() => setAssemblyForm({ ...assemblyForm, is_allergen_declared: val })}
+                          />
+                          {val ? '已聲明 ✓' : '未聲明 ✗'}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label text-xs">日期碼正確 Date Code</label>
+                    <select
+                      value={assemblyForm.is_date_code_correct === undefined ? '' : String(assemblyForm.is_date_code_correct)}
+                      onChange={(e) => setAssemblyForm({ ...assemblyForm, is_date_code_correct: e.target.value === '' ? undefined : e.target.value === 'true' })}
+                      className="input"
+                    >
+                      <option value="">—</option>
+                      <option value="true">正確 ✓</option>
+                      <option value="false">錯誤 ✗</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label text-xs">封口完整性 Seal</label>
+                    <select
+                      value={assemblyForm.seal_integrity || ''}
+                      onChange={(e) => setAssemblyForm({ ...assemblyForm, seal_integrity: e.target.value || undefined })}
+                      className="input"
+                    >
+                      <option value="">—</option>
+                      <option value="Pass">Pass</option>
+                      <option value="Fail">Fail</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label text-xs">編碼清晰度 Coding</label>
+                    <select
+                      value={assemblyForm.coding_legibility || ''}
+                      onChange={(e) => setAssemblyForm({ ...assemblyForm, coding_legibility: e.target.value || undefined })}
+                      className="input"
+                    >
+                      <option value="">—</option>
+                      <option value="Pass">Pass</option>
+                      <option value="Fail">Fail</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label text-xs">目標重量 Target (g)</label>
+                    <input type="number" step="0.01" min="0" value={assemblyForm.target_weight_g || ''}
+                      onChange={(e) => setAssemblyForm({ ...assemblyForm, target_weight_g: e.target.value || undefined })}
+                      className="input" placeholder="0.00" />
+                  </div>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <div key={n}>
+                      <label className="label text-xs">樣本 {n} (g)</label>
+                      <input type="number" step="0.01" min="0"
+                        value={(assemblyForm as any)[`sample_${n}_g`] || ''}
+                        onChange={(e) => setAssemblyForm({ ...assemblyForm, [`sample_${n}_g`]: e.target.value || undefined })}
+                        className="input" placeholder="0.00" />
+                    </div>
+                  ))}
+                  <div className="col-span-2 sm:col-span-3">
+                    <label className="label text-xs">糾正措施 Corrective Action</label>
+                    <textarea
+                      value={assemblyForm.corrective_action || ''}
+                      onChange={(e) => setAssemblyForm({ ...assemblyForm, corrective_action: e.target.value || undefined })}
+                      className="input" rows={2} />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => { setShowAssemblyForm(false); setEditingAssemblyId(null); }} className="btn btn-secondary text-sm">
+                    <Bi k="btn.cancel" />
+                  </button>
+                  <button type="button" onClick={handleSaveAssembly} disabled={assemblySaving} className="btn btn-primary text-sm">
+                    {assemblySaving ? <Bi k="btn.saving" /> : <Bi k="btn.save" />}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Forming Totals */}
           {formingTotals && (
             <div className="card">
@@ -604,9 +1169,9 @@ export default function ProdBatchDetailPage() {
             <Bi k="btn.enterStock" />
           </button>
         )}
-        {isHot && batch.inv_stock_doc_id && (
+        {batch.inv_stock_doc_id && (
           <button
-            onClick={() => navigate(`/inventory/stock-docs/${batch.inv_stock_doc_id}`)}
+            onClick={() => navigate(`/inventory/docs/${batch.inv_stock_doc_id}`)}
             className="btn btn-secondary"
           >
             <Bi k="btn.viewStockDoc" />

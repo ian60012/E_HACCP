@@ -19,7 +19,6 @@ from app.core.database import engine
 # Router imports
 from app.routers.api.v1 import auth
 from app.routers.api.v1 import users
-from app.routers.api.v1 import products
 from app.routers.api.v1 import suppliers
 from app.routers.api.v1 import equipment
 from app.routers.api.v1 import areas
@@ -27,7 +26,6 @@ from app.routers.api.v1 import cooking_logs
 from app.routers.api.v1 import receiving_logs
 from app.routers.api.v1 import cooling_logs
 from app.routers.api.v1 import sanitising_logs
-from app.routers.api.v1 import assembly_packing_logs
 from app.routers.api.v1 import deviation_logs
 from app.routers.api.v1 import inventory_items
 from app.routers.api.v1 import inventory_locations
@@ -37,6 +35,7 @@ from app.routers.api.v1 import production_products
 from app.routers.api.v1 import production_pack_types
 from app.routers.api.v1 import production_batches
 from app.routers.api.v1 import production_repack
+from app.routers.api.v1 import assembly_packing_logs
 
 
 @asynccontextmanager
@@ -349,15 +348,92 @@ async def lifespan(app: FastAPI):
             ) AS v(code, name, item_code)
             WHERE NOT EXISTS (SELECT 1 FROM prod_products WHERE prod_products.code = v.code)
         """))
-        # Seed HACCP products for hot-process items (needed for cooking log CCP monitoring)
+        # ----- Assembly packing logs -----
+        # Drop old table if it has old schema (product_id column), then recreate
         await conn.execute(text("""
-            INSERT INTO products (name, ccp_limit_temp, is_active)
-            SELECT v.name, 75.00, TRUE
-            FROM (VALUES
-                ('豬肚'), ('雞肉塊'), ('牛肉粒'), ('牛湯骨'), ('肥腸')
-            ) AS v(name)
-            WHERE NOT EXISTS (SELECT 1 FROM products WHERE products.name = v.name)
+            DO $$ BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'assembly_packing_logs' AND column_name = 'product_id'
+                ) THEN
+                    DROP TABLE assembly_packing_logs CASCADE;
+                END IF;
+            END $$
         """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS assembly_packing_logs (
+                id                   SERIAL PRIMARY KEY,
+                prod_batch_id        INTEGER NOT NULL REFERENCES prod_batches(id) ON DELETE CASCADE,
+                is_allergen_declared BOOLEAN NOT NULL,
+                is_date_code_correct BOOLEAN,
+                label_photo_path     VARCHAR(500),
+                target_weight_g      NUMERIC(8,2),
+                sample_1_g           NUMERIC(8,2),
+                sample_2_g           NUMERIC(8,2),
+                sample_3_g           NUMERIC(8,2),
+                sample_4_g           NUMERIC(8,2),
+                sample_5_g           NUMERIC(8,2),
+                average_weight_g     NUMERIC(8,2) GENERATED ALWAYS AS (
+                    CASE WHEN sample_1_g IS NOT NULL AND sample_2_g IS NOT NULL
+                         AND sample_3_g IS NOT NULL AND sample_4_g IS NOT NULL
+                         AND sample_5_g IS NOT NULL
+                    THEN (sample_1_g+sample_2_g+sample_3_g+sample_4_g+sample_5_g)/5.0
+                    ELSE NULL END
+                ) STORED,
+                seal_integrity       pass_fail_enum,
+                coding_legibility    pass_fail_enum,
+                corrective_action    TEXT,
+                notes                TEXT,
+                operator_id          INTEGER NOT NULL REFERENCES users(id),
+                verified_by          INTEGER REFERENCES users(id),
+                is_locked            BOOLEAN NOT NULL DEFAULT FALSE,
+                is_voided            BOOLEAN NOT NULL DEFAULT FALSE,
+                void_reason          TEXT,
+                voided_at            TIMESTAMPTZ,
+                voided_by            INTEGER REFERENCES users(id),
+                created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        # ALCOA+ triggers for assembly_packing_logs
+        await conn.execute(text("""
+            CREATE OR REPLACE TRIGGER trg_prevent_delete_assembly_packing_logs
+                BEFORE DELETE ON assembly_packing_logs FOR EACH ROW
+                EXECUTE FUNCTION prevent_log_delete()
+        """))
+        await conn.execute(text("""
+            CREATE OR REPLACE TRIGGER trg_prevent_locked_mod_assembly_packing_logs
+                BEFORE UPDATE ON assembly_packing_logs FOR EACH ROW
+                EXECUTE FUNCTION prevent_locked_modification()
+        """))
+        # cooling_logs: add prod_batch_id FK
+        await conn.execute(text(
+            "ALTER TABLE cooling_logs ADD COLUMN IF NOT EXISTS "
+            "prod_batch_id INTEGER REFERENCES prod_batches(id) ON DELETE SET NULL"
+        ))
+        # prod_hot_inputs: multiple input entries per hot-process batch
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_hot_inputs (
+                id            SERIAL PRIMARY KEY,
+                prod_batch_id INTEGER NOT NULL REFERENCES prod_batches(id) ON DELETE CASCADE,
+                seq           INTEGER NOT NULL,
+                weight_kg     NUMERIC(12,3) NOT NULL CHECK (weight_kg > 0),
+                notes         TEXT,
+                created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_hot_input_batch_seq UNIQUE (prod_batch_id, seq)
+            )
+        """))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_prod_hot_inputs_batch ON prod_hot_inputs(prod_batch_id)"
+        ))
+        # Link cooking/cooling logs to a specific hot input entry
+        await conn.execute(text(
+            "ALTER TABLE cooking_logs ADD COLUMN IF NOT EXISTS "
+            "hot_input_id INTEGER REFERENCES prod_hot_inputs(id) ON DELETE SET NULL"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE cooling_logs ADD COLUMN IF NOT EXISTS "
+            "hot_input_id INTEGER REFERENCES prod_hot_inputs(id) ON DELETE SET NULL"
+        ))
     yield
     # Shutdown: Close database connections
     await engine.dispose()
@@ -388,7 +464,6 @@ app.include_router(auth.router, prefix="/api/v1")
 
 # Reference tables
 app.include_router(users.router, prefix="/api/v1")
-app.include_router(products.router, prefix="/api/v1")
 app.include_router(suppliers.router, prefix="/api/v1")
 app.include_router(equipment.router, prefix="/api/v1")
 app.include_router(areas.router, prefix="/api/v1")
@@ -398,7 +473,6 @@ app.include_router(cooking_logs.router, prefix="/api/v1")
 app.include_router(receiving_logs.router, prefix="/api/v1")
 app.include_router(cooling_logs.router, prefix="/api/v1")
 app.include_router(sanitising_logs.router, prefix="/api/v1")
-app.include_router(assembly_packing_logs.router, prefix="/api/v1")
 app.include_router(deviation_logs.router, prefix="/api/v1")
 
 # Inventory module
@@ -412,6 +486,9 @@ app.include_router(production_products.router, prefix="/api/v1")
 app.include_router(production_pack_types.router, prefix="/api/v1")
 app.include_router(production_batches.router, prefix="/api/v1")
 app.include_router(production_repack.router, prefix="/api/v1")
+
+# Assembly & Packing logs (forming batch food safety)
+app.include_router(assembly_packing_logs.router, prefix="/api/v1")
 
 
 @app.get("/")

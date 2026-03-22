@@ -683,14 +683,12 @@ const labels: Record<string, BiLabelType> = {
   'field.lossRate': { zh: '耗損率', en: 'Loss Rate' },
   'section.cookingLogs': { zh: '烹煮記錄', en: 'Cooking Records' },
   'btn.enterStock': { zh: '入庫', en: 'Enter Stock' },
-  'btn.viewStockDoc': { zh: '查看入庫單', en: 'View Stock Doc' },
   'btn.addCookingLog': { zh: '新增烹煮記錄', en: 'Add Cooking Record' },
   'label.hotProcess': { zh: '熱加工', en: 'Hot Process' },
   'label.forming': { zh: '成型', en: 'Forming' },
   'field.prodBatch': { zh: '生產批次', en: 'Production Batch' },
   'confirm.enterStock': { zh: '確認入庫？入庫後無法撤銷', en: 'Confirm entry? Cannot undo.' },
   'msg.stockEntered': { zh: '已入庫', en: 'Stock Entered' },
-  'placeholder.selectLocation': { zh: '選擇儲位', en: 'Select Location' },
   'field.packTypeBulk': { zh: '散裝 (KG)', en: 'Bulk KG' },
 };
 

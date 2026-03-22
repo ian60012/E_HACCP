@@ -126,6 +126,7 @@ class ProdFormingTrolleyResponse(BaseModel):
 class ProdPackingRecordCreate(BaseModel):
     pack_type: str = Field(..., max_length=20)
     product_id: Optional[int] = None
+    inv_item_id: Optional[int] = None
     bag_count: int
     nominal_weight_kg: Decimal
     remark: Optional[str] = None
@@ -139,6 +140,8 @@ class ProdPackingRecordResponse(BaseModel):
     pack_type: str
     product_id: Optional[int] = None
     product_name: Optional[str] = None
+    inv_item_id: Optional[int] = None
+    inv_item_name: Optional[str] = None
     bag_count: int
     nominal_weight_kg: Decimal
     theoretical_total_weight_kg: Optional[Decimal] = None
@@ -200,6 +203,22 @@ class ProdBatchUpdate(BaseModel):
     input_weight_kg: Optional[Decimal] = None
 
 
+class ProdHotInputCreate(BaseModel):
+    weight_kg: Decimal = Field(..., gt=0)
+    notes: Optional[str] = None
+
+
+class ProdHotInputResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    prod_batch_id: int
+    seq: int
+    weight_kg: Decimal
+    notes: Optional[str] = None
+    created_at: datetime
+
+
 class ProdBatchResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -223,6 +242,7 @@ class ProdBatchResponse(BaseModel):
     trolleys: List[ProdFormingTrolleyResponse] = []
     packing_records: List[ProdPackingRecordResponse] = []
     packing_trims: List[ProdPackingTrimResponse] = []
+    hot_inputs: List[ProdHotInputResponse] = []
 
 
 class HotProcessBalanceResponse(BaseModel):

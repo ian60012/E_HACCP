@@ -13,8 +13,8 @@ class CookingLogCreate(BaseModel):
     """Create a cooking log. operator_id comes from JWT (not request body)."""
     batch_id: str = Field(..., max_length=50)
     prod_batch_id: Optional[int] = None
+    hot_input_id: Optional[int] = None
     prod_product_id: Optional[int] = None
-    product_id: Optional[int] = None
     equipment_id: Optional[int] = None
     start_time: datetime
     end_time: Optional[datetime] = None
@@ -45,9 +45,9 @@ class CookingLogResponse(ALCOAResponseMixin):
     id: int
     batch_id: str
     prod_batch_id: Optional[int] = None
+    hot_input_id: Optional[int] = None
     prod_product_id: Optional[int] = None
     prod_product_name: Optional[str] = None
-    product_id: Optional[int] = None
     product_name: Optional[str] = None
     equipment_id: Optional[int] = None
     equipment_name: Optional[str] = None

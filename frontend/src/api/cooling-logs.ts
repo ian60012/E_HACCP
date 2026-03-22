@@ -3,7 +3,7 @@ import { CoolingLog, CoolingLogCreate, CoolingLogUpdate } from '@/types/cooling-
 import { PaginatedResponse, VoidRequest } from '@/types/common';
 
 export const coolingLogsApi = {
-  list: async (params?: { skip?: number; limit?: number; is_voided?: boolean }): Promise<PaginatedResponse<CoolingLog>> => {
+  list: async (params?: { skip?: number; limit?: number; prod_batch_id?: number; hot_input_id?: number; is_voided?: boolean }): Promise<PaginatedResponse<CoolingLog>> => {
     const response = await apiClient.get<PaginatedResponse<CoolingLog>>('/api/v1/cooling-logs', { params });
     return response.data;
   },

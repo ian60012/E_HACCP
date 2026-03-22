@@ -15,7 +15,7 @@ import { exportToExcel, exportToPdf, ExportColumn, formatExportDateTime } from '
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('zh-TW', {
-    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    timeZone: 'Australia/Melbourne', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
   });
 }
 
@@ -123,7 +123,7 @@ export default function CookingLogsPage() {
                     {log.is_locked && !log.is_voided && <StatusBadge status="Locked" />}
                   </div>
                   <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                    <span>{log.product_name || `${bi('field.product')} #${log.product_id}`}</span>
+                    <span>{log.product_name || '—'}</span>
                     {log.core_temp && (
                       <span className={`font-medium ${log.ccp_status === 'Pass' ? 'text-green-600' : log.ccp_status === 'Fail' ? 'text-red-600' : 'text-gray-600'}`}>
                         {log.core_temp}°C

@@ -18,6 +18,7 @@ class InvItemCreate(BaseModel):
     base_unit: str = Field(default="PCS", max_length=20)
     description: Optional[str] = None
     supplier_id: Optional[int] = None
+    allowed_location_ids: Optional[List[int]] = None
 
 
 class InvItemUpdate(BaseModel):
@@ -27,6 +28,7 @@ class InvItemUpdate(BaseModel):
     description: Optional[str] = None
     supplier_id: Optional[int] = None
     is_active: Optional[bool] = None
+    allowed_location_ids: Optional[List[int]] = None
 
 
 class InvItemResponse(BaseModel):
@@ -42,6 +44,11 @@ class InvItemResponse(BaseModel):
     supplier_name: Optional[str] = None
     is_active: bool
     created_at: datetime
+    allowed_location_ids: List[int] = []
+
+
+class InvAllowedLocationsUpdate(BaseModel):
+    location_ids: List[int]
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +83,7 @@ class InvLocationResponse(BaseModel):
 
 class InvStockLineCreate(BaseModel):
     item_id: int
+    location_id: int
     quantity: Decimal = Field(..., gt=0)
     unit: str = Field(..., max_length=20)
     unit_cost: Optional[Decimal] = Field(None, ge=0)
@@ -90,6 +98,8 @@ class InvStockLineResponse(BaseModel):
     item_id: int
     item_code: Optional[str] = None
     item_name: Optional[str] = None
+    location_id: int
+    location_name: Optional[str] = None
     quantity: Decimal
     unit: str
     unit_cost: Optional[Decimal] = None

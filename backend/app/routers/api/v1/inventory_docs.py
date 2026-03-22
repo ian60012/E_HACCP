@@ -31,6 +31,8 @@ def _line_response(line: InvStockLine) -> InvStockLineResponse:
         item_id=line.item_id,
         item_code=line.item.code if line.item else None,
         item_name=line.item.name if line.item else None,
+        location_id=line.location_id,
+        location_name=line.location.name if line.location else None,
         quantity=line.quantity,
         unit=line.unit,
         unit_cost=line.unit_cost,
@@ -63,6 +65,7 @@ def _base_query():
     return select(InvStockDoc).options(
         selectinload(InvStockDoc.location),
         selectinload(InvStockDoc.lines).selectinload(InvStockLine.item),
+        selectinload(InvStockDoc.lines).selectinload(InvStockLine.location),
     )
 
 
@@ -140,6 +143,7 @@ async def create_doc(
         line = InvStockLine(
             doc_id=doc.id,
             item_id=line_data.item_id,
+            location_id=line_data.location_id,
             quantity=line_data.quantity,
             unit=line_data.unit,
             unit_cost=line_data.unit_cost,
@@ -148,6 +152,7 @@ async def create_doc(
         db.add(line)
 
     await db.flush()
+    await db.commit()
 
     result = await db.execute(_base_query().where(InvStockDoc.id == doc.id))
     return _to_response(result.scalar_one())
@@ -173,6 +178,7 @@ async def post_doc(
     db: AsyncSession = Depends(get_db),
 ):
     doc = await post_document(db, doc_id, current_user.id)
+    await db.commit()
     result = await db.execute(_base_query().where(InvStockDoc.id == doc.id))
     return _to_response(result.scalar_one())
 
@@ -185,5 +191,6 @@ async def void_doc(
     db: AsyncSession = Depends(get_db),
 ):
     doc = await void_document(db, doc_id, data.void_reason)
+    await db.commit()
     result = await db.execute(_base_query().where(InvStockDoc.id == doc.id))
     return _to_response(result.scalar_one())

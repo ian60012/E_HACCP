@@ -1,15 +1,17 @@
 """Inventory balance and movements router (庫存查詢)."""
 
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, outerjoin
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.inventory import InvStockBalance, InvStockMovement, InvItem, InvLocation
 from app.models.user import User
+from sqlalchemy.orm import selectinload
 from app.schemas.inventory import InvStockBalanceResponse, InvStockMovementResponse
 from app.schemas.common import PaginatedResponse
 from app.dependencies.auth import get_current_active_user
@@ -60,6 +62,60 @@ async def list_balance(
     ]
 
     return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
+
+
+@router.get("/by-location", response_model=PaginatedResponse[InvStockBalanceResponse])
+async def list_balance_by_location(
+    location_id: Optional[int] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Return active items × their allowed locations with balance (0 if no movement).
+    If location_id is provided, only that location's rows are returned.
+    Items with no allowed locations are omitted.
+    """
+    # Load active items with their allowed_locations
+    items_result = await db.execute(
+        select(InvItem)
+        .options(selectinload(InvItem.allowed_locations))
+        .where(InvItem.is_active == True)
+        .order_by(InvItem.code)
+    )
+    all_items = items_result.scalars().all()
+
+    # Fetch all existing balance rows in one query
+    bal_q = select(InvStockBalance)
+    if location_id:
+        bal_q = bal_q.where(InvStockBalance.location_id == location_id)
+    bal_result = await db.execute(bal_q)
+    bal_map: dict[tuple[int, int], Decimal] = {
+        (r.item_id, r.location_id): r.quantity
+        for r in bal_result.scalars().all()
+    }
+
+    rows = []
+    for item in all_items:
+        allowed = item.allowed_locations
+        if not allowed:
+            continue
+        if location_id:
+            allowed = [loc for loc in allowed if loc.id == location_id]
+        for loc in sorted(allowed, key=lambda l: l.code):
+            qty = bal_map.get((item.id, loc.id), Decimal("0"))
+            rows.append(InvStockBalanceResponse(
+                item_id=item.id,
+                item_code=item.code,
+                item_name=item.name,
+                item_category=item.category,
+                base_unit=item.base_unit,
+                location_id=loc.id,
+                location_code=loc.code,
+                location_name=loc.name,
+                quantity=qty,
+            ))
+
+    return PaginatedResponse(items=rows, total=len(rows), skip=0, limit=len(rows))
 
 
 @router.get("/movements", response_model=PaginatedResponse[InvStockMovementResponse])

@@ -10,12 +10,12 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import HTTPException, status
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.inventory import (
-    InvStockDoc, InvStockLine, InvStockBalance, InvStockMovement,
+    InvStockDoc, InvStockLine, InvStockBalance, InvStockMovement, InvItem,
 )
 from app.models.receiving_log import ReceivingLog
 from app.models.enums import InvDocType, InvDocStatus
@@ -29,7 +29,6 @@ async def generate_doc_number(session: AsyncSession, doc_type: str) -> str:
     today = datetime.now(timezone.utc).strftime("%Y%m%d")
     prefix = f"{doc_type}-{today}-"
 
-    # Count existing docs with the same prefix today
     from sqlalchemy import func
     from app.models.inventory import InvStockDoc as Doc
     result = await session.execute(
@@ -42,16 +41,20 @@ async def generate_doc_number(session: AsyncSession, doc_type: str) -> str:
 async def post_document(session: AsyncSession, doc_id: int, operator_id: int) -> InvStockDoc:
     """
     Post a Draft stock document:
-    1. Validate status is Draft
-    2. Load all lines with their items
-    3. For each line, upsert inv_stock_balance and check non-negative constraint for OUT
+    1. Validate status is Draft and lines exist
+    2. For each line, validate location whitelist
+    3. Upsert inv_stock_balance using line.location_id
     4. Insert inv_stock_movements rows
     5. Update document status to Posted
     """
-    # Load document with lines
+    # Load document with lines + items + allowed_locations
     result = await session.execute(
         select(InvStockDoc)
-        .options(selectinload(InvStockDoc.lines).selectinload(InvStockLine.item))
+        .options(
+            selectinload(InvStockDoc.lines)
+            .selectinload(InvStockLine.item)
+            .selectinload(InvItem.allowed_locations)
+        )
         .where(InvStockDoc.id == doc_id)
     )
     doc = result.scalar_one_or_none()
@@ -70,9 +73,23 @@ async def post_document(session: AsyncSession, doc_id: int, operator_id: int) ->
 
     is_out = doc.doc_type == InvDocType.OUT
     delta_sign = Decimal("-1") if is_out else Decimal("1")
-    location_id = doc.location_id
 
     for line in doc.lines:
+        location_id = line.location_id
+
+        # Whitelist validation
+        allowed_ids = {loc.id for loc in line.item.allowed_locations}
+        if not allowed_ids:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"品項 '{line.item.code}' 未設定允許儲位，無法入/出庫"
+            )
+        if location_id not in allowed_ids:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"品項 '{line.item.code}' 不允許存放於此儲位"
+            )
+
         delta = delta_sign * line.quantity
 
         # Load or create balance row
@@ -129,11 +146,7 @@ async def void_document(
     session: AsyncSession, doc_id: int, reason: str
 ) -> InvStockDoc:
     """
-    Void a Posted stock document:
-    1. Validate status is Posted
-    2. Insert reverse movement rows
-    3. Update inv_stock_balance with reversed deltas
-    4. Set document status to Voided
+    Void a Posted stock document (reversal).
     """
     result = await session.execute(
         select(InvStockDoc)
@@ -151,10 +164,10 @@ async def void_document(
 
     is_out = doc.doc_type == InvDocType.OUT
     delta_sign = Decimal("-1") if is_out else Decimal("1")
-    location_id = doc.location_id
     reverse_sign = delta_sign * Decimal("-1")
 
     for line in doc.lines:
+        location_id = line.location_id
         reverse_delta = reverse_sign * line.quantity
 
         bal_result = await session.execute(
@@ -165,7 +178,6 @@ async def void_document(
         )
         bal = bal_result.scalar_one_or_none()
         if bal is None:
-            # Shouldn't happen but create to avoid error
             bal = InvStockBalance(
                 item_id=line.item_id,
                 location_id=location_id,
@@ -202,7 +214,6 @@ async def create_from_receiving_log(
 ) -> InvStockDoc:
     """
     Create a Draft stock-IN document from a locked + accepted receiving log.
-    Links both records to each other.
     """
     if not log.is_locked:
         raise HTTPException(
@@ -238,19 +249,19 @@ async def create_from_receiving_log(
         operator_name=operator_name,
     )
     session.add(doc)
-    await session.flush()  # get doc.id
+    await session.flush()
 
     qty = log.quantity or Decimal("1")
     unit = log.quantity_unit or "PCS"
     line = InvStockLine(
         doc_id=doc.id,
         item_id=log.inv_item_id,
+        location_id=location_id,
         quantity=qty,
         unit=unit,
     )
     session.add(line)
 
-    # Back-link the receiving log
     log.inv_stock_doc_id = doc.id
 
     await session.flush()

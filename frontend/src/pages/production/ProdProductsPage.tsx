@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { PlusIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { PencilIcon } from '@heroicons/react/24/outline';
 import { prodProductsApi } from '@/api/production';
+import { invItemsApi } from '@/api/inventory';
 import { ProdProduct, ProdProductCreate } from '@/types/production';
+import { InvItem } from '@/types/inventory';
 import { usePagination } from '@/hooks/usePagination';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
@@ -12,6 +14,7 @@ import Bi, { bi } from '@/components/Bi';
 
 export default function ProdProductsPage() {
   const [products, setProducts] = useState<ProdProduct[]>([]);
+  const [invItems, setInvItems] = useState<InvItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showInactive, setShowInactive] = useState(false);
@@ -25,6 +28,7 @@ export default function ProdProductsPage() {
   const [formCcpLimitTemp, setFormCcpLimitTemp] = useState('75.00');
   const [formPackSize, setFormPackSize] = useState('');
   const [formLossRateWarn, setFormLossRateWarn] = useState('');
+  const [formInvItemId, setFormInvItemId] = useState<number | ''>('');
   const [formSaving, setFormSaving] = useState(false);
 
   const fetchProducts = useCallback(async () => {
@@ -47,6 +51,10 @@ export default function ProdProductsPage() {
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
+  useEffect(() => {
+    invItemsApi.list({ limit: 500 }).then(r => setInvItems(r.items));
+  }, []);
+
   const resetForm = () => {
     setShowForm(false);
     setEditingId(null);
@@ -55,6 +63,7 @@ export default function ProdProductsPage() {
     setFormCcpLimitTemp('75.00');
     setFormPackSize('');
     setFormLossRateWarn('');
+    setFormInvItemId('');
   };
 
   const startCreate = () => {
@@ -71,6 +80,7 @@ export default function ProdProductsPage() {
     setFormCcpLimitTemp(product.ccp_limit_temp ?? '75.00');
     setFormPackSize(product.pack_size_kg != null ? String(product.pack_size_kg) : '');
     setFormLossRateWarn(product.loss_rate_warn_pct != null ? String(product.loss_rate_warn_pct) : '');
+    setFormInvItemId(product.inv_item_id ?? '');
   };
 
   const handleSubmit = async () => {
@@ -87,6 +97,7 @@ export default function ProdProductsPage() {
           ccp_limit_temp: formCcpLimitTemp || '75.00',
           pack_size_kg: formPackSize ? Number(formPackSize) : null,
           loss_rate_warn_pct: formLossRateWarn ? Number(formLossRateWarn) : null,
+          inv_item_id: formInvItemId || null,
         });
       } else {
         const data: ProdProductCreate = {
@@ -95,6 +106,7 @@ export default function ProdProductsPage() {
           ccp_limit_temp: formCcpLimitTemp || '75.00',
           pack_size_kg: formPackSize ? Number(formPackSize) : null,
           loss_rate_warn_pct: formLossRateWarn ? Number(formLossRateWarn) : null,
+          inv_item_id: formInvItemId || null,
         };
         await prodProductsApi.create(data);
       }
@@ -217,6 +229,13 @@ export default function ProdProductsPage() {
                 placeholder="—"
               />
             </div>
+            <div>
+              <label className="label text-xs">庫存品項 Inv Item</label>
+              <select value={formInvItemId} onChange={(e) => setFormInvItemId(Number(e.target.value) || '')} className="input">
+                <option value="">— 未連結 —</option>
+                {invItems.map(i => <option key={i.id} value={i.id}>{i.code} {i.name}</option>)}
+              </select>
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <button type="button" onClick={resetForm} className="btn btn-secondary text-sm">
@@ -248,6 +267,7 @@ export default function ProdProductsPage() {
                   <th className="pb-2 pr-4"><Bi k="th.ccpLimit" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.packSizeKg" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.lossRateWarnPct" /></th>
+                  <th className="pb-2 pr-4">庫存品項</th>
                   <th className="pb-2 pr-4"><Bi k="field.isActive" /></th>
                   <th className="pb-2" />
                 </tr>
@@ -260,6 +280,11 @@ export default function ProdProductsPage() {
                     <td className="py-2 pr-4 text-gray-500">{product.ccp_limit_temp}°C</td>
                     <td className="py-2 pr-4 text-gray-500">{product.pack_size_kg ?? '—'}</td>
                     <td className="py-2 pr-4 text-gray-500">{product.loss_rate_warn_pct != null ? `${product.loss_rate_warn_pct}%` : '—'}</td>
+                    <td className="py-2 pr-4 text-gray-500">
+                      {product.inv_item_id
+                        ? <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-green-500" />{invItems.find(i => i.id === product.inv_item_id)?.code ?? `#${product.inv_item_id}`}</span>
+                        : <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="py-2 pr-4">
                       <button
                         onClick={() => handleToggleActive(product)}

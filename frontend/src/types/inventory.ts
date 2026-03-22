@@ -11,6 +11,7 @@ export interface InvItem {
   supplier_name: string | null;
   is_active: boolean;
   created_at: string;
+  allowed_location_ids: number[];
 }
 
 export interface InvItemCreate {
@@ -20,6 +21,7 @@ export interface InvItemCreate {
   base_unit?: string;
   description?: string;
   supplier_id?: number;
+  allowed_location_ids?: number[];
 }
 
 export interface InvItemUpdate {
@@ -29,6 +31,7 @@ export interface InvItemUpdate {
   description?: string;
   supplier_id?: number;
   is_active?: boolean;
+  allowed_location_ids?: number[];
 }
 
 // ─── Location ──────────────────────────────────────────────────────────────
@@ -61,6 +64,8 @@ export interface InvStockLine {
   item_id: number;
   item_code: string | null;
   item_name: string | null;
+  location_id: number;
+  location_name: string | null;
   quantity: string;
   unit: string;
   unit_cost: string | null;
@@ -69,6 +74,7 @@ export interface InvStockLine {
 
 export interface InvStockLineCreate {
   item_id: number;
+  location_id: number;
   quantity: string;
   unit: string;
   unit_cost?: string;

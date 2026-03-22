@@ -61,6 +61,7 @@ class ProdBatch(Base):
     packing_records = relationship("ProdPackingRecord", back_populates="batch", lazy="raise", cascade="all, delete-orphan")
     packing_trims = relationship("ProdPackingTrim", back_populates="batch", lazy="raise", cascade="all, delete-orphan")
     cooking_logs = relationship("CookingLog", back_populates="prod_batch", lazy="raise", foreign_keys="CookingLog.prod_batch_id")
+    hot_inputs = relationship("ProdHotInput", back_populates="batch", lazy="raise", cascade="all, delete-orphan", order_by="ProdHotInput.seq")
 
 
 class ProdFormingTrolley(Base):
@@ -97,8 +98,11 @@ class ProdPackingRecord(Base):
     remark = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
 
+    inv_item_id = Column(Integer, ForeignKey("inv_items.id", ondelete="SET NULL"), nullable=True)
+
     batch = relationship("ProdBatch", back_populates="packing_records", lazy="raise")
     product = relationship("ProdProduct", lazy="raise")
+    inv_item = relationship("InvItem", lazy="raise")
 
 
 class ProdPackingTrim(Base):
@@ -112,6 +116,20 @@ class ProdPackingTrim(Base):
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
 
     batch = relationship("ProdBatch", back_populates="packing_trims", lazy="raise")
+
+
+class ProdHotInput(Base):
+    """A single input (投料) entry for a hot-process batch. Multiple per batch."""
+    __tablename__ = "prod_hot_inputs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    prod_batch_id = Column(Integer, ForeignKey("prod_batches.id", ondelete="CASCADE"), nullable=False, index=True)
+    seq = Column(Integer, nullable=False)  # 1, 2, 3 … per batch
+    weight_kg = Column(Numeric(12, 3), nullable=False)
+    notes = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+    batch = relationship("ProdBatch", back_populates="hot_inputs", lazy="raise")
 
 
 class ProdRepackJob(Base):

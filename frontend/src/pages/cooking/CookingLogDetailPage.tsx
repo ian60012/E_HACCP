@@ -12,7 +12,7 @@ import Bi, { bi } from '@/components/Bi';
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString('zh-TW', { timeZone: 'Australia/Melbourne', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 export default function CookingLogDetailPage() {
@@ -128,7 +128,7 @@ export default function CookingLogDetailPage() {
         <h2 className="text-lg font-semibold text-gray-800 mb-4"><Bi k="section.recordDetail" /></h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div><p className="text-xs text-gray-400"><Bi k="field.batchId" /></p><p className="font-medium">{log.batch_id}</p></div>
-          <div><p className="text-xs text-gray-400"><Bi k="field.product" /></p><p className="font-medium">{log.product_name || `#${log.product_id}`}</p></div>
+          <div><p className="text-xs text-gray-400"><Bi k="field.product" /></p><p className="font-medium">{log.product_name || '—'}</p></div>
           <div><p className="text-xs text-gray-400"><Bi k="field.equipment" /></p><p className="font-medium">{log.equipment_name || '—'}</p></div>
           {log.prod_batch_id && (
             <div>

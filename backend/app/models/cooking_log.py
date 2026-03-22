@@ -17,7 +17,7 @@ class CookingLog(ALCOAMixin, Base):
     # Business fields
     batch_id = Column(VARCHAR(50), nullable=False, index=True)
     prod_batch_id = Column(Integer, ForeignKey("prod_batches.id", ondelete="SET NULL"), nullable=True, index=True)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    hot_input_id = Column(Integer, ForeignKey("prod_hot_inputs.id", ondelete="SET NULL"), nullable=True, index=True)
     prod_product_id = Column(Integer, ForeignKey("prod_products.id", ondelete="RESTRICT"), nullable=True)
     equipment_id = Column(Integer, ForeignKey("equipment.id"), nullable=True)
     start_time = Column(TIMESTAMP(timezone=True), nullable=False)
@@ -28,7 +28,6 @@ class CookingLog(ALCOAMixin, Base):
     notes = Column(Text, nullable=True)
 
     # Relationships (lazy="raise" prevents N+1 — must use selectinload())
-    product = relationship("Product", lazy="raise", foreign_keys=[product_id])
     prod_product = relationship("ProdProduct", lazy="raise", foreign_keys=[prod_product_id])
     equipment = relationship("Equipment", lazy="raise", foreign_keys=[equipment_id])
     operator = relationship("User", lazy="raise", foreign_keys="CookingLog.operator_id")

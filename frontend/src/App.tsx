@@ -34,15 +34,14 @@ import CoolingLogsPage from '@/pages/cooling/CoolingLogsPage';
 import CoolingLogDetailPage from '@/pages/cooling/CoolingLogDetailPage';
 import CoolingLogFormPage from '@/pages/cooling/CoolingLogFormPage';
 
+// Assembly packing logs
+import AssemblyLogsPage from '@/pages/assembly/AssemblyLogsPage';
+import AssemblyLogDetailPage from '@/pages/assembly/AssemblyLogDetailPage';
+
 // Sanitising logs
 import SanitisingLogsPage from '@/pages/sanitising/SanitisingLogsPage';
 import SanitisingLogDetailPage from '@/pages/sanitising/SanitisingLogDetailPage';
 import SanitisingLogFormPage from '@/pages/sanitising/SanitisingLogFormPage';
-
-// Assembly logs
-import AssemblyLogsPage from '@/pages/assembly/AssemblyLogsPage';
-import AssemblyLogDetailPage from '@/pages/assembly/AssemblyLogDetailPage';
-import AssemblyLogFormPage from '@/pages/assembly/AssemblyLogFormPage';
 
 // Deviation logs
 import DeviationLogsPage from '@/pages/deviations/DeviationLogsPage';
@@ -50,7 +49,6 @@ import DeviationLogDetailPage from '@/pages/deviations/DeviationLogDetailPage';
 import DeviationLogFormPage from '@/pages/deviations/DeviationLogFormPage';
 
 // Reference data
-import ProductsPage from '@/pages/reference/ProductsPage';
 import SuppliersPage from '@/pages/reference/SuppliersPage';
 import EquipmentPage from '@/pages/reference/EquipmentPage';
 import AreasPage from '@/pages/reference/AreasPage';
@@ -114,17 +112,15 @@ export default function App() {
           <Route path="/cooling-logs/:id" element={<CoolingLogDetailPage />} />
           <Route path="/cooling-logs/:id/edit" element={<CoolingLogFormPage />} />
 
+          {/* Assembly packing logs */}
+          <Route path="/assembly-logs" element={<AssemblyLogsPage />} />
+          <Route path="/assembly-logs/:id" element={<AssemblyLogDetailPage />} />
+
           {/* Sanitising logs */}
           <Route path="/sanitising-logs" element={<SanitisingLogsPage />} />
           <Route path="/sanitising-logs/new" element={<SanitisingLogFormPage />} />
           <Route path="/sanitising-logs/:id" element={<SanitisingLogDetailPage />} />
           <Route path="/sanitising-logs/:id/edit" element={<SanitisingLogFormPage />} />
-
-          {/* Assembly logs */}
-          <Route path="/assembly-logs" element={<AssemblyLogsPage />} />
-          <Route path="/assembly-logs/new" element={<AssemblyLogFormPage />} />
-          <Route path="/assembly-logs/:id" element={<AssemblyLogDetailPage />} />
-          <Route path="/assembly-logs/:id/edit" element={<AssemblyLogFormPage />} />
 
           {/* Deviation logs */}
           <Route path="/deviations" element={<DeviationLogsPage />} />
@@ -132,7 +128,6 @@ export default function App() {
           <Route path="/deviations/:id" element={<DeviationLogDetailPage />} />
 
           {/* Reference data */}
-          <Route path="/reference/products" element={<ProductsPage />} />
           <Route path="/reference/suppliers" element={<SuppliersPage />} />
           <Route path="/reference/equipment" element={<EquipmentPage />} />
           <Route path="/reference/areas" element={<AreasPage />} />

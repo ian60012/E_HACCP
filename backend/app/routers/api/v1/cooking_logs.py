@@ -20,7 +20,6 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.cooking_log import CookingLog
-from app.models.product import Product
 from app.models.production import ProdProduct
 from app.models.user import User
 from app.schemas.cooking_log import (
@@ -39,19 +38,14 @@ router = APIRouter(prefix="/cooking-logs", tags=["cooking-logs"])
 
 def _to_response(log: CookingLog) -> CookingLogResponse:
     """Map ORM model to response schema with eager-loaded relationships."""
-    # Prefer prod_product over legacy product for name
-    product_name = (
-        log.prod_product.name if log.prod_product else
-        (log.product.name if log.product else None)
-    )
     return CookingLogResponse(
         id=log.id,
         batch_id=log.batch_id,
         prod_batch_id=log.prod_batch_id,
+        hot_input_id=log.hot_input_id,
         prod_product_id=log.prod_product_id,
         prod_product_name=log.prod_product.name if log.prod_product else None,
-        product_id=log.product_id,
-        product_name=product_name,
+        product_name=log.prod_product.name if log.prod_product else None,
         equipment_id=log.equipment_id,
         equipment_name=log.equipment.name if log.equipment else None,
         start_time=log.start_time,
@@ -76,7 +70,6 @@ def _to_response(log: CookingLog) -> CookingLogResponse:
 def _base_query():
     """Base query with eager-loaded relationships (prevents N+1)."""
     return select(CookingLog).options(
-        selectinload(CookingLog.product),
         selectinload(CookingLog.prod_product),
         selectinload(CookingLog.equipment),
         selectinload(CookingLog.operator),
@@ -149,7 +142,7 @@ async def create_cooking_log(
     3. Set ccp_status on log
     4. Commit (both log and any deviation in single transaction)
     """
-    # Resolve the product for CCP limit — prefer prod_product_id (new), fall back to product_id (legacy)
+    # Resolve the product for CCP limit
     ccp_limit = CCP_DEFAULT_TEMP
     if data.prod_product_id:
         prod_product_result = await db.execute(
@@ -159,22 +152,14 @@ async def create_cooking_log(
         if not prod_product:
             raise HTTPException(status_code=404, detail="Product not found")
         ccp_limit = prod_product.ccp_limit_temp or CCP_DEFAULT_TEMP
-    elif data.product_id:
-        product_result = await db.execute(
-            select(Product).where(Product.id == data.product_id)
-        )
-        product = product_result.scalar_one_or_none()
-        if not product:
-            raise HTTPException(status_code=404, detail="Product not found")
-        ccp_limit = product.ccp_limit_temp or CCP_DEFAULT_TEMP
     else:
-        raise HTTPException(status_code=422, detail="Either prod_product_id or product_id is required")
+        raise HTTPException(status_code=422, detail="prod_product_id is required")
 
     log = CookingLog(
         batch_id=data.batch_id,
         prod_batch_id=data.prod_batch_id,
+        hot_input_id=data.hot_input_id,
         prod_product_id=data.prod_product_id,
-        product_id=data.product_id,
         equipment_id=data.equipment_id,
         start_time=data.start_time,
         end_time=data.end_time,
@@ -241,12 +226,6 @@ async def update_cooking_log(
             )
             prod_product = prod_product_result.scalar_one()
             ccp_limit = prod_product.ccp_limit_temp or CCP_DEFAULT_TEMP
-        elif log.product_id:
-            product_result = await db.execute(
-                select(Product).where(Product.id == log.product_id)
-            )
-            product = product_result.scalar_one()
-            ccp_limit = product.ccp_limit_temp or CCP_DEFAULT_TEMP
 
         ccp_status = await validate_cooking_ccp(
             db=db,

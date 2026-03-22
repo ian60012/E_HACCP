@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
-import { invBalanceApi } from '@/api/inventory';
-import { InvStockBalance } from '@/types/inventory';
+import { invBalanceApi, invLocationsApi } from '@/api/inventory';
+import { InvStockBalance, InvLocation } from '@/types/inventory';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import EmptyState from '@/components/EmptyState';
@@ -20,34 +20,48 @@ const exportColumns: ExportColumn<InvStockBalance>[] = [
 
 export default function InventoryBalancePage() {
   const [balance, setBalance] = useState<InvStockBalance[]>([]);
+  const [locations, setLocations] = useState<InvLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState('');
+  const [selectedLocationId, setSelectedLocationId] = useState<number | ''>('');
+  const [hideZero, setHideZero] = useState(false);
+
+  const fetchLocations = useCallback(async () => {
+    const res = await invLocationsApi.list({ is_active: true, limit: 100 });
+    setLocations(res.items);
+  }, []);
 
   const fetchBalance = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await invBalanceApi.list({ limit: 5000 });
+      const params = selectedLocationId ? { location_id: selectedLocationId } : undefined;
+      const res = await invBalanceApi.listByLocation(params);
       setBalance(res.items);
     } catch {
       setError(bi('error.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedLocationId]);
 
+  useEffect(() => { fetchLocations(); }, [fetchLocations]);
   useEffect(() => { fetchBalance(); }, [fetchBalance]);
 
-  const filtered = search
-    ? balance.filter(
-        (b) =>
-          b.item_name?.toLowerCase().includes(search.toLowerCase()) ||
-          b.item_code?.toLowerCase().includes(search.toLowerCase()) ||
-          b.location_name?.toLowerCase().includes(search.toLowerCase())
-      )
-    : balance;
+  const filtered = balance.filter((b) => {
+    if (hideZero && Number(b.quantity) <= 0) return false;
+    if (search) {
+      const s = search.toLowerCase();
+      return (
+        b.item_name?.toLowerCase().includes(s) ||
+        b.item_code?.toLowerCase().includes(s) ||
+        b.location_name?.toLowerCase().includes(s)
+      );
+    }
+    return true;
+  });
 
   const handleExport = async (type: 'excel' | 'pdf') => {
     setExporting(true);
@@ -80,7 +94,29 @@ export default function InventoryBalancePage() {
         </div>
       </div>
 
-      <div>
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <select
+          value={selectedLocationId}
+          onChange={(e) => setSelectedLocationId(e.target.value ? Number(e.target.value) : '')}
+          className="input w-48"
+        >
+          <option value="">全部儲位</option>
+          {locations.map((loc) => (
+            <option key={loc.id} value={loc.id}>{loc.code} — {loc.name}</option>
+          ))}
+        </select>
+
+        <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={hideZero}
+            onChange={(e) => setHideZero(e.target.checked)}
+            className="rounded border-gray-300"
+          />
+          隱藏零庫存
+        </label>
+
         <input
           type="text"
           value={search}
@@ -116,12 +152,12 @@ export default function InventoryBalancePage() {
                   className={Number(row.quantity) <= 0 ? 'text-gray-300' : ''}
                 >
                   <td className="py-2 pr-4 font-mono text-xs">{row.item_code}</td>
-                  <td className="py-2 pr-4 font-medium text-gray-800">{row.item_name}</td>
-                  <td className="py-2 pr-4 text-gray-500">{row.item_category || '—'}</td>
-                  <td className="py-2 pr-4 text-gray-500">{row.location_name}</td>
+                  <td className="py-2 pr-4 font-medium">{row.item_name}</td>
+                  <td className="py-2 pr-4">{row.item_category || '—'}</td>
+                  <td className="py-2 pr-4">{row.location_name}</td>
                   <td className="py-2 text-right font-semibold">
                     <span className={Number(row.quantity) < 0 ? 'text-red-600' : ''}>
-                      {row.quantity}
+                      {Number(row.quantity).toFixed(3)}
                     </span>
                   </td>
                   <td className="py-2 pl-2 text-gray-400">{row.base_unit}</td>
