@@ -3,6 +3,8 @@ import { ALCOAFields } from './common';
 export interface CoolingLog extends ALCOAFields {
   id: number;
   batch_id: string;
+  prod_batch_id: number | null;
+  hot_input_id: number | null;
   start_time: string;
   start_temp: string;
   stage1_time: string | null;
@@ -19,6 +21,8 @@ export interface CoolingLog extends ALCOAFields {
 
 export interface CoolingLogCreate {
   batch_id: string;
+  prod_batch_id?: number;
+  hot_input_id?: number;
   start_time: string;
   start_temp: string;
   stage1_time?: string;

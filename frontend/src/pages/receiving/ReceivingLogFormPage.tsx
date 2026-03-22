@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { receivingLogsApi } from '@/api/receiving-logs';
 import { suppliersApi } from '@/api/suppliers';
-import { ReceivingLog, ReceivingLogCreate, ReceivingLogUpdate } from '@/types/receiving-log';
+import { ReceivingLog, ReceivingLogCreate, ReceivingLogUpdate, QUANTITY_UNITS } from '@/types/receiving-log';
 import { Supplier } from '@/types/supplier';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
@@ -25,6 +25,8 @@ export default function ReceivingLogFormPage() {
   const [supplierId, setSupplierId] = useState<number>(0);
   const [poNumber, setPoNumber] = useState('');
   const [productName, setProductName] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [quantityUnit, setQuantityUnit] = useState<string>(QUANTITY_UNITS[0]);
   const [tempChilled, setTempChilled] = useState('');
   const [tempFrozen, setTempFrozen] = useState('');
   const [vehicleCleanliness, setVehicleCleanliness] = useState<'Pass' | 'Fail'>('Pass');
@@ -60,6 +62,8 @@ export default function ReceivingLogFormPage() {
     setSupplierId(log.supplier_id);
     setPoNumber(log.po_number || '');
     setProductName(log.product_name || '');
+    setQuantity(log.quantity || '');
+    setQuantityUnit(log.quantity_unit || QUANTITY_UNITS[0]);
     setTempChilled(log.temp_chilled || '');
     setTempFrozen(log.temp_frozen || '');
     setVehicleCleanliness(log.vehicle_cleanliness);
@@ -108,6 +112,8 @@ export default function ReceivingLogFormPage() {
           supplier_id: supplierId,
           po_number: poNumber || undefined,
           product_name: productName || undefined,
+          quantity: quantity || undefined,
+          quantity_unit: quantity ? quantityUnit : undefined,
           temp_chilled: tempChilled || undefined,
           temp_frozen: tempFrozen || undefined,
           vehicle_cleanliness: vehicleCleanliness,
@@ -191,6 +197,31 @@ export default function ReceivingLogFormPage() {
               disabled={isEdit}
               required
             />
+          </FormField>
+
+          <FormField label={<Bi k="field.receivingQuantity" />}>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                step="0.001"
+                min="0"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                className="input flex-1"
+                placeholder="例：10.5"
+                disabled={isEdit}
+              />
+              <select
+                value={quantityUnit}
+                onChange={(e) => setQuantityUnit(e.target.value)}
+                className="input w-24"
+                disabled={isEdit}
+              >
+                {QUANTITY_UNITS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </div>
           </FormField>
         </div>
 

@@ -11,7 +11,7 @@ const sourceLabels: Record<LogType, { zh: string; en: string }> = {
   cooking: { zh: '烹飪', en: 'Cooking' },
   cooling: { zh: '冷卻', en: 'Cooling' },
   sanitising: { zh: '清潔', en: 'Sanitising' },
-  assembly: { zh: '組裝', en: 'Assembly' },
+  assembly: { zh: '組裝包裝', en: 'Assembly & Packing' },
 };
 
 const severityLabels: Record<Severity, { zh: string; en: string }> = {

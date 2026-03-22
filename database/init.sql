@@ -114,16 +114,6 @@ CREATE TABLE IF NOT EXISTS areas (
     created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
 
--- Products: food products with configurable CCP temperature limits
-CREATE TABLE IF NOT EXISTS products (
-    id              SERIAL PRIMARY KEY,
-    name            VARCHAR(200)    NOT NULL,
-    ccp_limit_temp  NUMERIC(5,2)    NOT NULL DEFAULT 75.00,
-    is_active       BOOLEAN         NOT NULL DEFAULT TRUE,
-    created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW()
-);
-
-
 -- ============================================================================
 -- SECTION 3: CORE HACCP LOG TABLES (ALCOA+ Compliant)
 --
@@ -186,7 +176,9 @@ CREATE TABLE IF NOT EXISTS cooking_logs (
 
     -- Business fields
     batch_id                VARCHAR(50)     NOT NULL,
-    product_id              INT             NOT NULL REFERENCES products(id),
+    prod_product_id         INT             REFERENCES prod_products(id) ON DELETE RESTRICT,  -- Production module product
+    prod_batch_id           INT             REFERENCES prod_batches(id) ON DELETE SET NULL,   -- Optional link to production batch
+    quantity                NUMERIC(8,3),                                     -- Optional quantity (kg)
     equipment_id            INT             REFERENCES equipment(id),
     start_time              TIMESTAMPTZ     NOT NULL,
     end_time                TIMESTAMPTZ,
@@ -230,6 +222,7 @@ CREATE TABLE IF NOT EXISTS cooling_logs (
 
     -- Business fields
     batch_id                VARCHAR(50)     NOT NULL,
+    prod_batch_id           INTEGER         REFERENCES prod_batches(id) ON DELETE SET NULL,
     start_time              TIMESTAMPTZ     NOT NULL,
     start_temp              NUMERIC(5,2)    NOT NULL,
     stage1_time             TIMESTAMPTZ,
@@ -328,70 +321,61 @@ COMMENT ON TABLE sanitising_logs IS 'FSP-LOG-CLN-001: Cleaning & sanitising log.
 
 
 -- -------------------------------------------------
--- Table 5: Assembly & Packing Log (FSP-LOG-ASM-001)
+-- Table 5: Assembly & Packing Inspection Log (FSP-LOG-APK-001)
+-- Linked to forming prod_batches via prod_batch_id FK
 -- -------------------------------------------------
 CREATE TABLE IF NOT EXISTS assembly_packing_logs (
-    id                      SERIAL PRIMARY KEY,
+    id                   SERIAL PRIMARY KEY,
+    prod_batch_id        INTEGER NOT NULL REFERENCES prod_batches(id) ON DELETE CASCADE,
 
-    -- Business fields
-    batch_id                VARCHAR(50)     NOT NULL,
-    product_id              INT             NOT NULL REFERENCES products(id),
+    -- Label checks
+    is_allergen_declared BOOLEAN NOT NULL,
+    is_date_code_correct BOOLEAN,
+    label_photo_path     VARCHAR(500),
 
-    -- Label verification
-    is_allergen_declared    BOOLEAN         NOT NULL,
-    is_date_code_correct    BOOLEAN,
-    label_photo_path        VARCHAR(500),
-
-    -- Weight check (5 samples)
-    target_weight_g         NUMERIC(8,2),
-    sample_1_g              NUMERIC(8,2),
-    sample_2_g              NUMERIC(8,2),
-    sample_3_g              NUMERIC(8,2),
-    sample_4_g              NUMERIC(8,2),
-    sample_5_g              NUMERIC(8,2),
-
-    -- Generated average weight (auto-calculated when all 5 samples present)
-    average_weight_g        NUMERIC(8,2)    GENERATED ALWAYS AS (
-        CASE
-            WHEN sample_1_g IS NOT NULL
-                 AND sample_2_g IS NOT NULL
-                 AND sample_3_g IS NOT NULL
-                 AND sample_4_g IS NOT NULL
-                 AND sample_5_g IS NOT NULL
-            THEN (sample_1_g + sample_2_g + sample_3_g + sample_4_g + sample_5_g) / 5.0
-            ELSE NULL
-        END
+    -- Weight checks
+    target_weight_g      NUMERIC(8,2),
+    sample_1_g           NUMERIC(8,2),
+    sample_2_g           NUMERIC(8,2),
+    sample_3_g           NUMERIC(8,2),
+    sample_4_g           NUMERIC(8,2),
+    sample_5_g           NUMERIC(8,2),
+    average_weight_g     NUMERIC(8,2) GENERATED ALWAYS AS (
+        CASE WHEN sample_1_g IS NOT NULL AND sample_2_g IS NOT NULL
+                  AND sample_3_g IS NOT NULL AND sample_4_g IS NOT NULL
+                  AND sample_5_g IS NOT NULL
+             THEN (sample_1_g+sample_2_g+sample_3_g+sample_4_g+sample_5_g)/5.0
+             ELSE NULL END
     ) STORED,
 
-    -- Packaging integrity
-    seal_integrity          pass_fail_enum,
-    coding_legibility       pass_fail_enum,
-    corrective_action       TEXT,
-    notes                   TEXT,
+    -- Integrity checks
+    seal_integrity       pass_fail_enum,
+    coding_legibility    pass_fail_enum,
+    corrective_action    TEXT,
+    notes                TEXT,
 
     -- ALCOA+ audit fields
-    operator_id             INT             NOT NULL REFERENCES users(id),
-    verified_by             INT             REFERENCES users(id),
-    is_locked               BOOLEAN         NOT NULL DEFAULT FALSE,
-    is_voided               BOOLEAN         NOT NULL DEFAULT FALSE,
-    void_reason             TEXT,
-    voided_at               TIMESTAMPTZ,
-    voided_by               INT             REFERENCES users(id),
-    created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    operator_id          INTEGER NOT NULL REFERENCES users(id),
+    verified_by          INTEGER REFERENCES users(id),
+    is_locked            BOOLEAN NOT NULL DEFAULT FALSE,
+    is_voided            BOOLEAN NOT NULL DEFAULT FALSE,
+    void_reason          TEXT,
+    voided_at            TIMESTAMPTZ,
+    voided_by            INTEGER REFERENCES users(id),
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     -- CHECK constraints
-    CONSTRAINT chk_assembly_weights_positive
-        CHECK (
-            (sample_1_g IS NULL OR sample_1_g > 0)
-            AND (sample_2_g IS NULL OR sample_2_g > 0)
-            AND (sample_3_g IS NULL OR sample_3_g > 0)
-            AND (sample_4_g IS NULL OR sample_4_g > 0)
-            AND (sample_5_g IS NULL OR sample_5_g > 0)
-            AND (target_weight_g IS NULL OR target_weight_g > 0)
-        )
+    CONSTRAINT chk_assembly_weights_positive CHECK (
+        (sample_1_g IS NULL OR sample_1_g > 0) AND
+        (sample_2_g IS NULL OR sample_2_g > 0) AND
+        (sample_3_g IS NULL OR sample_3_g > 0) AND
+        (sample_4_g IS NULL OR sample_4_g > 0) AND
+        (sample_5_g IS NULL OR sample_5_g > 0) AND
+        (target_weight_g IS NULL OR target_weight_g > 0)
+    )
 );
 
-COMMENT ON TABLE assembly_packing_logs IS 'FSP-LOG-ASM-001: Assembly & packing inspection. Allergen not declared = batch lockout. Average weight auto-computed from 5 samples.';
+COMMENT ON TABLE assembly_packing_logs IS 'FSP-LOG-APK-001: Assembly & packing inspection. Linked to forming prod_batches. Checks: allergen declaration, date code, weight sampling, seal integrity, coding legibility.';
 
 
 -- -------------------------------------------------
@@ -593,7 +577,7 @@ CREATE INDEX IF NOT EXISTS idx_sanitising_logs_operator_id  ON sanitising_logs(o
 CREATE INDEX IF NOT EXISTS idx_sanitising_logs_verified_by  ON sanitising_logs(verified_by) WHERE verified_by IS NOT NULL;
 
 -- assembly_packing_logs
-CREATE INDEX IF NOT EXISTS idx_assembly_logs_product_id     ON assembly_packing_logs(product_id);
+CREATE INDEX IF NOT EXISTS idx_assembly_logs_prod_batch_id  ON assembly_packing_logs(prod_batch_id);
 CREATE INDEX IF NOT EXISTS idx_assembly_logs_operator_id    ON assembly_packing_logs(operator_id);
 CREATE INDEX IF NOT EXISTS idx_assembly_logs_verified_by    ON assembly_packing_logs(verified_by) WHERE verified_by IS NOT NULL;
 
@@ -613,7 +597,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_changed_at         ON audit_log(changed
 -- 7.3: Batch ID indexes (cross-table batch traceability)
 CREATE INDEX IF NOT EXISTS idx_cooking_logs_batch_id        ON cooking_logs(batch_id);
 CREATE INDEX IF NOT EXISTS idx_cooling_logs_batch_id        ON cooling_logs(batch_id);
-CREATE INDEX IF NOT EXISTS idx_assembly_logs_batch_id       ON assembly_packing_logs(batch_id);
+-- (batch_id index replaced by prod_batch_id index above)
 
 -- 7.4: Composite indexes (common query patterns)
 -- Deviation lookup by source log (polymorphic reference)
@@ -668,7 +652,12 @@ INSERT INTO products (name, ccp_limit_temp, is_active) VALUES
     ('Beef Dumplings',          75.00, TRUE),
     ('Vegetable Dumplings',     75.00, TRUE),
     ('Spring Rolls',            75.00, TRUE),
-    ('Fried Rice',              75.00, TRUE)
+    ('Fried Rice',              75.00, TRUE),
+    ('豬肚',                    75.00, TRUE),
+    ('雞肉塊',                  75.00, TRUE),
+    ('牛肉粒',                  75.00, TRUE),
+    ('牛湯骨',                  75.00, TRUE),
+    ('肥腸',                    75.00, TRUE)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO suppliers (name, contact_name, phone, is_active) VALUES
@@ -698,10 +687,340 @@ ON CONFLICT (name) DO NOTHING;
 
 
 -- ============================================================================
+-- SECTION 9: PRODUCTION MODULE (生產管理)
+-- ============================================================================
+
+DO $$ BEGIN
+    CREATE TYPE prod_product_type_enum AS ENUM ('forming', 'hot_process');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE prod_batch_status_enum AS ENUM ('open', 'closed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE prod_shift_enum AS ENUM ('Morning', 'Night');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE prod_pack_type_enum AS ENUM ('4KG_SEMI', '1KG_FG', '0.5KG_FG', 'BULK_KG');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Production products (生產品項，與 HACCP products 分離)
+CREATE TABLE IF NOT EXISTS prod_products (
+    id                  SERIAL PRIMARY KEY,
+    code                VARCHAR(50)             UNIQUE NOT NULL,
+    name                VARCHAR(200)            NOT NULL,
+    ccp_limit_temp      NUMERIC(5,2)            NOT NULL DEFAULT 75.00,
+    pack_size_kg        NUMERIC(8,3),
+    loss_rate_warn_pct  NUMERIC(5,2),
+    product_type        prod_product_type_enum  NOT NULL DEFAULT 'forming',
+    inv_item_id         INTEGER                 REFERENCES inv_items(id) ON DELETE SET NULL,
+    is_active           BOOLEAN                 NOT NULL DEFAULT TRUE,
+    created_at          TIMESTAMPTZ             NOT NULL DEFAULT NOW()
+);
+
+-- Pack types (包裝類型)
+CREATE TABLE IF NOT EXISTS prod_pack_types (
+    id                  SERIAL PRIMARY KEY,
+    code                VARCHAR(50)             UNIQUE NOT NULL,
+    name                VARCHAR(200)            NOT NULL,
+    nominal_weight_kg   NUMERIC(8,3),
+    applicable_type     VARCHAR(50)             NOT NULL DEFAULT 'forming',
+    is_active           BOOLEAN                 NOT NULL DEFAULT TRUE,
+    created_at          TIMESTAMPTZ             NOT NULL DEFAULT NOW()
+);
+
+-- Production batches (生產批次)
+CREATE TABLE IF NOT EXISTS prod_batches (
+    id                              SERIAL PRIMARY KEY,
+    batch_code                      VARCHAR(50)             UNIQUE NOT NULL,
+    product_code                    VARCHAR(50)             NOT NULL,
+    product_name                    VARCHAR(200)            NOT NULL,
+    production_date                 DATE                    NOT NULL,
+    shift                           prod_shift_enum,
+    spec_piece_weight_g             NUMERIC(8,2)            NOT NULL,
+    start_time                      TIMESTAMPTZ,
+    end_time                        TIMESTAMPTZ,
+    status                          prod_batch_status_enum  NOT NULL DEFAULT 'open',
+    operator                        VARCHAR(100),
+    supervisor                      VARCHAR(100),
+    estimated_forming_net_weight_kg NUMERIC(12,3),
+    estimated_forming_pieces        INTEGER,
+    input_weight_kg                 NUMERIC(12,3),
+    inv_stock_doc_id                INTEGER                 REFERENCES inv_stock_docs(id) ON DELETE SET NULL,
+    created_at                      TIMESTAMPTZ             NOT NULL DEFAULT NOW()
+);
+
+-- Forming trolleys (生產托盤記錄)
+CREATE TABLE IF NOT EXISTS prod_forming_trolleys (
+    id                          SERIAL PRIMARY KEY,
+    batch_id                    INTEGER         NOT NULL REFERENCES prod_batches(id) ON DELETE CASCADE,
+    trolley_no                  VARCHAR(50)     NOT NULL,
+    sampled_tray_count          INTEGER         NOT NULL,
+    sampled_gross_weight_sum_kg NUMERIC(12,3)   NOT NULL,
+    tray_tare_weight_kg         NUMERIC(8,3)    NOT NULL,
+    total_trays_on_trolley      INTEGER         NOT NULL,
+    partial_trays_count         INTEGER         NOT NULL DEFAULT 0,
+    partial_fill_ratio          NUMERIC(5,2)    NOT NULL DEFAULT 1.0,
+    avg_tray_net_weight_kg      NUMERIC(8,3),
+    equivalent_tray_count       NUMERIC(8,2),
+    estimated_net_weight_kg     NUMERIC(12,3),
+    remark                      TEXT,
+    created_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);
+
+-- Packing records (包裝記錄)
+CREATE TABLE IF NOT EXISTS prod_packing_records (
+    id                          SERIAL PRIMARY KEY,
+    batch_id                    INTEGER         NOT NULL REFERENCES prod_batches(id) ON DELETE CASCADE,
+    product_id                  INTEGER         REFERENCES prod_products(id),
+    inv_item_id                 INTEGER         REFERENCES inv_items(id) ON DELETE SET NULL,
+    pack_type                   VARCHAR(50)     NOT NULL,
+    nominal_weight_kg           NUMERIC(8,3)    NOT NULL,
+    bag_count                   INTEGER         NOT NULL,
+    theoretical_total_weight_kg NUMERIC(12,3),
+    remark                      TEXT,
+    created_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);
+
+-- Packing trim / waste (包裝損耗)
+CREATE TABLE IF NOT EXISTS prod_packing_trim (
+    id          SERIAL PRIMARY KEY,
+    batch_id    INTEGER         NOT NULL REFERENCES prod_batches(id) ON DELETE CASCADE,
+    trim_type   VARCHAR(50)     NOT NULL,
+    weight_kg   NUMERIC(8,3)    NOT NULL,
+    remark      TEXT,
+    created_at  TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);
+
+-- Repack jobs (改裝工單)
+CREATE TABLE IF NOT EXISTS prod_repack_jobs (
+    id              SERIAL PRIMARY KEY,
+    new_batch_code  VARCHAR(50)     NOT NULL UNIQUE,
+    date            DATE            NOT NULL,
+    operator        VARCHAR(100),
+    remark          TEXT,
+    created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);
+
+-- Repack inputs (改裝投入)
+CREATE TABLE IF NOT EXISTS prod_repack_inputs (
+    id                  SERIAL PRIMARY KEY,
+    repack_job_id       INTEGER         NOT NULL REFERENCES prod_repack_jobs(id) ON DELETE CASCADE,
+    from_batch_id       INTEGER         REFERENCES prod_batches(id),
+    product_id          INTEGER         REFERENCES prod_products(id),
+    nominal_weight_kg   NUMERIC(8,3)    NOT NULL,
+    bag_count           INTEGER         NOT NULL,
+    total_weight_kg     NUMERIC(12,3),
+    created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);
+
+-- Repack outputs (改裝產出)
+CREATE TABLE IF NOT EXISTS prod_repack_outputs (
+    id                  SERIAL PRIMARY KEY,
+    repack_job_id       INTEGER         NOT NULL REFERENCES prod_repack_jobs(id) ON DELETE CASCADE,
+    product_id          INTEGER         REFERENCES prod_products(id),
+    pack_type           VARCHAR(50)     NOT NULL,
+    nominal_weight_kg   NUMERIC(8,3)    NOT NULL,
+    bag_count           INTEGER         NOT NULL,
+    total_weight_kg     NUMERIC(12,3),
+    created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);
+
+-- Repack trim / waste (改裝損耗)
+CREATE TABLE IF NOT EXISTS prod_repack_trim (
+    id              SERIAL PRIMARY KEY,
+    repack_job_id   INTEGER         NOT NULL REFERENCES prod_repack_jobs(id) ON DELETE CASCADE,
+    trim_type       VARCHAR(50)     NOT NULL,
+    weight_kg       NUMERIC(8,3)    NOT NULL,
+    remark          TEXT,
+    created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);
+
+-- Indexes for production module
+CREATE INDEX IF NOT EXISTS idx_prod_batches_date        ON prod_batches(production_date);
+CREATE INDEX IF NOT EXISTS idx_prod_batches_status      ON prod_batches(status);
+CREATE INDEX IF NOT EXISTS idx_prod_forming_batch       ON prod_forming_trolleys(batch_id);
+CREATE INDEX IF NOT EXISTS idx_prod_packing_batch       ON prod_packing_records(batch_id);
+CREATE INDEX IF NOT EXISTS idx_prod_repack_inputs_job   ON prod_repack_inputs(repack_job_id);
+CREATE INDEX IF NOT EXISTS idx_prod_repack_outputs_job  ON prod_repack_outputs(repack_job_id);
+
+-- Seed data: production products (sync with backend startup seed)
+INSERT INTO prod_products (code, name, ccp_limit_temp, product_type, is_active) VALUES
+    ('PB', '豬肚',   75.00, 'hot_process', TRUE),
+    ('CC', '雞肉塊', 75.00, 'hot_process', TRUE),
+    ('BC', '牛肉粒', 75.00, 'hot_process', TRUE),
+    ('SB', '牛湯骨', 75.00, 'hot_process', TRUE),
+    ('FI', '肥腸',   75.00, 'hot_process', TRUE)
+ON CONFLICT (code) DO NOTHING;
+
+-- Seed data: pack types
+INSERT INTO prod_pack_types (code, name, nominal_weight_kg, applicable_type, is_active) VALUES
+    ('4KG_SEMI',  '4KG 半成品袋', 4.0,  'forming',     TRUE),
+    ('1KG_FG',    '1KG 成品袋',   1.0,  'forming',     TRUE),
+    ('0.5KG_FG',  '500G 成品袋',  0.5,  'forming',     TRUE),
+    ('BULK_KG',   '散裝KG',       NULL, 'hot_process', TRUE)
+ON CONFLICT (code) DO NOTHING;
+
+
+-- ============================================================================
+-- SECTION 10: INVENTORY MODULE (出入庫管理)
+-- ============================================================================
+
+DO $$ BEGIN
+    CREATE TYPE inv_doc_type_enum AS ENUM ('IN', 'OUT');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE inv_doc_status_enum AS ENUM ('Draft', 'Posted', 'Voided');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Item master (品項)
+CREATE TABLE IF NOT EXISTS inv_items (
+    id            SERIAL PRIMARY KEY,
+    code          VARCHAR(50)  UNIQUE NOT NULL,
+    name          VARCHAR(200) NOT NULL,
+    category      VARCHAR(100),
+    base_unit     VARCHAR(20)  NOT NULL DEFAULT 'PCS',
+    description   TEXT,
+    supplier_id   INTEGER REFERENCES suppliers(id),
+    is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+-- Warehouse locations (儲位)
+CREATE TABLE IF NOT EXISTS inv_locations (
+    id        SERIAL PRIMARY KEY,
+    code      VARCHAR(50)  UNIQUE NOT NULL,
+    name      VARCHAR(200) NOT NULL,
+    zone      VARCHAR(100),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+-- Stock documents / headers (入出庫單)
+CREATE TABLE IF NOT EXISTS inv_stock_docs (
+    id               SERIAL PRIMARY KEY,
+    doc_number       VARCHAR(30)         UNIQUE NOT NULL,
+    doc_type         inv_doc_type_enum   NOT NULL,
+    status           inv_doc_status_enum NOT NULL DEFAULT 'Draft',
+    location_id      INTEGER REFERENCES inv_locations(id),
+    receiving_log_id INTEGER REFERENCES receiving_logs(id),
+    ref_number       VARCHAR(100),
+    notes            TEXT,
+    void_reason      TEXT,
+    operator_id      INTEGER REFERENCES users(id),
+    operator_name    VARCHAR(100),
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    posted_at        TIMESTAMPTZ,
+    voided_at        TIMESTAMPTZ
+);
+
+-- Document lines (明細)
+CREATE TABLE IF NOT EXISTS inv_stock_lines (
+    id          SERIAL PRIMARY KEY,
+    doc_id      INTEGER NOT NULL REFERENCES inv_stock_docs(id) ON DELETE CASCADE,
+    item_id     INTEGER NOT NULL REFERENCES inv_items(id),
+    location_id INTEGER NOT NULL REFERENCES inv_locations(id),   -- 行級儲位
+    quantity    NUMERIC(12,3) NOT NULL CHECK (quantity > 0),
+    unit        VARCHAR(20) NOT NULL,
+    unit_cost   NUMERIC(12,2),
+    notes       TEXT
+);
+
+-- 品項允許儲位白名單
+CREATE TABLE IF NOT EXISTS inv_item_allowed_locations (
+    item_id     INTEGER NOT NULL REFERENCES inv_items(id) ON DELETE CASCADE,
+    location_id INTEGER NOT NULL REFERENCES inv_locations(id) ON DELETE CASCADE,
+    PRIMARY KEY (item_id, location_id)
+);
+
+-- Running stock balance (庫存)
+CREATE TABLE IF NOT EXISTS inv_stock_balance (
+    item_id     INTEGER NOT NULL REFERENCES inv_items(id),
+    location_id INTEGER NOT NULL REFERENCES inv_locations(id),
+    quantity    NUMERIC(12,3) NOT NULL DEFAULT 0,
+    PRIMARY KEY (item_id, location_id)
+);
+
+-- Movement ledger / audit trail (異動紀錄)
+CREATE TABLE IF NOT EXISTS inv_stock_movements (
+    id            SERIAL PRIMARY KEY,
+    doc_id        INTEGER NOT NULL REFERENCES inv_stock_docs(id),
+    item_id       INTEGER NOT NULL REFERENCES inv_items(id),
+    location_id   INTEGER NOT NULL REFERENCES inv_locations(id),
+    delta         NUMERIC(12,3) NOT NULL,
+    balance_after NUMERIC(12,3) NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Seed data: warehouse locations (儲位)
+INSERT INTO inv_locations (code, name, zone, is_active) VALUES
+    ('COLD-01',   '冷藏庫 A區',  'Cold Storage',   TRUE),
+    ('COLD-02',   '冷藏庫 B區',  'Cold Storage',   TRUE),
+    ('FREEZE-01', '冷凍庫 A區',  'Freezer',        TRUE),
+    ('FREEZE-02', '冷凍庫 B區',  'Freezer',        TRUE),
+    ('DRY-01',    '乾貨倉 A區',  'Dry Storage',    TRUE),
+    ('PACK-01',   '包裝室儲位',  'Packing Room',   TRUE),
+    ('RECV-01',   '收貨暫存區',  'Receiving Dock', TRUE)
+ON CONFLICT (code) DO NOTHING;
+
+-- Indexes for inventory module
+CREATE INDEX IF NOT EXISTS idx_inv_stock_docs_location  ON inv_stock_docs(location_id);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_docs_type      ON inv_stock_docs(doc_type);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_docs_status    ON inv_stock_docs(status);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_docs_created   ON inv_stock_docs(created_at);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_lines_doc      ON inv_stock_lines(doc_id);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_lines_item     ON inv_stock_lines(item_id);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_movements_doc  ON inv_stock_movements(doc_id);
+CREATE INDEX IF NOT EXISTS idx_inv_stock_movements_item ON inv_stock_movements(item_id, location_id);
+CREATE INDEX IF NOT EXISTS idx_inv_items_supplier       ON inv_items(supplier_id) WHERE supplier_id IS NOT NULL;
+
+
+-- ============================================================================
+-- Inventory Stocktake (盤點)
+-- ============================================================================
+
+CREATE TYPE IF NOT EXISTS inv_stocktake_status_enum AS ENUM ('draft', 'confirmed');
+
+CREATE TABLE IF NOT EXISTS inv_stocktakes (
+    id              SERIAL PRIMARY KEY,
+    doc_number      VARCHAR(30) UNIQUE NOT NULL,
+    status          inv_stocktake_status_enum NOT NULL DEFAULT 'draft',
+    location_id     INTEGER NOT NULL REFERENCES inv_locations(id),
+    count_date      DATE NOT NULL,
+    notes           TEXT,
+    operator_id     INTEGER REFERENCES users(id),
+    confirmed_at    TIMESTAMPTZ,
+    adj_in_doc_id   INTEGER REFERENCES inv_stock_docs(id) ON DELETE SET NULL,
+    adj_out_doc_id  INTEGER REFERENCES inv_stock_docs(id) ON DELETE SET NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS inv_stocktake_lines (
+    id              SERIAL PRIMARY KEY,
+    stocktake_id    INTEGER NOT NULL REFERENCES inv_stocktakes(id) ON DELETE CASCADE,
+    item_id         INTEGER NOT NULL REFERENCES inv_items(id),
+    location_id     INTEGER NOT NULL REFERENCES inv_locations(id),
+    system_qty      NUMERIC(12,3) NOT NULL DEFAULT 0,
+    physical_qty    NUMERIC(12,3),
+    notes           TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_inv_stocktakes_location ON inv_stocktakes(location_id);
+CREATE INDEX IF NOT EXISTS idx_inv_stocktake_lines_stocktake ON inv_stocktake_lines(stocktake_id);
+
+-- ============================================================================
 -- INITIALIZATION COMPLETE
 -- ============================================================================
--- Schema version: 2.0.0
--- Tables created: 12 (5 reference + 6 log + 1 audit)
--- Enum types: 8
--- Triggers: 14 (7 delete prevention + 6 lock protection + 1 updated_at)
+-- Schema version: 3.1.0
+-- Tables created: 30
+-- Enum types: 15
 -- ============================================================================

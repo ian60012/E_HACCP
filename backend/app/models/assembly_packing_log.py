@@ -1,6 +1,6 @@
-"""Assembly & Packing Log model (FSP-LOG-ASM-001)."""
+"""Assembly & Packing Inspection Log model (FSP-LOG-APK-001)."""
 
-from sqlalchemy import Column, Integer, Boolean, Numeric, Text, ForeignKey, VARCHAR, Computed
+from sqlalchemy import Column, Integer, Numeric, Text, VARCHAR, Boolean, ForeignKey, Computed
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -13,24 +13,26 @@ class AssemblyPackingLog(ALCOAMixin, Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    # Business fields
-    batch_id = Column(VARCHAR(50), nullable=False, index=True)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    # Link to production batch (forming type)
+    prod_batch_id = Column(
+        Integer,
+        ForeignKey("prod_batches.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
-    # Label verification
+    # Label checks
     is_allergen_declared = Column(Boolean, nullable=False)
     is_date_code_correct = Column(Boolean, nullable=True)
     label_photo_path = Column(VARCHAR(500), nullable=True)
 
-    # Weight check (5 samples)
+    # Weight checks
     target_weight_g = Column(Numeric(8, 2), nullable=True)
     sample_1_g = Column(Numeric(8, 2), nullable=True)
     sample_2_g = Column(Numeric(8, 2), nullable=True)
     sample_3_g = Column(Numeric(8, 2), nullable=True)
     sample_4_g = Column(Numeric(8, 2), nullable=True)
     sample_5_g = Column(Numeric(8, 2), nullable=True)
-
-    # Generated average weight (STORED — auto-computed when all 5 samples present)
     average_weight_g = Column(
         Numeric(8, 2),
         Computed(
@@ -43,13 +45,14 @@ class AssemblyPackingLog(ALCOAMixin, Base):
         ),
     )
 
-    # Packaging integrity
+    # Integrity checks
     seal_integrity = Column(PassFailType, nullable=True)
     coding_legibility = Column(PassFailType, nullable=True)
+
     corrective_action = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
 
     # Relationships
-    product = relationship("Product", lazy="raise", foreign_keys=[product_id])
     operator = relationship("User", lazy="raise", foreign_keys="AssemblyPackingLog.operator_id")
     verifier = relationship("User", lazy="raise", foreign_keys="AssemblyPackingLog.verified_by")
+    prod_batch = relationship("ProdBatch", lazy="raise", foreign_keys="AssemblyPackingLog.prod_batch_id")

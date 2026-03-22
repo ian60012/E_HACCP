@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeftIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { receivingLogsApi } from '@/api/receiving-logs';
 import { ReceivingLog } from '@/types/receiving-log';
+import { invItemsApi, invLocationsApi } from '@/api/inventory';
+import { InvItem, InvLocation } from '@/types/inventory';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import StatusBadge from '@/components/StatusBadge';
@@ -13,11 +15,13 @@ import Bi, { bi } from '@/components/Bi';
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('zh-TW', {
+    timeZone: 'Australia/Melbourne',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 }
 
@@ -30,6 +34,14 @@ export default function ReceivingLogDetailPage() {
   const [lockLoading, setLockLoading] = useState(false);
   const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const [voidLoading, setVoidLoading] = useState(false);
+
+  // Inventory integration state
+  const [invItems, setInvItems] = useState<InvItem[]>([]);
+  const [invLocations, setInvLocations] = useState<InvLocation[]>([]);
+  const [selectedItemId, setSelectedItemId] = useState<number | ''>('');
+  const [selectedLocationId, setSelectedLocationId] = useState<number | ''>('');
+  const [convertLoading, setConvertLoading] = useState(false);
+  const [linkLoading, setLinkLoading] = useState(false);
 
   const fetchLog = useCallback(async () => {
     if (!id) return;
@@ -47,6 +59,8 @@ export default function ReceivingLogDetailPage() {
 
   useEffect(() => {
     fetchLog();
+    invItemsApi.list({ limit: 500 }).then((r) => setInvItems(r.items)).catch(() => {});
+    invLocationsApi.list({ limit: 200 }).then((r) => setInvLocations(r.items)).catch(() => {});
   }, [fetchLog]);
 
   const handleLock = async () => {
@@ -76,6 +90,32 @@ export default function ReceivingLogDetailPage() {
     }
   };
 
+  const handleLinkItem = async () => {
+    if (!log || !selectedItemId) return;
+    setLinkLoading(true);
+    try {
+      const updated = await receivingLogsApi.setInvItem(log.id, Number(selectedItemId));
+      setLog(updated);
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || bi('error.updateFailed'));
+    } finally {
+      setLinkLoading(false);
+    }
+  };
+
+  const handleConvertToStockIn = async () => {
+    if (!log || !selectedLocationId) return;
+    setConvertLoading(true);
+    try {
+      const doc = await receivingLogsApi.convertToStockIn(log.id, Number(selectedLocationId));
+      navigate(`/inventory/docs/${doc.id}`);
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || bi('error.updateFailed'));
+    } finally {
+      setConvertLoading(false);
+    }
+  };
+
   if (loading) return <LoadingSpinner fullPage />;
   if (error && !log) return <ErrorCard message={error} onRetry={fetchLog} />;
   if (!log) return <ErrorCard message={bi('error.loadFailed')} />;
@@ -93,7 +133,9 @@ export default function ReceivingLogDetailPage() {
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-800"><Bi k="page.receiving.detail" /></h1>
-            <p className="text-sm text-gray-500 mt-0.5"><Bi k="misc.record" /> #{log.id}</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {log.po_number ? `PO: ${log.po_number}` : `${bi('misc.record')} #${log.id}`}
+            </p>
           </div>
         </div>
         {!log.is_locked && !log.is_voided && (
@@ -143,6 +185,14 @@ export default function ReceivingLogDetailPage() {
             <p className="text-xs text-gray-400"><Bi k="field.productName" /></p>
             <p className="font-medium text-gray-800">{log.product_name || '—'}</p>
           </div>
+          {log.quantity && (
+            <div>
+              <p className="text-xs text-gray-400"><Bi k="field.receivingQuantity" /></p>
+              <p className="font-medium text-gray-800">
+                {log.quantity} {log.quantity_unit || ''}
+              </p>
+            </div>
+          )}
           <div>
             <p className="text-xs text-gray-400"><Bi k="field.acceptanceStatus" /></p>
             <div className="mt-0.5">
@@ -217,6 +267,87 @@ export default function ReceivingLogDetailPage() {
             <p className="font-medium text-gray-700">{formatDateTime(log.created_at)}</p>
           </div>
         </div>
+      </div>
+
+      {/* Inventory Integration */}
+      <div className="card">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4"><Bi k="section.invIntegration" /></h2>
+
+        {/* Show linked stock doc if exists */}
+        {log.inv_stock_doc_id ? (
+          <div className="flex items-center gap-3">
+            <div>
+              <p className="text-xs text-gray-400"><Bi k="field.invItem" /></p>
+              <p className="font-medium text-gray-800">{log.inv_item_name || `#${log.inv_item_id}`}</p>
+            </div>
+            <Link
+              to={`/inventory/docs/${log.inv_stock_doc_id}`}
+              className="btn btn-secondary text-sm ml-auto"
+            >
+              <Bi k="btn.viewStockDoc" />
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Link inventory item */}
+            {!log.is_voided && (
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <p className="text-xs text-gray-400 mb-1"><Bi k="field.invItem" /></p>
+                  <select
+                    value={log.inv_item_id ?? selectedItemId}
+                    onChange={(e) => setSelectedItemId(Number(e.target.value) || '')}
+                    className="input"
+                    disabled={Boolean(log.inv_item_id) || log.is_locked}
+                  >
+                    <option value=""><Bi k="placeholder.selectItem" /></option>
+                    {invItems.map((i) => (
+                      <option key={i.id} value={i.id}>{i.name} ({i.code})</option>
+                    ))}
+                  </select>
+                </div>
+                {!log.inv_item_id && !log.is_locked && (
+                  <button
+                    onClick={handleLinkItem}
+                    disabled={!selectedItemId || linkLoading}
+                    className="btn btn-secondary"
+                  >
+                    {linkLoading ? '…' : <Bi k="btn.save" />}
+                  </button>
+                )}
+                {log.inv_item_id && (
+                  <span className="text-sm text-green-600 font-medium">{log.inv_item_name}</span>
+                )}
+              </div>
+            )}
+
+            {/* Convert to stock-IN button */}
+            {log.is_locked && log.acceptance_status === 'Accept' && log.inv_item_id && (
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <p className="text-xs text-gray-400 mb-1"><Bi k="field.location" /></p>
+                  <select
+                    value={selectedLocationId}
+                    onChange={(e) => setSelectedLocationId(Number(e.target.value) || '')}
+                    className="input"
+                  >
+                    <option value=""><Bi k="placeholder.selectLocation" /></option>
+                    {invLocations.map((l) => (
+                      <option key={l.id} value={l.id}>{l.name} ({l.code})</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={handleConvertToStockIn}
+                  disabled={!selectedLocationId || convertLoading}
+                  className="btn btn-primary"
+                >
+                  {convertLoading ? '…' : <Bi k="btn.convertToStockIn" />}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Void Dialog */}

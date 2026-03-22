@@ -9,11 +9,16 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.schemas.common import ALCOAResponseMixin
 
 
+QUANTITY_UNITS = ("KG", "包", "箱", "袋", "罐", "卷")
+
+
 class ReceivingLogCreate(BaseModel):
     """Create a receiving log. operator_id comes from JWT."""
     supplier_id: int
     po_number: Optional[str] = Field(None, max_length=50)
     product_name: str = Field(..., max_length=200)
+    quantity: Optional[Decimal] = Field(None, ge=0, le=99999)
+    quantity_unit: Optional[str] = Field(None, max_length=10)
     temp_chilled: Optional[Decimal] = Field(None, ge=-50, le=50)
     temp_frozen: Optional[Decimal] = Field(None, ge=-80, le=0)
     vehicle_cleanliness: str = Field(..., description="Pass or Fail")
@@ -34,6 +39,7 @@ class ReceivingLogUpdate(BaseModel):
     acceptance_status: Optional[str] = None
     corrective_action: Optional[str] = None
     notes: Optional[str] = None
+    inv_item_id: Optional[int] = None
 
 
 class ReceivingLogResponse(ALCOAResponseMixin):
@@ -45,6 +51,8 @@ class ReceivingLogResponse(ALCOAResponseMixin):
     supplier_name: Optional[str] = None
     po_number: Optional[str] = None
     product_name: str
+    quantity: Optional[Decimal] = None
+    quantity_unit: Optional[str] = None
     temp_chilled: Optional[Decimal] = None
     temp_frozen: Optional[Decimal] = None
     vehicle_cleanliness: str
@@ -52,3 +60,6 @@ class ReceivingLogResponse(ALCOAResponseMixin):
     acceptance_status: str
     corrective_action: Optional[str] = None
     notes: Optional[str] = None
+    inv_item_id: Optional[int] = None
+    inv_item_name: Optional[str] = None
+    inv_stock_doc_id: Optional[int] = None

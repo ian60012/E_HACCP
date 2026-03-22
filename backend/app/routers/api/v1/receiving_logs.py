@@ -28,6 +28,10 @@ from app.dependencies.auth import get_current_active_user, require_role
 from app.services.receiving_validator import validate_receiving
 from app.services.qa_lock_service import lock_record
 from app.services.void_service import void_record
+from app.services.inventory_service import create_from_receiving_log
+from app.schemas.inventory import ConvertToStockInRequest, InvStockDocResponse
+from app.models.inventory import InvStockDoc, InvStockLine
+from app.schemas.inventory import InvStockLineResponse
 
 router = APIRouter(prefix="/receiving-logs", tags=["receiving-logs"])
 
@@ -40,6 +44,8 @@ def _to_response(log: ReceivingLog) -> ReceivingLogResponse:
         supplier_name=log.supplier.name if log.supplier else None,
         po_number=log.po_number,
         product_name=log.product_name,
+        quantity=log.quantity,
+        quantity_unit=log.quantity_unit,
         temp_chilled=log.temp_chilled,
         temp_frozen=log.temp_frozen,
         vehicle_cleanliness=log.vehicle_cleanliness.value if log.vehicle_cleanliness else None,
@@ -47,6 +53,9 @@ def _to_response(log: ReceivingLog) -> ReceivingLogResponse:
         acceptance_status=log.acceptance_status.value if log.acceptance_status else None,
         corrective_action=log.corrective_action,
         notes=log.notes,
+        inv_item_id=log.inv_item_id,
+        inv_item_name=log.inv_item.name if log.inv_item else None,
+        inv_stock_doc_id=log.inv_stock_doc_id,
         operator_id=log.operator_id,
         operator_name=log.operator.full_name if log.operator else None,
         verified_by=log.verified_by,
@@ -65,6 +74,8 @@ def _base_query():
         selectinload(ReceivingLog.supplier),
         selectinload(ReceivingLog.operator),
         selectinload(ReceivingLog.verifier),
+        selectinload(ReceivingLog.inv_item),
+        selectinload(ReceivingLog.inv_stock_doc),
     )
 
 
@@ -128,6 +139,8 @@ async def create_receiving_log(
         supplier_id=data.supplier_id,
         po_number=data.po_number,
         product_name=data.product_name,
+        quantity=data.quantity,
+        quantity_unit=data.quantity_unit,
         temp_chilled=data.temp_chilled,
         temp_frozen=data.temp_frozen,
         vehicle_cleanliness=PassFail(data.vehicle_cleanliness),
@@ -210,3 +223,89 @@ async def void_receiving_log(
     result = await db.execute(_base_query().where(ReceivingLog.id == log_id))
     log = result.scalar_one()
     return _to_response(log)
+
+
+@router.patch("/{log_id}/inv-item", response_model=ReceivingLogResponse)
+async def set_inv_item(
+    log_id: int,
+    inv_item_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Link an inventory item to a receiving log (for later stock-IN conversion)."""
+    result = await db.execute(select(ReceivingLog).where(ReceivingLog.id == log_id))
+    log = result.scalar_one_or_none()
+    if not log:
+        raise HTTPException(status_code=404, detail="Receiving log not found")
+    if log.is_locked:
+        raise HTTPException(status_code=400, detail="Record is QA-locked")
+    if log.is_voided:
+        raise HTTPException(status_code=400, detail="Record is voided")
+    log.inv_item_id = inv_item_id
+    await db.commit()
+    result = await db.execute(_base_query().where(ReceivingLog.id == log_id))
+    return _to_response(result.scalar_one())
+
+
+@router.post("/{log_id}/convert-to-stock-in", response_model=InvStockDocResponse)
+async def convert_to_stock_in(
+    log_id: int,
+    data: ConvertToStockInRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Convert a locked + accepted receiving log into a Draft stock-IN document."""
+    result = await db.execute(_base_query().where(ReceivingLog.id == log_id))
+    log = result.scalar_one_or_none()
+    if not log:
+        raise HTTPException(status_code=404, detail="Receiving log not found")
+
+    doc = await create_from_receiving_log(
+        session=db,
+        log=log,
+        location_id=data.location_id,
+        operator_id=current_user.id,
+        operator_name=current_user.full_name,
+    )
+    await db.commit()
+
+    doc_result = await db.execute(
+        select(InvStockDoc)
+        .options(
+            selectinload(InvStockDoc.location),
+            selectinload(InvStockDoc.lines).selectinload(InvStockLine.item),
+        )
+        .where(InvStockDoc.id == doc.id)
+    )
+    loaded = doc_result.scalar_one()
+    return InvStockDocResponse(
+        id=loaded.id,
+        doc_number=loaded.doc_number,
+        doc_type=loaded.doc_type.value,
+        status=loaded.status.value,
+        location_id=loaded.location_id,
+        location_name=loaded.location.name if loaded.location else None,
+        receiving_log_id=loaded.receiving_log_id,
+        ref_number=loaded.ref_number,
+        notes=loaded.notes,
+        void_reason=loaded.void_reason,
+        operator_id=loaded.operator_id,
+        operator_name=loaded.operator_name,
+        created_at=loaded.created_at,
+        posted_at=loaded.posted_at,
+        voided_at=loaded.voided_at,
+        lines=[
+            InvStockLineResponse(
+                id=l.id,
+                doc_id=l.doc_id,
+                item_id=l.item_id,
+                item_code=l.item.code if l.item else None,
+                item_name=l.item.name if l.item else None,
+                quantity=l.quantity,
+                unit=l.unit,
+                unit_cost=l.unit_cost,
+                notes=l.notes,
+            )
+            for l in loaded.lines
+        ],
+    )

@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeftIcon, PencilIcon } from '@heroicons/react/24/outline';
-import { CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/solid';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { assemblyLogsApi } from '@/api/assembly-logs';
-import { AssemblyLog } from '@/types/assembly-log';
+import { AssemblyPackingLog } from '@/types/assembly-log';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import StatusBadge from '@/components/StatusBadge';
@@ -14,30 +13,23 @@ import Bi, { bi } from '@/components/Bi';
 function formatDateTime(iso: string | null): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('zh-TW', {
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    timeZone: 'Australia/Melbourne', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
   });
 }
 
-function BoolBadge({ value, trueLabel, falseLabel }: { value: boolean | null; trueLabel: string; falseLabel: string }) {
-  if (value === null || value === undefined) {
-    return <span className="text-sm text-gray-400">—</span>;
-  }
+function PassFailBadge({ value }: { value: 'Pass' | 'Fail' | null }) {
+  if (!value) return <span className="text-gray-400">—</span>;
   return (
-    <span className={`inline-flex items-center gap-1 text-sm font-medium ${value ? 'text-green-700' : 'text-red-700'}`}>
-      {value ? <CheckCircleIcon className="h-4 w-4 text-green-500" /> : <XCircleIcon className="h-4 w-4 text-red-500" />}
-      {value ? trueLabel : falseLabel}
+    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${value === 'Pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+      {value}
     </span>
   );
 }
 
-function PassFailBadge({ value }: { value: 'Pass' | 'Fail' | null }) {
-  if (!value) return <span className="text-sm text-gray-400">—</span>;
-  return <StatusBadge status={value} size="md" />;
-}
-
 export default function AssemblyLogDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [log, setLog] = useState<AssemblyLog | null>(null);
+  const navigate = useNavigate();
+  const [log, setLog] = useState<AssemblyPackingLog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lockDialog, setLockDialog] = useState(false);
@@ -90,13 +82,7 @@ export default function AssemblyLogDetailPage() {
   if (loading) return <LoadingSpinner fullPage />;
   if (error || !log) return <ErrorCard message={error || bi('error.loadFailed')} onRetry={fetchLog} />;
 
-  const sampleWeights = [
-    { label: `${bi('misc.sample')} 1`, value: log.sample_1_g },
-    { label: `${bi('misc.sample')} 2`, value: log.sample_2_g },
-    { label: `${bi('misc.sample')} 3`, value: log.sample_3_g },
-    { label: `${bi('misc.sample')} 4`, value: log.sample_4_g },
-    { label: `${bi('misc.sample')} 5`, value: log.sample_5_g },
-  ];
+  const weights = [log.sample_1_g, log.sample_2_g, log.sample_3_g, log.sample_4_g, log.sample_5_g].filter(Boolean);
 
   return (
     <div className="space-y-4">
@@ -108,17 +94,16 @@ export default function AssemblyLogDetailPage() {
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-gray-800">{log.batch_id}</h1>
+              <h1 className="text-2xl font-bold text-gray-800">組裝包裝 #{log.id}</h1>
+              {log.is_voided && <StatusBadge status="Voided" size="md" />}
+              {log.is_locked && !log.is_voided && <StatusBadge status="Locked" size="md" />}
             </div>
-            <p className="text-sm text-gray-500"><Bi k="page.assembly.detail" /> #{log.id}</p>
+            <p className="text-sm text-gray-500">
+              批次 <button onClick={() => navigate(`/production/batches/${log.prod_batch_id}`)} className="text-blue-600 hover:underline">{log.prod_batch_code ?? `#${log.prod_batch_id}`}</button>
+              {' · '}建立於 {formatDateTime(log.created_at)}
+            </p>
           </div>
         </div>
-        {!log.is_locked && !log.is_voided && (
-          <Link to={`/assembly-logs/${log.id}/edit`} className="btn btn-secondary flex items-center gap-1.5">
-            <PencilIcon className="h-4 w-4" />
-            <Bi k="btn.edit" />
-          </Link>
-        )}
       </div>
 
       {/* ALCOA Audit Bar */}
@@ -135,115 +120,111 @@ export default function AssemblyLogDetailPage() {
         onVoid={() => setVoidDialog(true)}
       />
 
-      {/* Basic Info */}
-      <div className="card">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4"><Bi k="section.basicInfo" /></h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Main info card */}
+      <div className="card space-y-4">
+        <h2 className="text-lg font-semibold text-gray-800">標籤與封口查驗</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <p className="text-xs text-gray-400"><Bi k="field.batchId" /></p>
-            <p className="font-medium">{log.batch_id}</p>
+            <p className="text-xs text-gray-400">過敏原聲明 Allergen Declared</p>
+            <span className={`inline-flex mt-1 px-3 py-1 rounded-full text-sm font-medium ${log.is_allergen_declared ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {log.is_allergen_declared ? '已聲明 ✓' : '未聲明 ✗'}
+            </span>
           </div>
           <div>
-            <p className="text-xs text-gray-400"><Bi k="field.product" /></p>
-            <p className="font-medium">{log.product_name || `#${log.product_id}`}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400"><Bi k="field.allergenMarked" /></p>
-            <BoolBadge value={log.is_allergen_declared} trueLabel={bi('misc.yes')} falseLabel={bi('misc.no')} />
-          </div>
-          <div>
-            <p className="text-xs text-gray-400"><Bi k="field.dateCodeMarked" /></p>
-            <BoolBadge value={log.is_date_code_correct} trueLabel={bi('misc.yes')} falseLabel={bi('misc.no')} />
-          </div>
-        </div>
-      </div>
-
-      {/* Sample Weights */}
-      <div className="card">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4"><Bi k="section.weightTest" /></h2>
-
-        {/* Average weight - prominently displayed */}
-        <div className="text-center mb-4 p-4 bg-gray-50 rounded-lg">
-          <p className="text-xs text-gray-400 mb-1"><Bi k="field.averageWeight" /></p>
-          <p className="text-3xl font-bold text-gray-800">
-            {log.average_weight_g ? `${log.average_weight_g} g` : '—'}
-          </p>
-          {log.target_weight_g && (
-            <p className="text-sm text-gray-500 mt-1">
-              {bi('misc.targetWeight')}: {log.target_weight_g} g
+            <p className="text-xs text-gray-400">日期碼正確 Date Code</p>
+            <p className="mt-1">
+              {log.is_date_code_correct === null ? (
+                <span className="text-gray-400">—</span>
+              ) : (
+                <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${log.is_date_code_correct ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  {log.is_date_code_correct ? '正確 ✓' : '錯誤 ✗'}
+                </span>
+              )}
             </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400">封口完整性 Seal Integrity</p>
+            <p className="mt-1"><PassFailBadge value={log.seal_integrity} /></p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400">編碼清晰度 Coding Legibility</p>
+            <p className="mt-1"><PassFailBadge value={log.coding_legibility} /></p>
+          </div>
+        </div>
+      </div>
+
+      {/* Weight samples */}
+      {(log.target_weight_g || weights.length > 0) && (
+        <div className="card space-y-4">
+          <h2 className="text-lg font-semibold text-gray-800">重量抽檢 Weight Sampling</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {log.target_weight_g && (
+              <div>
+                <p className="text-xs text-gray-400">目標重量 Target (g)</p>
+                <p className="text-lg font-bold text-gray-800">{log.target_weight_g}g</p>
+              </div>
+            )}
+            {[1, 2, 3, 4, 5].map((n) => {
+              const val = (log as any)[`sample_${n}_g`];
+              return val ? (
+                <div key={n}>
+                  <p className="text-xs text-gray-400">樣本 {n}</p>
+                  <p className="text-lg font-bold text-gray-800">{val}g</p>
+                </div>
+              ) : null;
+            })}
+            {log.average_weight_g && (
+              <div className="col-span-2 sm:col-span-1">
+                <p className="text-xs text-gray-400">平均重量 Average (g)</p>
+                <p className="text-xl font-bold text-blue-700">{log.average_weight_g}g</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Corrective action / notes */}
+      {(log.corrective_action || log.notes) && (
+        <div className="card space-y-3">
+          {log.corrective_action && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-xs text-yellow-600 font-medium"><Bi k="field.correctiveAction" /></p>
+              <p className="text-sm text-yellow-800 mt-1">{log.corrective_action}</p>
+            </div>
           )}
-        </div>
-
-        {/* 5 sample weights grid */}
-        <div className="grid grid-cols-5 gap-2">
-          {sampleWeights.map((sample) => (
-            <div key={sample.label} className="text-center p-3 bg-white border border-gray-200 rounded-lg">
-              <p className="text-xs text-gray-400">{sample.label}</p>
-              <p className="text-lg font-semibold text-gray-700 mt-1">
-                {sample.value ? `${sample.value}` : '—'}
-              </p>
-              {sample.value && <p className="text-xs text-gray-400">g</p>}
+          {log.notes && (
+            <div>
+              <p className="text-xs text-gray-400"><Bi k="field.notes" /></p>
+              <p className="text-sm text-gray-600 mt-1">{log.notes}</p>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Quality Checks */}
-      <div className="card">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4"><Bi k="section.qualityCheck" /></h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs text-gray-400"><Bi k="field.sealIntegrity" /></p>
-            <div className="mt-1">
-              <PassFailBadge value={log.seal_integrity} />
-            </div>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400"><Bi k="field.codingLegibility" /></p>
-            <div className="mt-1">
-              <PassFailBadge value={log.coding_legibility} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Warnings */}
-      {log.warnings && log.warnings.length > 0 && (
-        <div className="card border-yellow-200 bg-yellow-50">
-          <div className="flex items-center gap-2 mb-3">
-            <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600" />
-            <h2 className="text-lg font-semibold text-yellow-800"><Bi label={{ zh: '警告', en: 'Warnings' }} /> ({log.warnings.length})</h2>
-          </div>
-          <ul className="space-y-2">
-            {log.warnings.map((warning, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-yellow-800">
-                <span className="text-yellow-500 mt-0.5">&#8226;</span>
-                <span>{warning}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Corrective Action & Notes */}
-      {log.corrective_action && (
-        <div className="card bg-yellow-50 border-yellow-200">
-          <p className="text-xs text-yellow-600 font-medium"><Bi k="field.correctiveAction" /></p>
-          <p className="text-sm text-yellow-800 mt-1">{log.corrective_action}</p>
-        </div>
-      )}
-
-      {log.notes && (
-        <div className="card">
-          <p className="text-xs text-gray-400"><Bi k="field.notes" /></p>
-          <p className="text-sm text-gray-600 mt-1">{log.notes}</p>
+          )}
         </div>
       )}
 
       {/* Dialogs */}
-      <ConfirmDialog open={lockDialog} title={bi('confirm.lock.title')} message={bi('confirm.lock.message')} variant="warning" confirmLabel={bi('confirm.void.confirm')} onConfirm={handleLock} onCancel={() => setLockDialog(false)} loading={actionLoading} />
-      <ConfirmDialog open={voidDialog} title={bi('confirm.void.title')} message={bi('confirm.void.message')} variant="danger" confirmLabel={bi('confirm.void.confirm')} requireReason reasonLabel={bi('confirm.void.reason')} reasonMinLength={5} onConfirm={handleVoid} onCancel={() => setVoidDialog(false)} loading={actionLoading} />
+      <ConfirmDialog
+        open={lockDialog}
+        title={bi('confirm.lock.title')}
+        message={bi('confirm.lock.message')}
+        variant="warning"
+        confirmLabel={bi('confirm.void.confirm')}
+        onConfirm={handleLock}
+        onCancel={() => setLockDialog(false)}
+        loading={actionLoading}
+      />
+      <ConfirmDialog
+        open={voidDialog}
+        title={bi('confirm.void.title')}
+        message={bi('confirm.void.message')}
+        variant="danger"
+        confirmLabel={bi('confirm.void.confirm')}
+        requireReason
+        reasonLabel={bi('confirm.void.reason')}
+        reasonMinLength={5}
+        onConfirm={handleVoid}
+        onCancel={() => setVoidDialog(false)}
+        loading={actionLoading}
+      />
     </div>
   );
 }

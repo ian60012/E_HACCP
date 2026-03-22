@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeftIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PencilIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 import { cookingLogsApi } from '@/api/cooking-logs';
 import { CookingLog } from '@/types/cooking-log';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -12,7 +12,7 @@ import Bi, { bi } from '@/components/Bi';
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString('zh-TW', { timeZone: 'Australia/Melbourne', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 export default function CookingLogDetailPage() {
@@ -85,12 +85,28 @@ export default function CookingLogDetailPage() {
             <p className="text-sm text-gray-500"><Bi k="page.cooking.detail" /> #{log.id}</p>
           </div>
         </div>
-        {!log.is_locked && !log.is_voided && (
-          <Link to={`/cooking-logs/${log.id}/edit`} className="btn btn-secondary flex items-center gap-1.5">
-            <PencilIcon className="h-4 w-4" />
-            <Bi k="btn.edit" />
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {!log.is_voided && (
+            <button
+              onClick={() => {
+                const params = new URLSearchParams({ batch_id: log.batch_id });
+                if (log.core_temp) params.set('start_temp', log.core_temp);
+                if (log.end_time) params.set('start_time', log.end_time);
+                navigate(`/cooling-logs/new?${params.toString()}`);
+              }}
+              className="btn btn-secondary flex items-center gap-1.5 text-cyan-700 border-cyan-300 hover:bg-cyan-50"
+            >
+              <ArrowRightIcon className="h-4 w-4" />
+              <span className="text-sm">冷卻記錄 Cooling</span>
+            </button>
+          )}
+          {!log.is_locked && !log.is_voided && (
+            <Link to={`/cooking-logs/${log.id}/edit`} className="btn btn-secondary flex items-center gap-1.5">
+              <PencilIcon className="h-4 w-4" />
+              <Bi k="btn.edit" />
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* ALCOA Audit Bar */}
@@ -112,8 +128,16 @@ export default function CookingLogDetailPage() {
         <h2 className="text-lg font-semibold text-gray-800 mb-4"><Bi k="section.recordDetail" /></h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div><p className="text-xs text-gray-400"><Bi k="field.batchId" /></p><p className="font-medium">{log.batch_id}</p></div>
-          <div><p className="text-xs text-gray-400"><Bi k="field.product" /></p><p className="font-medium">{log.product_name || `#${log.product_id}`}</p></div>
+          <div><p className="text-xs text-gray-400"><Bi k="field.product" /></p><p className="font-medium">{log.product_name || '—'}</p></div>
           <div><p className="text-xs text-gray-400"><Bi k="field.equipment" /></p><p className="font-medium">{log.equipment_name || '—'}</p></div>
+          {log.prod_batch_id && (
+            <div>
+              <p className="text-xs text-gray-400"><Bi k="field.prodBatch" /></p>
+              <Link to={`/production/batches/${log.prod_batch_id}`} className="text-blue-600 hover:underline font-medium text-sm">
+                #{log.prod_batch_id} ↗
+              </Link>
+            </div>
+          )}
           <div>
             <p className="text-xs text-gray-400"><Bi k="field.coreTemp" /></p>
             <p className={`text-2xl font-bold ${log.ccp_status === 'Pass' ? 'text-green-600' : log.ccp_status === 'Fail' ? 'text-red-600' : 'text-gray-800'}`}>

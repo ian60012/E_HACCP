@@ -1,24 +1,33 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { cookingLogsApi } from '@/api/cooking-logs';
-import { productsApi } from '@/api/products';
+import { prodProductsApi, prodBatchesApi } from '@/api/production';
 import { equipmentApi } from '@/api/equipment';
-import { Product } from '@/types/product';
+import { ProdProduct } from '@/types/production';
 import { Equipment } from '@/types/equipment';
+import { ProdBatch } from '@/types/production';
 import { CookingLog } from '@/types/cooking-log';
 import FormField from '@/components/FormField';
 import CCPIndicator from '@/components/CCPIndicator';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Bi, { bi } from '@/components/Bi';
+import DateTimeInput from '@/components/DateTimeInput';
+
+import { toMelbourneInput, nowMelbourne, melbourneToUTC } from '@/utils/timezone';
+
+function toLocalInput(iso: string): string { return toMelbourneInput(iso); }
+function nowLocalISO(): string { return nowMelbourne(); }
 
 export default function CookingLogFormPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isEdit = !!id;
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProdProduct[]>([]);
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+  const [openBatches, setOpenBatches] = useState<ProdBatch[]>([]);
   const [existingLog, setExistingLog] = useState<CookingLog | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -26,41 +35,70 @@ export default function CookingLogFormPage() {
 
   // Form state
   const [batchId, setBatchId] = useState('');
-  const [productId, setProductId] = useState<number | ''>('');
+  const [prodProductId, setProdProductId] = useState<number | ''>('');
   const [equipmentId, setEquipmentId] = useState<number | ''>('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [coreTemp, setCoreTemp] = useState('');
   const [correctiveAction, setCorrectiveAction] = useState('');
   const [notes, setNotes] = useState('');
+  const [prodBatchId, setProdBatchId] = useState<number | ''>('');
+  const [hotInputId, setHotInputId] = useState<number | undefined>(undefined);
 
-  const selectedProduct = products.find(p => p.id === productId);
+  const selectedProduct = products.find(p => p.id === prodProductId);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [prodRes, equipRes] = await Promise.all([
-          productsApi.list(0, 200),
+        const [prodRes, equipRes, batchRes] = await Promise.all([
+          prodProductsApi.list({ limit: 200 }),
           equipmentApi.list(0, 200),
+          isEdit ? Promise.resolve(null) : prodBatchesApi.list({ status: 'open', limit: 100 }),
         ]);
         setProducts(prodRes.items.filter(p => p.is_active));
         setEquipmentList(equipRes.items.filter(e => e.is_active));
+        if (batchRes) setOpenBatches(batchRes.items);
 
         if (isEdit) {
           const log = await cookingLogsApi.get(Number(id));
           setExistingLog(log);
           setBatchId(log.batch_id);
-          setProductId(log.product_id);
+          // Use prod_product_id if set, otherwise find matching product by name
+          if (log.prod_product_id) {
+            setProdProductId(log.prod_product_id);
+          } else if (log.product_name) {
+            const matched = prodRes.items.find(p => p.name === log.product_name);
+            if (matched) setProdProductId(matched.id);
+          }
           setEquipmentId(log.equipment_id || '');
-          setStartTime(log.start_time ? log.start_time.slice(0, 16) : '');
-          setEndTime(log.end_time ? log.end_time.slice(0, 16) : '');
+          setStartTime(log.start_time ? toLocalInput(log.start_time) : '');
+          setEndTime(log.end_time ? toLocalInput(log.end_time) : '');
           setCoreTemp(log.core_temp || '');
           setCorrectiveAction(log.corrective_action || '');
           setNotes(log.notes || '');
+          setProdBatchId(log.prod_batch_id ?? '');
         } else {
-          // Defaults for new record
-          const now = new Date();
-          setStartTime(now.toISOString().slice(0, 16));
+          // Defaults for new record — use local time
+          setStartTime(nowLocalISO());
+          const paramProdBatchId = searchParams.get('prod_batch_id');
+          if (paramProdBatchId) {
+            setProdBatchId(Number(paramProdBatchId));
+            // Auto-match product by production batch's product_name
+            const linkedBatch = batchRes?.items.find(b => b.id === Number(paramProdBatchId));
+            if (linkedBatch) {
+              const matchedProduct = prodRes.items.find(
+                p => p.is_active && p.name === linkedBatch.product_name
+              );
+              if (matchedProduct) setProdProductId(matchedProduct.id);
+            }
+          }
+          const paramBatchCode = searchParams.get('batch_code');
+          if (paramBatchCode) setBatchId(paramBatchCode);
+          // Inherit start_time from production batch if passed
+          const paramStartTime = searchParams.get('start_time');
+          if (paramStartTime) setStartTime(toLocalInput(paramStartTime));
+          const paramHotInputId = searchParams.get('hot_input_id');
+          if (paramHotInputId) setHotInputId(Number(paramHotInputId));
         }
       } catch {
         setError('無法載入資料');
@@ -69,7 +107,7 @@ export default function CookingLogFormPage() {
       }
     };
     loadData();
-  }, [id, isEdit]);
+  }, [id, isEdit, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,15 +126,23 @@ export default function CookingLogFormPage() {
       } else {
         const created = await cookingLogsApi.create({
           batch_id: batchId,
-          product_id: Number(productId),
+          prod_product_id: prodProductId ? Number(prodProductId) : undefined,
           equipment_id: equipmentId ? Number(equipmentId) : undefined,
-          start_time: new Date(startTime).toISOString(),
-          end_time: endTime ? new Date(endTime).toISOString() : undefined,
+          start_time: melbourneToUTC(startTime),
+          end_time: endTime ? melbourneToUTC(endTime) : undefined,
           core_temp: coreTemp || undefined,
           corrective_action: correctiveAction || undefined,
           notes: notes || undefined,
+          prod_batch_id: prodBatchId ? Number(prodBatchId) : undefined,
+          hot_input_id: hotInputId,
         });
-        navigate(`/cooking-logs/${created.id}`);
+        // If came from a production batch, go back there
+        const returnToBatch = searchParams.get('prod_batch_id');
+        if (returnToBatch) {
+          navigate(`/production/batches/${returnToBatch}`);
+        } else {
+          navigate(`/cooking-logs/${created.id}`);
+        }
       }
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
@@ -111,7 +157,7 @@ export default function CookingLogFormPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-4">
       <div className="flex items-center gap-3">
-        <Link to={isEdit ? `/cooking-logs/${id}` : '/cooking-logs'} className="p-2 hover:bg-gray-100 rounded-lg">
+        <Link to={isEdit ? `/cooking-logs/${id}` : searchParams.get('prod_batch_id') ? `/production/batches/${searchParams.get('prod_batch_id')}` : '/cooking-logs'} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
         </Link>
         <h1 className="text-2xl font-bold text-gray-800">
@@ -136,7 +182,7 @@ export default function CookingLogFormPage() {
         </FormField>
 
         <FormField label={<Bi k="field.product" />} required>
-          <select value={productId} onChange={(e) => setProductId(e.target.value ? Number(e.target.value) : '')}
+          <select value={prodProductId} onChange={(e) => setProdProductId(e.target.value ? Number(e.target.value) : '')}
             className="input" required disabled={isEdit}>
             <option value="">請選擇產品</option>
             {products.map(p => (
@@ -155,14 +201,34 @@ export default function CookingLogFormPage() {
           </select>
         </FormField>
 
+        {/* Production batch linkage (optional) */}
+        {!isEdit && (
+          <FormField label={<Bi k="field.prodBatch" />}>
+            <select value={prodBatchId} onChange={(e) => setProdBatchId(e.target.value ? Number(e.target.value) : '')}
+              className="input">
+              <option value="">— {bi('placeholder.selectBatch')} —</option>
+              {openBatches.map(b => (
+                <option key={b.id} value={b.id}>{b.batch_code} · {b.product_name}</option>
+              ))}
+            </select>
+          </FormField>
+        )}
+        {isEdit && existingLog?.prod_batch_id && (
+          <FormField label={<Bi k="field.prodBatch" />}>
+            <p className="text-sm text-gray-700 py-2">
+              <Link to={`/production/batches/${existingLog.prod_batch_id}`} className="text-blue-600 hover:underline">
+                #{existingLog.prod_batch_id}
+              </Link>
+            </p>
+          </FormField>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField label={<Bi k="field.startTime" />} required>
-            <input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)}
-              className="input" required disabled={isEdit} />
+            <DateTimeInput value={startTime} onChange={setStartTime} required disabled={isEdit} />
           </FormField>
           <FormField label={<Bi k="field.endTime" />}>
-            <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)}
-              className="input" min={startTime} />
+            <DateTimeInput value={endTime} onChange={setEndTime} min={startTime} />
           </FormField>
         </div>
 
@@ -191,7 +257,7 @@ export default function CookingLogFormPage() {
             className="btn btn-primary flex-1 sm:flex-none">
             {submitting ? <Bi k="btn.saving" /> : isEdit ? <Bi k="btn.updateRecord" /> : <Bi k="btn.createRecord" />}
           </button>
-          <Link to={isEdit ? `/cooking-logs/${id}` : '/cooking-logs'} className="btn btn-secondary">
+          <Link to={isEdit ? `/cooking-logs/${id}` : searchParams.get('prod_batch_id') ? `/production/batches/${searchParams.get('prod_batch_id')}` : '/cooking-logs'} className="btn btn-secondary">
             <Bi k="btn.cancel" />
           </Link>
         </div>

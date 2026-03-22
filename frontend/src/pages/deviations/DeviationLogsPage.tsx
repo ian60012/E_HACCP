@@ -18,7 +18,7 @@ const sourceLabels: Record<string, { zh: string; en: string }> = {
   cooking: { zh: '烹飪', en: 'Cooking' },
   cooling: { zh: '冷卻', en: 'Cooling' },
   sanitising: { zh: '清潔', en: 'Sanitising' },
-  assembly: { zh: '組裝', en: 'Assembly' },
+  assembly: { zh: '組裝包裝', en: 'Assembly' },
 };
 
 const actionLabels: Record<string, { zh: string; en: string }> = {
@@ -31,10 +31,12 @@ const actionLabels: Record<string, { zh: string; en: string }> = {
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('zh-TW', {
+    timeZone: 'Australia/Melbourne',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 }
 
@@ -140,7 +142,7 @@ export default function DeviationLogsPage() {
           <option value="cooking">{bi('filter.source.cooking')}</option>
           <option value="cooling">{bi('filter.source.cooling')}</option>
           <option value="sanitising">{bi('filter.source.sanitising')}</option>
-          <option value="assembly">{bi('filter.source.assembly')}</option>
+          <option value="assembly">組裝包裝 Assembly</option>
         </select>
 
         <select

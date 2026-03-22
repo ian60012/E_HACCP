@@ -3,7 +3,10 @@ import { ALCOAFields } from './common';
 export interface CookingLog extends ALCOAFields {
   id: number;
   batch_id: string;
-  product_id: number;
+  prod_batch_id: number | null;
+  hot_input_id: number | null;
+  prod_product_id: number | null;
+  prod_product_name: string | null;
   product_name: string | null;
   equipment_id: number | null;
   equipment_name: string | null;
@@ -17,7 +20,9 @@ export interface CookingLog extends ALCOAFields {
 
 export interface CookingLogCreate {
   batch_id: string;
-  product_id: number;
+  prod_batch_id?: number;
+  hot_input_id?: number;
+  prod_product_id?: number;
   equipment_id?: number;
   start_time: string;
   end_time?: string;
@@ -27,6 +32,7 @@ export interface CookingLogCreate {
 }
 
 export interface CookingLogUpdate {
+  prod_batch_id?: number;
   end_time?: string;
   core_temp?: string;
   corrective_action?: string;

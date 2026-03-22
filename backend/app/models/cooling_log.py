@@ -9,7 +9,7 @@ CCP Rules (enforced in backend services, not DB constraints):
   Total:   60 deg C -> <5 deg C  within 6 hours (360 min)
 """
 
-from sqlalchemy import Column, Integer, Numeric, Text, VARCHAR, Computed, Boolean
+from sqlalchemy import Column, Integer, Numeric, Text, VARCHAR, Computed, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 from sqlalchemy.orm import relationship
 
@@ -25,6 +25,8 @@ class CoolingLog(ALCOAMixin, Base):
 
     # Business fields
     batch_id = Column(VARCHAR(50), nullable=False, index=True)
+    prod_batch_id = Column(Integer, ForeignKey("prod_batches.id", ondelete="SET NULL"), nullable=True, index=True)
+    hot_input_id = Column(Integer, ForeignKey("prod_hot_inputs.id", ondelete="SET NULL"), nullable=True, index=True)
     start_time = Column(TIMESTAMP(timezone=True), nullable=False)
     start_temp = Column(Numeric(5, 2), nullable=False)
     stage1_time = Column(TIMESTAMP(timezone=True), nullable=True)

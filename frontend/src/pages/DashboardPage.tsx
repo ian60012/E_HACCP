@@ -122,7 +122,7 @@ export default function DashboardPage() {
       <div className="card">
         <h2 className="text-lg font-semibold text-gray-800 mb-3"><Bi k="dashboard.refData" /></h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Link to="/reference/products" className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 text-center text-sm font-medium text-gray-700 transition-colors">
+          <Link to="/production/products" className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 text-center text-sm font-medium text-gray-700 transition-colors">
             <Bi k="nav.products" />
           </Link>
           <Link to="/reference/suppliers" className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 text-center text-sm font-medium text-gray-700 transition-colors">

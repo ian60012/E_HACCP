@@ -3,7 +3,7 @@ import { CookingLog, CookingLogCreate, CookingLogUpdate } from '@/types/cooking-
 import { PaginatedResponse, VoidRequest } from '@/types/common';
 
 export const cookingLogsApi = {
-  list: async (params?: { skip?: number; limit?: number; is_voided?: boolean; batch_id?: string }): Promise<PaginatedResponse<CookingLog>> => {
+  list: async (params?: { skip?: number; limit?: number; is_voided?: boolean; batch_id?: string; prod_batch_id?: number; hot_input_id?: number }): Promise<PaginatedResponse<CookingLog>> => {
     const response = await apiClient.get<PaginatedResponse<CookingLog>>('/api/v1/cooking-logs', { params });
     return response.data;
   },

@@ -40,6 +40,8 @@ def _to_response(log: CoolingLog) -> CoolingLogResponse:
     return CoolingLogResponse(
         id=log.id,
         batch_id=log.batch_id,
+        prod_batch_id=log.prod_batch_id,
+        hot_input_id=log.hot_input_id,
         start_time=log.start_time,
         start_temp=log.start_temp,
         stage1_time=log.stage1_time,
@@ -77,6 +79,7 @@ async def list_cooling_logs(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=10000),
     batch_id: Optional[str] = None,
+    prod_batch_id: Optional[int] = None,
     is_voided: bool = Query(False),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
@@ -90,6 +93,9 @@ async def list_cooling_logs(
     if batch_id:
         query = query.where(CoolingLog.batch_id == batch_id)
         count_query = count_query.where(CoolingLog.batch_id == batch_id)
+    if prod_batch_id is not None:
+        query = query.where(CoolingLog.prod_batch_id == prod_batch_id)
+        count_query = count_query.where(CoolingLog.prod_batch_id == prod_batch_id)
 
     total = (await db.execute(count_query)).scalar()
     result = await db.execute(
@@ -132,6 +138,8 @@ async def create_cooling_log(
     """
     log = CoolingLog(
         batch_id=data.batch_id,
+        prod_batch_id=data.prod_batch_id,
+        hot_input_id=data.hot_input_id,
         start_time=data.start_time,
         start_temp=data.start_temp,
         stage1_time=data.stage1_time,
