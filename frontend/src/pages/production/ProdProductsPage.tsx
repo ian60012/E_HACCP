@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { PlusIcon, XMarkIcon } from '@heroicons/react/24/solid';
-import { PencilIcon } from '@heroicons/react/24/outline';
+import { PencilIcon, ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { prodProductsApi } from '@/api/production';
 import { invItemsApi } from '@/api/inventory';
 import { ProdProduct, ProdProductCreate } from '@/types/production';
@@ -19,6 +19,9 @@ export default function ProdProductsPage() {
   const [error, setError] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const pagination = usePagination(50);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: { row: number; code: string; message: string }[] } | null>(null);
 
   // Inline form state
   const [showForm, setShowForm] = useState(false);
@@ -128,6 +131,38 @@ export default function ProdProductsPage() {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const blob = await prodProductsApi.downloadTemplate();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'prod_products_template.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('下載模板失敗');
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    setError('');
+    try {
+      const result = await prodProductsApi.importProducts(file);
+      setImportResult(result);
+      await fetchProducts();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || '匯入失敗');
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -135,13 +170,31 @@ export default function ProdProductsPage() {
           <h1 className="text-2xl font-bold text-gray-800"><Bi k="page.prodProducts.title" /></h1>
           <p className="text-sm text-gray-500 mt-1"><Bi k="page.prodProducts.subtitle" /></p>
         </div>
-        <button
-          onClick={startCreate}
-          className="btn btn-primary flex items-center gap-1.5"
-        >
-          <PlusIcon className="h-5 w-5" />
-          <span className="hidden sm:inline"><Bi k="btn.newProduct" /></span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadTemplate}
+            className="btn btn-secondary flex items-center gap-1.5 text-sm"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">下載模板</span>
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            className="btn btn-secondary flex items-center gap-1.5 text-sm"
+          >
+            <ArrowUpTrayIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">{importing ? '匯入中…' : '批量匯入'}</span>
+          </button>
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportFile} />
+          <button
+            onClick={startCreate}
+            className="btn btn-primary flex items-center gap-1.5"
+          >
+            <PlusIcon className="h-5 w-5" />
+            <span className="hidden sm:inline"><Bi k="btn.newProduct" /></span>
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -157,6 +210,26 @@ export default function ProdProductsPage() {
       </div>
 
       {error && <ErrorCard message={error} />}
+
+      {importResult && (
+        <div className={`rounded-lg border p-3 text-sm ${importResult.errors.length > 0 ? 'border-yellow-300 bg-yellow-50' : 'border-green-300 bg-green-50'}`}>
+          <div className="flex items-center justify-between">
+            <span className="font-medium">
+              匯入完成：新增 {importResult.created} 筆，略過 {importResult.skipped} 筆
+            </span>
+            <button onClick={() => setImportResult(null)} className="p-1 rounded hover:bg-white/60">
+              <XMarkIcon className="h-4 w-4 text-gray-500" />
+            </button>
+          </div>
+          {importResult.errors.length > 0 && (
+            <ul className="mt-2 space-y-0.5 text-xs text-yellow-800">
+              {importResult.errors.map((e, idx) => (
+                <li key={idx}>列 {e.row}（{e.code}）：{e.message}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Inline create/edit form */}
       {showForm && (

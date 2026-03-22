@@ -140,3 +140,45 @@ export interface InvStockMovement {
   balance_after: string;
   created_at: string;
 }
+
+// ─── Stocktake (盤點) ──────────────────────────────────────────────────────
+
+export interface InvStocktakeLine {
+  id: number;
+  item_id: number;
+  item_code: string;
+  item_name: string;
+  item_unit: string;
+  location_id: number;
+  system_qty: string;
+  physical_qty: string | null;
+  variance: string | null;
+  notes: string | null;
+}
+
+export interface InvStocktake {
+  id: number;
+  doc_number: string;
+  status: 'draft' | 'confirmed';
+  location_id: number;
+  location_name: string;
+  count_date: string;
+  notes: string | null;
+  operator_id: number | null;
+  confirmed_at: string | null;
+  adj_in_doc_id: number | null;
+  adj_out_doc_id: number | null;
+  created_at: string;
+  lines: InvStocktakeLine[];
+}
+
+export interface InvStocktakeCreate {
+  location_id: number;
+  count_date: string;
+  notes?: string;
+}
+
+export interface InvStocktakeLineUpdate {
+  physical_qty?: string | null;
+  notes?: string | null;
+}

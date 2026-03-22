@@ -16,9 +16,10 @@ from sqlalchemy.orm import selectinload
 
 from app.models.inventory import (
     InvStockDoc, InvStockLine, InvStockBalance, InvStockMovement, InvItem,
+    InvStocktake, InvStocktakeLine,
 )
 from app.models.receiving_log import ReceivingLog
-from app.models.enums import InvDocType, InvDocStatus
+from app.models.enums import InvDocType, InvDocStatus, InvStocktakeStatus
 
 
 async def generate_doc_number(session: AsyncSession, doc_type: str) -> str:
@@ -203,6 +204,183 @@ async def void_document(
 
     await session.flush()
     return doc
+
+
+async def create_stocktake(
+    session: AsyncSession,
+    location_id: int,
+    count_date,
+    notes: str | None,
+    operator_id: int,
+) -> InvStocktake:
+    """
+    Create a draft stocktake session for a location.
+    Snapshots current InvStockBalance rows at that location as lines.
+    """
+    # Generate doc_number: ST-YYYYMMDD-NNN
+    from sqlalchemy import func as sa_func
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    prefix = f"ST-{today}-"
+    count_result = await session.execute(
+        select(sa_func.count()).where(InvStocktake.doc_number.like(f"{prefix}%"))
+    )
+    count = count_result.scalar() or 0
+    doc_number = f"{prefix}{count + 1:03d}"
+
+    stocktake = InvStocktake(
+        doc_number=doc_number,
+        status=InvStocktakeStatus.DRAFT,
+        location_id=location_id,
+        count_date=count_date,
+        notes=notes,
+        operator_id=operator_id,
+    )
+    session.add(stocktake)
+    await session.flush()
+
+    # Snapshot all balance rows for this location
+    bal_result = await session.execute(
+        select(InvStockBalance).where(InvStockBalance.location_id == location_id)
+    )
+    balances = bal_result.scalars().all()
+
+    for bal in balances:
+        line = InvStocktakeLine(
+            stocktake_id=stocktake.id,
+            item_id=bal.item_id,
+            location_id=location_id,
+            system_qty=bal.quantity,
+        )
+        session.add(line)
+
+    await session.flush()
+    return stocktake
+
+
+async def confirm_stocktake(
+    session: AsyncSession,
+    stocktake_id: int,
+    operator_id: int,
+) -> InvStocktake:
+    """
+    Confirm a draft stocktake:
+    - Lines with physical_qty > system_qty → IN adjustment
+    - Lines with physical_qty < system_qty → OUT adjustment
+    - Lines with physical_qty is None → skipped (未盤)
+    Directly updates balances and creates movement records (bypasses whitelist).
+    """
+    result = await session.execute(
+        select(InvStocktake)
+        .options(
+            selectinload(InvStocktake.lines).selectinload(InvStocktakeLine.item),
+        )
+        .where(InvStocktake.id == stocktake_id)
+    )
+    stocktake = result.scalar_one_or_none()
+    if not stocktake:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stocktake not found")
+
+    st_status = stocktake.status.value if hasattr(stocktake.status, "value") else stocktake.status
+    if st_status != "draft":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Stocktake already confirmed"
+        )
+
+    gains = [l for l in stocktake.lines if l.physical_qty is not None and l.physical_qty > l.system_qty]
+    losses = [l for l in stocktake.lines if l.physical_qty is not None and l.physical_qty < l.system_qty]
+
+    adj_in_doc_id = None
+    adj_out_doc_id = None
+
+    async def _make_adj_doc(doc_type_str: str) -> InvStockDoc:
+        prefix = f"{doc_type_str}-{datetime.now(timezone.utc).strftime('%Y%m%d')}-"
+        from sqlalchemy import func as sa_func
+        cnt_res = await session.execute(
+            select(sa_func.count()).where(InvStockDoc.doc_number.like(f"{prefix}%"))
+        )
+        cnt = cnt_res.scalar() or 0
+        doc = InvStockDoc(
+            doc_number=f"{prefix}{cnt + 1:04d}",
+            doc_type=InvDocType.IN if doc_type_str == "IN" else InvDocType.OUT,
+            status=InvDocStatus.POSTED,
+            location_id=stocktake.location_id,
+            ref_number=stocktake.doc_number,
+            notes=f"盤點調整 {stocktake.doc_number}",
+            operator_id=operator_id,
+            posted_at=datetime.now(timezone.utc),
+        )
+        session.add(doc)
+        await session.flush()
+        return doc
+
+    if gains:
+        in_doc = await _make_adj_doc("IN")
+        adj_in_doc_id = in_doc.id
+        for ln in gains:
+            variance = ln.physical_qty - ln.system_qty
+            unit = ln.item.base_unit if ln.item else "包"
+            ln_obj = InvStockLine(
+                doc_id=in_doc.id,
+                item_id=ln.item_id,
+                location_id=ln.location_id,
+                quantity=variance,
+                unit=unit,
+            )
+            session.add(ln_obj)
+            # Update balance
+            bal_res = await session.execute(
+                select(InvStockBalance).where(
+                    InvStockBalance.item_id == ln.item_id,
+                    InvStockBalance.location_id == ln.location_id,
+                )
+            )
+            bal = bal_res.scalar_one_or_none()
+            if bal is None:
+                bal = InvStockBalance(item_id=ln.item_id, location_id=ln.location_id, quantity=Decimal("0"))
+                session.add(bal)
+            bal.quantity = bal.quantity + variance
+            session.add(InvStockMovement(
+                doc_id=in_doc.id, item_id=ln.item_id, location_id=ln.location_id,
+                delta=variance, balance_after=bal.quantity,
+            ))
+
+    if losses:
+        out_doc = await _make_adj_doc("OUT")
+        adj_out_doc_id = out_doc.id
+        for ln in losses:
+            variance = ln.system_qty - ln.physical_qty  # positive
+            unit = ln.item.base_unit if ln.item else "包"
+            ln_obj = InvStockLine(
+                doc_id=out_doc.id,
+                item_id=ln.item_id,
+                location_id=ln.location_id,
+                quantity=variance,
+                unit=unit,
+            )
+            session.add(ln_obj)
+            bal_res = await session.execute(
+                select(InvStockBalance).where(
+                    InvStockBalance.item_id == ln.item_id,
+                    InvStockBalance.location_id == ln.location_id,
+                )
+            )
+            bal = bal_res.scalar_one_or_none()
+            if bal is None:
+                bal = InvStockBalance(item_id=ln.item_id, location_id=ln.location_id, quantity=Decimal("0"))
+                session.add(bal)
+            bal.quantity = bal.quantity - variance
+            session.add(InvStockMovement(
+                doc_id=out_doc.id, item_id=ln.item_id, location_id=ln.location_id,
+                delta=-variance, balance_after=bal.quantity,
+            ))
+
+    stocktake.status = InvStocktakeStatus.CONFIRMED
+    stocktake.confirmed_at = datetime.now(timezone.utc)
+    stocktake.adj_in_doc_id = adj_in_doc_id
+    stocktake.adj_out_doc_id = adj_out_doc_id
+    await session.flush()
+    return stocktake
 
 
 async def create_from_receiving_log(

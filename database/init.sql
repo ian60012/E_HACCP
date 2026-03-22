@@ -984,10 +984,43 @@ CREATE INDEX IF NOT EXISTS idx_inv_items_supplier       ON inv_items(supplier_id
 
 
 -- ============================================================================
+-- Inventory Stocktake (盤點)
+-- ============================================================================
+
+CREATE TYPE IF NOT EXISTS inv_stocktake_status_enum AS ENUM ('draft', 'confirmed');
+
+CREATE TABLE IF NOT EXISTS inv_stocktakes (
+    id              SERIAL PRIMARY KEY,
+    doc_number      VARCHAR(30) UNIQUE NOT NULL,
+    status          inv_stocktake_status_enum NOT NULL DEFAULT 'draft',
+    location_id     INTEGER NOT NULL REFERENCES inv_locations(id),
+    count_date      DATE NOT NULL,
+    notes           TEXT,
+    operator_id     INTEGER REFERENCES users(id),
+    confirmed_at    TIMESTAMPTZ,
+    adj_in_doc_id   INTEGER REFERENCES inv_stock_docs(id) ON DELETE SET NULL,
+    adj_out_doc_id  INTEGER REFERENCES inv_stock_docs(id) ON DELETE SET NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS inv_stocktake_lines (
+    id              SERIAL PRIMARY KEY,
+    stocktake_id    INTEGER NOT NULL REFERENCES inv_stocktakes(id) ON DELETE CASCADE,
+    item_id         INTEGER NOT NULL REFERENCES inv_items(id),
+    location_id     INTEGER NOT NULL REFERENCES inv_locations(id),
+    system_qty      NUMERIC(12,3) NOT NULL DEFAULT 0,
+    physical_qty    NUMERIC(12,3),
+    notes           TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_inv_stocktakes_location ON inv_stocktakes(location_id);
+CREATE INDEX IF NOT EXISTS idx_inv_stocktake_lines_stocktake ON inv_stocktake_lines(stocktake_id);
+
+-- ============================================================================
 -- INITIALIZATION COMPLETE
 -- ============================================================================
--- Schema version: 3.0.0
--- Tables created: 28 (5 reference + 6 log + 1 audit + 5 inventory + 9 production + 2 product lists)
--- Enum types: 14
--- Triggers: 14 (7 delete prevention + 6 lock protection + 1 updated_at)
+-- Schema version: 3.1.0
+-- Tables created: 30
+-- Enum types: 15
 -- ============================================================================

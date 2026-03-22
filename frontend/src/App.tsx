@@ -64,6 +64,8 @@ import InventoryStockDocListPage from '@/pages/inventory/InventoryStockDocListPa
 import InventoryStockDocFormPage from '@/pages/inventory/InventoryStockDocFormPage';
 import InventoryStockDocDetailPage from '@/pages/inventory/InventoryStockDocDetailPage';
 import InventoryBalancePage from '@/pages/inventory/InventoryBalancePage';
+import InventoryStocktakeListPage from '@/pages/inventory/InventoryStocktakeListPage';
+import InventoryStocktakePage from '@/pages/inventory/InventoryStocktakePage';
 
 export default function App() {
   return (
@@ -144,6 +146,9 @@ export default function App() {
           <Route path="/inventory/items/new" element={<InventoryItemFormPage />} />
           <Route path="/inventory/items/:id/edit" element={<InventoryItemFormPage />} />
           <Route path="/inventory/locations" element={<InventoryLocationsPage />} />
+          <Route path="/inventory/stocktakes" element={<InventoryStocktakeListPage />} />
+          <Route path="/inventory/stocktakes/new" element={<InventoryStocktakePage />} />
+          <Route path="/inventory/stocktakes/:id" element={<InventoryStocktakePage />} />
 
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />

@@ -1,8 +1,10 @@
 """Inventory items router (品項管理)."""
 
-from typing import Optional
+import io
+from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -119,6 +121,155 @@ async def create_item(
     await db.commit()
     result2 = await db.execute(_base_item_query().where(InvItem.id == item.id))
     return _to_response(result2.scalar_one())
+
+
+@router.get("/template")
+async def download_template(
+    current_user: User = Depends(get_current_active_user),
+):
+    """Download an Excel template for bulk inventory item import."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "品項清單"
+
+    headers = [
+        ("品項代碼", "必填，不可重複"),
+        ("品項名稱", "必填"),
+        ("分類", "選填"),
+        ("基本單位", "必填：PCS/KG/G/L/ML/包/箱/袋/罐/卷/打"),
+        ("描述", "選填"),
+        ("允許儲位", "選填，多個儲位以逗號分隔（儲位代碼）"),
+    ]
+
+    header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True, size=11)
+    note_fill = PatternFill(start_color="D6E4F0", end_color="D6E4F0", fill_type="solid")
+    example_fill = PatternFill(start_color="EBF5FB", end_color="EBF5FB", fill_type="solid")
+
+    for col, (header, _) in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    for col, (_, note) in enumerate(headers, 1):
+        cell = ws.cell(row=2, column=col, value=note)
+        cell.fill = note_fill
+        cell.font = Font(italic=True, size=9, color="555555")
+
+    examples = ["RM-PORK-001", "豬前腿肉", "原料肉", "KG", "冷凍豬前腿肉", "FZ-A,FZ-B"]
+    for col, val in enumerate(examples, 1):
+        cell = ws.cell(row=3, column=col, value=val)
+        cell.fill = example_fill
+
+    widths = [18, 25, 15, 20, 25, 25]
+    for col, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(col)].width = w
+
+    ws.row_dimensions[1].height = 22
+    ws.row_dimensions[2].height = 18
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=inv_items_template.xlsx"},
+    )
+
+
+@router.post("/import")
+async def import_items(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bulk create inventory items from an uploaded Excel file."""
+    import openpyxl
+
+    content = await file.read()
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+        ws = wb.active
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="無法解析 Excel 檔案")
+
+    rows = list(ws.iter_rows(min_row=3, values_only=True))
+
+    created = 0
+    skipped = 0
+    errors: List[dict] = []
+
+    VALID_UNITS = {"PCS", "KG", "G", "L", "ML", "包", "箱", "袋", "罐", "卷", "打"}
+
+    for i, row in enumerate(rows, start=3):
+        if not row or all(v is None or str(v).strip() == "" for v in row):
+            continue
+        row = [str(v).strip() if v is not None else "" for v in row]
+        code = row[0] if len(row) > 0 else ""
+        name = row[1] if len(row) > 1 else ""
+        category = row[2] if len(row) > 2 else ""
+        base_unit = row[3] if len(row) > 3 else "PCS"
+        description = row[4] if len(row) > 4 else ""
+        locations_raw = row[5] if len(row) > 5 else ""
+
+        if not code:
+            skipped += 1
+            continue
+        if not name:
+            errors.append({"row": i, "code": code, "message": "品項名稱不可為空"})
+            skipped += 1
+            continue
+        if not base_unit or base_unit not in VALID_UNITS:
+            base_unit = "PCS"
+
+        existing = await db.execute(select(InvItem).where(InvItem.code == code))
+        if existing.scalar_one_or_none():
+            errors.append({"row": i, "code": code, "message": f"代碼 '{code}' 已存在，略過"})
+            skipped += 1
+            continue
+
+        item = InvItem(
+            code=code,
+            name=name,
+            category=category or None,
+            base_unit=base_unit,
+            description=description or None,
+        )
+        db.add(item)
+        await db.flush()
+
+        # Resolve allowed locations by code
+        if locations_raw:
+            location_codes = [c.strip() for c in locations_raw.split(",") if c.strip()]
+            if location_codes:
+                locs_result = await db.execute(
+                    select(InvLocation).where(InvLocation.code.in_(location_codes))
+                )
+                locs = locs_result.scalars().all()
+
+                # Reload item with relationships to assign allowed_locations
+                item_result = await db.execute(
+                    select(InvItem)
+                    .options(
+                        selectinload(InvItem.supplier),
+                        selectinload(InvItem.allowed_locations),
+                    )
+                    .where(InvItem.id == item.id)
+                )
+                item = item_result.scalar_one()
+                item.allowed_locations = list(locs)
+                await db.flush()
+
+        created += 1
+
+    await db.commit()
+    return {"created": created, "skipped": skipped, "errors": errors}
 
 
 @router.get("/{item_id}", response_model=InvItemResponse)

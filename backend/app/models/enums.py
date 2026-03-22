@@ -133,3 +133,15 @@ ProdBatchStatusType = SAEnum(ProdBatchStatus, name="prod_batch_status_enum", cre
 ProdShiftType = SAEnum(ProdShift, name="prod_shift_enum", create_type=False, values_callable=_vals)
 ProdPackTypeType = SAEnum(ProdPackType, name="prod_pack_type_enum", create_type=False, values_callable=_vals)
 ProdProductTypeType = SAEnum(ProdProductType, name="prod_product_type_enum", create_type=False, values_callable=_vals)
+
+
+# ---------------------------------------------------------------------------
+# Inventory stocktake enums
+# ---------------------------------------------------------------------------
+
+class InvStocktakeStatus(str, enum.Enum):
+    DRAFT = "draft"
+    CONFIRMED = "confirmed"
+
+
+InvStocktakeStatusType = SAEnum(InvStocktakeStatus, name="inv_stocktake_status_enum", create_type=False, values_callable=_vals)

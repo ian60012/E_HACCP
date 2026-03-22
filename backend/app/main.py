@@ -36,6 +36,7 @@ from app.routers.api.v1 import production_pack_types
 from app.routers.api.v1 import production_batches
 from app.routers.api.v1 import production_repack
 from app.routers.api.v1 import assembly_packing_logs
+from app.routers.api.v1 import inventory_stocktake
 
 
 @asynccontextmanager
@@ -434,6 +435,40 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE cooling_logs ADD COLUMN IF NOT EXISTS "
             "hot_input_id INTEGER REFERENCES prod_hot_inputs(id) ON DELETE SET NULL"
         ))
+        # ----- Stocktake module -----
+        await conn.execute(text("""
+            DO $$ BEGIN
+                CREATE TYPE inv_stocktake_status_enum AS ENUM ('draft', 'confirmed');
+            EXCEPTION WHEN duplicate_object THEN NULL;
+            END $$
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS inv_stocktakes (
+                id              SERIAL PRIMARY KEY,
+                doc_number      VARCHAR(30) UNIQUE NOT NULL,
+                status          inv_stocktake_status_enum NOT NULL DEFAULT 'draft',
+                location_id     INTEGER NOT NULL REFERENCES inv_locations(id),
+                count_date      DATE NOT NULL,
+                notes           TEXT,
+                operator_id     INTEGER REFERENCES users(id),
+                confirmed_at    TIMESTAMPTZ,
+                adj_in_doc_id   INTEGER REFERENCES inv_stock_docs(id) ON DELETE SET NULL,
+                adj_out_doc_id  INTEGER REFERENCES inv_stock_docs(id) ON DELETE SET NULL,
+                created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS inv_stocktake_lines (
+                id              SERIAL PRIMARY KEY,
+                stocktake_id    INTEGER NOT NULL REFERENCES inv_stocktakes(id) ON DELETE CASCADE,
+                item_id         INTEGER NOT NULL REFERENCES inv_items(id),
+                location_id     INTEGER NOT NULL REFERENCES inv_locations(id),
+                system_qty      NUMERIC(12,3) NOT NULL DEFAULT 0,
+                physical_qty    NUMERIC(12,3),
+                notes           TEXT,
+                created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
     yield
     # Shutdown: Close database connections
     await engine.dispose()
@@ -489,6 +524,9 @@ app.include_router(production_repack.router, prefix="/api/v1")
 
 # Assembly & Packing logs (forming batch food safety)
 app.include_router(assembly_packing_logs.router, prefix="/api/v1")
+
+# Inventory stocktake (盤點)
+app.include_router(inventory_stocktake.router, prefix="/api/v1")
 
 
 @app.get("/")

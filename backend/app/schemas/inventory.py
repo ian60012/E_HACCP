@@ -1,6 +1,6 @@
 """Inventory module schemas (出入庫管理)."""
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, List
 
@@ -185,3 +185,51 @@ class InvStockMovementResponse(BaseModel):
 
 class ConvertToStockInRequest(BaseModel):
     location_id: int
+
+
+# ---------------------------------------------------------------------------
+# Stocktake (盤點)
+# ---------------------------------------------------------------------------
+
+class InvStocktakeCreate(BaseModel):
+    location_id: int
+    count_date: date
+    notes: Optional[str] = None
+
+
+class InvStocktakeLineUpdate(BaseModel):
+    physical_qty: Optional[Decimal] = None
+    notes: Optional[str] = None
+
+
+class InvStocktakeLineResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    item_id: int
+    item_code: str
+    item_name: str
+    item_unit: str
+    location_id: int
+    system_qty: Decimal
+    physical_qty: Optional[Decimal] = None
+    variance: Optional[Decimal] = None
+    notes: Optional[str] = None
+
+
+class InvStocktakeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    doc_number: str
+    status: str
+    location_id: int
+    location_name: str
+    count_date: date
+    notes: Optional[str] = None
+    operator_id: Optional[int] = None
+    confirmed_at: Optional[datetime] = None
+    adj_in_doc_id: Optional[int] = None
+    adj_out_doc_id: Optional[int] = None
+    created_at: datetime
+    lines: List[InvStocktakeLineResponse] = []
