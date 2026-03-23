@@ -218,7 +218,7 @@ export default function ProdBatchDetailPage() {
     setInputWeightSaving(true);
     try {
       const updated = await prodBatchesApi.update(batch.id, {
-        input_weight_kg: editInputWeight ? editInputWeight : undefined,
+        input_weight_kg: editInputWeight ? Number(editInputWeight) : undefined,
       });
       setBatch(updated);
       await fetchHotBalance();

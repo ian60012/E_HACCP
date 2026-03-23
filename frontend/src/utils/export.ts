@@ -6,7 +6,7 @@ export interface ExportColumn<T> {
   format?: (val: unknown) => string;
 }
 
-export function exportToExcel<T extends Record<string, unknown>>(
+export function exportToExcel<T extends Record<string, any>>(
   data: T[],
   columns: ExportColumn<T>[],
   filename: string,
@@ -17,7 +17,7 @@ export function exportToExcel<T extends Record<string, unknown>>(
         const val = item[col.key];
         acc[col.header] = col.format ? col.format(val) : (val ?? '');
         return acc;
-      }, {} as Record<string, unknown>)
+      }, {} as Record<string, any>)
     );
     const ws = XLSX.utils.json_to_sheet(rows);
 
@@ -42,7 +42,7 @@ export function exportToExcel<T extends Record<string, unknown>>(
   }
 }
 
-export function exportToPdf<T extends Record<string, unknown>>(
+export function exportToPdf<T extends Record<string, any>>(
   data: T[],
   columns: ExportColumn<T>[],
   title: string,

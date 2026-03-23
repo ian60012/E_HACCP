@@ -684,7 +684,6 @@ const labels: Record<string, BiLabelType> = {
   'field.inputWeight': { zh: '投料量 (KG)', en: 'Input Weight (KG)' },
   'field.packedWeight': { zh: '打包總重', en: 'Packed Weight' },
   'field.lossWeight': { zh: '耗損量', en: 'Loss Weight' },
-  'field.lossRate': { zh: '耗損率', en: 'Loss Rate' },
   'section.cookingLogs': { zh: '烹煮記錄', en: 'Cooking Records' },
   'btn.enterStock': { zh: '入庫', en: 'Enter Stock' },
   'btn.addCookingLog': { zh: '新增烹煮記錄', en: 'Add Cooking Record' },
