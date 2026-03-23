@@ -1,11 +1,12 @@
 import axios from 'axios';
 
-// Auto-detect backend URL based on current browser location
-// In production/NAS: same host, port 8000
-// Dev override via VITE_API_BASE_URL env var
+// Production: use relative path (nginx proxies /api -> backend)
+// Development: direct connect to backend on port 8000
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  `${window.location.protocol}//${window.location.hostname}:8000`;
+  (import.meta.env.PROD
+    ? ''
+    : `${window.location.protocol}//${window.location.hostname}:8000`);
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
