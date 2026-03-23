@@ -157,7 +157,7 @@ export default function InventoryBalancePage() {
                   <td className="py-2 pr-4">{row.location_name}</td>
                   <td className="py-2 text-right font-semibold">
                     <span className={Number(row.quantity) < 0 ? 'text-red-600' : ''}>
-                      {Number(row.quantity).toFixed(3)}
+                      {Math.round(Number(row.quantity))}
                     </span>
                   </td>
                   <td className="py-2 pl-2 text-gray-400">{row.base_unit}</td>

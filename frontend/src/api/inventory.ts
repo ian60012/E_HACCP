@@ -97,6 +97,11 @@ export const invDocsApi = {
     return res.data;
   },
 
+  update: async (id: number, data: { ref_number?: string; notes?: string; lines: import('@/types/inventory').InvStockLineCreate[] }): Promise<InvStockDoc> => {
+    const res = await apiClient.patch<InvStockDoc>(`/api/v1/inventory/docs/${id}`, data);
+    return res.data;
+  },
+
   post: async (id: number): Promise<InvStockDoc> => {
     const res = await apiClient.post<InvStockDoc>(`/api/v1/inventory/docs/${id}/post`);
     return res.data;

@@ -160,15 +160,7 @@ async def lifespan(app: FastAPI):
             EXCEPTION WHEN duplicate_object THEN NULL;
             END $$
         """))
-        await conn.execute(text("""
-            DO $$ BEGIN
-                CREATE TYPE prod_pack_type_enum AS ENUM ('4KG_SEMI', '1KG_FG', '0.5KG_FG', 'BULK_KG');
-            EXCEPTION WHEN duplicate_object THEN NULL;
-            END $$
-        """))
-        await conn.execute(text(
-            "ALTER TYPE prod_pack_type_enum ADD VALUE IF NOT EXISTS 'BULK_KG'"
-        ))
+        # Note: prod_pack_type_enum removed — pack_type is now VARCHAR(50)
         await conn.execute(text("""
             DO $$ BEGIN
                 CREATE TYPE prod_product_type_enum AS ENUM ('forming', 'hot_process');
@@ -248,7 +240,7 @@ async def lifespan(app: FastAPI):
             CREATE TABLE IF NOT EXISTS prod_packing_records (
                 id SERIAL PRIMARY KEY,
                 batch_id INTEGER NOT NULL REFERENCES prod_batches(id) ON DELETE CASCADE,
-                pack_type prod_pack_type_enum NOT NULL,
+                pack_type VARCHAR(50) NOT NULL,
                 product_id INTEGER REFERENCES prod_products(id),
                 bag_count INTEGER NOT NULL,
                 nominal_weight_kg NUMERIC(8,3) NOT NULL,
@@ -293,7 +285,7 @@ async def lifespan(app: FastAPI):
             CREATE TABLE IF NOT EXISTS prod_repack_outputs (
                 id SERIAL PRIMARY KEY,
                 repack_job_id INTEGER NOT NULL REFERENCES prod_repack_jobs(id) ON DELETE CASCADE,
-                pack_type prod_pack_type_enum NOT NULL,
+                pack_type VARCHAR(50) NOT NULL,
                 product_id INTEGER REFERENCES prod_products(id),
                 bag_count INTEGER NOT NULL,
                 nominal_weight_kg NUMERIC(8,3) NOT NULL,

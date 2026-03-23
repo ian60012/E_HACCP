@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { invDocsApi, invItemsApi, invLocationsApi } from '@/api/inventory';
 import { InvItem, InvLocation, InvDocType, InvStockLineCreate } from '@/types/inventory';
 import FormField from '@/components/FormField';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import Bi, { bi } from '@/components/Bi';
 
@@ -19,6 +20,8 @@ interface LineRow {
 export default function InventoryStockDocFormPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { id } = useParams<{ id: string }>();
+  const isEdit = !!id;
   const defaultType = (searchParams.get('type') as InvDocType) || 'IN';
 
   const [docType, setDocType] = useState<InvDocType>(defaultType);
@@ -31,12 +34,43 @@ export default function InventoryStockDocFormPage() {
   const [items, setItems] = useState<InvItem[]>([]);
   const [allLocations, setAllLocations] = useState<InvLocation[]>([]);
   const [saving, setSaving] = useState(false);
+  const [loadingDoc, setLoadingDoc] = useState(false);
   const [error, setError] = useState('');
+
+  const loadExistingDoc = useCallback(async () => {
+    if (!id) return;
+    setLoadingDoc(true);
+    try {
+      const doc = await invDocsApi.get(Number(id));
+      if (doc.status !== 'Draft') {
+        navigate(`/inventory/docs/${id}`);
+        return;
+      }
+      setDocType(doc.doc_type as InvDocType);
+      setRefNumber(doc.ref_number || '');
+      setNotes(doc.notes || '');
+      setLines(
+        doc.lines.map((l) => ({
+          item_id: l.item_id,
+          location_id: l.location_id,
+          quantity: String(Math.round(Number(l.quantity))),
+          unit: l.unit,
+          unit_cost: l.unit_cost ? String(l.unit_cost) : '',
+          notes: l.notes || '',
+        })),
+      );
+    } catch {
+      setError(bi('error.loadFailed'));
+    } finally {
+      setLoadingDoc(false);
+    }
+  }, [id, navigate]);
 
   useEffect(() => {
     invItemsApi.list({ limit: 500 }).then((r) => setItems(r.items));
     invLocationsApi.list({ limit: 200 }).then((r) => setAllLocations(r.items));
-  }, []);
+    if (isEdit) loadExistingDoc();
+  }, [isEdit, loadExistingDoc]);
 
   const getAllowedLocations = (itemId: number | ''): InvLocation[] => {
     if (!itemId) return allLocations;
@@ -88,12 +122,21 @@ export default function InventoryStockDocFormPage() {
         unit_cost: l.unit_cost || undefined,
         notes: l.notes || undefined,
       }));
-      const doc = await invDocsApi.create({
-        doc_type: docType,
-        ref_number: refNumber || undefined,
-        notes: notes || undefined,
-        lines: docLines,
-      });
+      let doc;
+      if (isEdit) {
+        doc = await invDocsApi.update(Number(id), {
+          ref_number: refNumber || undefined,
+          notes: notes || undefined,
+          lines: docLines,
+        });
+      } else {
+        doc = await invDocsApi.create({
+          doc_type: docType,
+          ref_number: refNumber || undefined,
+          notes: notes || undefined,
+          lines: docLines,
+        });
+      }
       navigate(`/inventory/docs/${doc.id}`);
     } catch (err: any) {
       setError(err?.response?.data?.detail || bi('error.saveFailed'));
@@ -102,13 +145,17 @@ export default function InventoryStockDocFormPage() {
     }
   };
 
+  if (loadingDoc) return <LoadingSpinner fullPage />;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/inventory/docs')} className="p-2 rounded-lg hover:bg-gray-100">
+        <button onClick={() => navigate(isEdit ? `/inventory/docs/${id}` : '/inventory/docs')} className="p-2 rounded-lg hover:bg-gray-100">
           <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-800"><Bi k="page.invDocNew.title" /></h1>
+        <h1 className="text-2xl font-bold text-gray-800">
+          {isEdit ? <Bi k="page.invDocEdit.title" /> : <Bi k="page.invDocNew.title" />}
+        </h1>
       </div>
 
       {error && <ErrorCard message={error} />}
@@ -119,7 +166,7 @@ export default function InventoryStockDocFormPage() {
           <h2 className="text-lg font-semibold text-gray-800"><Bi k="section.docHeader" /></h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label={<Bi k="field.docType" />} required>
-              <select value={docType} onChange={(e) => setDocType(e.target.value as InvDocType)} className="input">
+              <select value={docType} onChange={(e) => setDocType(e.target.value as InvDocType)} className="input" disabled={isEdit}>
                 <option value="IN"><Bi k="label.stockIn" /></option>
                 <option value="OUT"><Bi k="label.stockOut" /></option>
               </select>
@@ -184,8 +231,8 @@ export default function InventoryStockDocFormPage() {
                     {index === 0 && <label className="label text-xs"><Bi k="field.quantity" /></label>}
                     <input
                       type="number"
-                      step="0.001"
-                      min="0.001"
+                      step="1"
+                      min="1"
                       value={line.quantity}
                       onChange={(e) => updateLine(index, 'quantity', e.target.value)}
                       className="input"
@@ -225,7 +272,7 @@ export default function InventoryStockDocFormPage() {
             <Bi k="btn.cancel" />
           </button>
           <button type="submit" disabled={saving} className="btn btn-primary">
-            {saving ? <Bi k="btn.saving" /> : <Bi k="btn.saveDraft" />}
+            {saving ? <Bi k="btn.saving" /> : <Bi k={isEdit ? 'btn.save' : 'btn.saveDraft'} />}
           </button>
         </div>
       </form>

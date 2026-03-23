@@ -30,7 +30,7 @@ from app.schemas.production import (
     RepackTotalsResponse,
 )
 from app.schemas.common import PaginatedResponse
-from app.dependencies.auth import get_current_active_user
+from app.dependencies.auth import get_current_active_user, require_role
 from app.services.production_service import (
     generate_repack_batch_code,
     calculate_repack_totals,
@@ -141,7 +141,7 @@ async def list_repack_jobs(
 )
 async def create_repack_job(
     data: ProdRepackJobCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     new_batch_code = await generate_repack_batch_code(db, data.date)
@@ -187,7 +187,7 @@ async def get_repack_job(
 async def add_input(
     job_id: int,
     data: ProdRepackInputCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     job = await db.get(ProdRepackJob, job_id)
@@ -227,7 +227,7 @@ async def add_input(
 async def remove_input(
     job_id: int,
     input_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -259,7 +259,7 @@ async def remove_input(
 async def add_output(
     job_id: int,
     data: ProdRepackOutputCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     job = await db.get(ProdRepackJob, job_id)
@@ -296,7 +296,7 @@ async def add_output(
 async def remove_output(
     job_id: int,
     output_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -328,7 +328,7 @@ async def remove_output(
 async def add_trim(
     job_id: int,
     data: ProdRepackTrimCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     job = await db.get(ProdRepackJob, job_id)
@@ -357,7 +357,7 @@ async def add_trim(
 async def remove_trim(
     job_id: int,
     trim_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(

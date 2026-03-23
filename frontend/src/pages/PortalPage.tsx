@@ -10,6 +10,7 @@ interface SystemCard {
   to: string;
   color: string;
   disabled?: boolean;
+  roles?: string[];
 }
 
 const systems: SystemCard[] = [
@@ -26,6 +27,7 @@ const systems: SystemCard[] = [
     icon: CogIcon,
     to: '/production',
     color: 'text-amber-600 bg-amber-50 border-amber-200 hover:border-amber-400',
+    roles: ['Admin', 'QA', 'Production'],
   },
   {
     titleKey: 'page.portal.inventory',
@@ -33,6 +35,7 @@ const systems: SystemCard[] = [
     icon: ArchiveBoxIcon,
     to: '/inventory/balance',
     color: 'text-emerald-600 bg-emerald-50 border-emerald-200 hover:border-emerald-400',
+    roles: ['Admin', 'QA', 'Warehouse'],
   },
 ];
 
@@ -52,7 +55,7 @@ export default function PortalPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-3xl">
-        {systems.map((sys) => (
+        {systems.filter((sys) => !sys.roles || sys.roles.includes(user?.role || '')).map((sys) => (
           <button
             key={sys.to}
             onClick={() => !sys.disabled && navigate(sys.to)}

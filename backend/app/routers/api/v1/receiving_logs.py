@@ -127,7 +127,7 @@ async def get_receiving_log(
 @router.post("", response_model=ReceivingLogResponse, status_code=status.HTTP_201_CREATED)
 async def create_receiving_log(
     data: ReceivingLogCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "QA", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -175,7 +175,7 @@ async def create_receiving_log(
 async def update_receiving_log(
     log_id: int,
     data: ReceivingLogUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "QA", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a receiving log (blocked if locked or voided)."""
@@ -201,10 +201,10 @@ async def update_receiving_log(
 @router.post("/{log_id}/lock", response_model=ReceivingLogResponse)
 async def lock_receiving_log(
     log_id: int,
-    current_user: User = Depends(require_role("QA", "Manager")),
+    current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
-    """QA-lock a receiving log (QA/Manager only)."""
+    """QA-lock a receiving log (Admin/QA only)."""
     await lock_record(db, ReceivingLog, log_id, current_user)
     result = await db.execute(_base_query().where(ReceivingLog.id == log_id))
     log = result.scalar_one()
@@ -215,10 +215,10 @@ async def lock_receiving_log(
 async def void_receiving_log(
     log_id: int,
     body: VoidRequest,
-    current_user: User = Depends(require_role("Manager")),
+    current_user: User = Depends(require_role("Admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Void a receiving log (Manager only)."""
+    """Void a receiving log (Admin only)."""
     await void_record(db, ReceivingLog, log_id, body.void_reason, current_user)
     result = await db.execute(_base_query().where(ReceivingLog.id == log_id))
     log = result.scalar_one()
@@ -229,7 +229,7 @@ async def void_receiving_log(
 async def set_inv_item(
     log_id: int,
     inv_item_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "QA", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     """Link an inventory item to a receiving log (for later stock-IN conversion)."""
@@ -251,7 +251,7 @@ async def set_inv_item(
 async def convert_to_stock_in(
     log_id: int,
     data: ConvertToStockInRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "QA", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     """Convert a locked + accepted receiving log into a Draft stock-IN document."""

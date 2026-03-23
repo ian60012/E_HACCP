@@ -14,11 +14,16 @@ export default function Layout() {
       {!isPortal && <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
 
       {/* Main content area */}
-      <main className={`pt-16 ${isPortal ? '' : 'lg:pl-64'}`}>
+      <main className={`pt-16 pb-10 ${isPortal ? '' : 'lg:pl-64'}`}>
         <div className="px-4 py-6 sm:px-6 lg:px-8">
           <Outlet />
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className={`fixed bottom-0 right-0 left-0 ${isPortal ? '' : 'lg:left-64'} bg-gray-50 border-t border-gray-100 py-2 px-4 text-center text-xs text-gray-400`}>
+        FD Catering HACCP System v2.0.0
+      </footer>
     </div>
   );
 }

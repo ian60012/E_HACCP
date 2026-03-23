@@ -5,6 +5,7 @@ import { invStocktakeApi } from '@/api/inventory';
 import { InvStocktake } from '@/types/inventory';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
+import RoleGate from '@/components/RoleGate';
 
 const PAGE_SIZE = 50;
 
@@ -52,12 +53,14 @@ export default function InventoryStocktakeListPage() {
           <h1 className="text-2xl font-bold text-gray-800">盤點管理</h1>
           <p className="text-sm text-gray-500 mt-0.5">共 {total} 筆盤點紀錄</p>
         </div>
-        <button
-          onClick={() => navigate('/inventory/stocktakes/new')}
-          className="btn btn-primary flex items-center gap-1"
-        >
-          <PlusIcon className="h-4 w-4" />新增盤點
-        </button>
+        <RoleGate roles={['Admin', 'Warehouse']}>
+          <button
+            onClick={() => navigate('/inventory/stocktakes/new')}
+            className="btn btn-primary flex items-center gap-1"
+          >
+            <PlusIcon className="h-4 w-4" />新增盤點
+          </button>
+        </RoleGate>
       </div>
 
       {/* Filters */}

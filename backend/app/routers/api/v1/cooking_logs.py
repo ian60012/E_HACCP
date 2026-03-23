@@ -7,7 +7,7 @@ Standard 6-endpoint pattern:
   POST   /cooking-logs           — Create (flush -> validate -> commit)
   PATCH  /cooking-logs/{id}      — Update (blocked if locked/voided)
   POST   /cooking-logs/{id}/lock — QA lock
-  POST   /cooking-logs/{id}/void — Void (Manager only)
+  POST   /cooking-logs/{id}/void — Void (Admin only)
 """
 
 from decimal import Decimal
@@ -130,7 +130,7 @@ async def get_cooking_log(
 @router.post("", response_model=CookingLogResponse, status_code=status.HTTP_201_CREATED)
 async def create_cooking_log(
     data: CookingLogCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "QA", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -200,7 +200,7 @@ async def create_cooking_log(
 async def update_cooking_log(
     log_id: int,
     data: CookingLogUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "QA", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a cooking log (blocked if locked or voided)."""
@@ -254,10 +254,10 @@ async def update_cooking_log(
 @router.post("/{log_id}/lock", response_model=CookingLogResponse)
 async def lock_cooking_log(
     log_id: int,
-    current_user: User = Depends(require_role("QA", "Manager")),
+    current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
-    """QA-lock a cooking log (QA/Manager only)."""
+    """QA-lock a cooking log (Admin/QA only)."""
     await lock_record(db, CookingLog, log_id, current_user)
     result = await db.execute(_base_query().where(CookingLog.id == log_id))
     log = result.scalar_one()
@@ -268,10 +268,10 @@ async def lock_cooking_log(
 async def void_cooking_log(
     log_id: int,
     body: VoidRequest,
-    current_user: User = Depends(require_role("Manager")),
+    current_user: User = Depends(require_role("Admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Void a cooking log (Manager only). Works on locked records."""
+    """Void a cooking log (Admin only). Works on locked records."""
     await void_record(db, CookingLog, log_id, body.void_reason, current_user)
     result = await db.execute(_base_query().where(CookingLog.id == log_id))
     log = result.scalar_one()

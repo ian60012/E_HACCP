@@ -7,6 +7,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import Bi from '@/components/Bi';
+import RoleGate from '@/components/RoleGate';
 
 const prodCards = [
   {
@@ -77,13 +78,15 @@ export default function ProductionDashboardPage() {
               >
                 <Bi k="btn.viewRecords" />
               </Link>
-              <Link
-                to={card.newTo}
-                className="flex items-center justify-center py-2 px-3 bg-white/80 hover:bg-white rounded-lg text-sm font-medium transition-colors"
-              >
-                <PlusIcon className="h-4 w-4 mr-1" />
-                <Bi k="btn.create" />
-              </Link>
+              <RoleGate roles={['Admin', 'Production']}>
+                <Link
+                  to={card.newTo}
+                  className="flex items-center justify-center py-2 px-3 bg-white/80 hover:bg-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  <Bi k="btn.create" />
+                </Link>
+              </RoleGate>
             </div>
           </div>
         ))}

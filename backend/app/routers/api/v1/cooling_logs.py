@@ -126,7 +126,7 @@ async def get_cooling_log(
 @router.post("", response_model=CoolingLogResponse, status_code=status.HTTP_201_CREATED)
 async def create_cooling_log(
     data: CoolingLogCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "QA", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -181,7 +181,7 @@ async def create_cooling_log(
 async def update_cooling_log(
     log_id: int,
     data: CoolingLogUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "QA", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -230,10 +230,10 @@ async def update_cooling_log(
 @router.post("/{log_id}/lock", response_model=CoolingLogResponse)
 async def lock_cooling_log(
     log_id: int,
-    current_user: User = Depends(require_role("QA", "Manager")),
+    current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
-    """QA-lock a cooling log (QA/Manager only)."""
+    """QA-lock a cooling log (Admin/QA only)."""
     await lock_record(db, CoolingLog, log_id, current_user)
     result = await db.execute(_base_query().where(CoolingLog.id == log_id))
     log = result.scalar_one()
@@ -244,10 +244,10 @@ async def lock_cooling_log(
 async def void_cooling_log(
     log_id: int,
     body: VoidRequest,
-    current_user: User = Depends(require_role("Manager")),
+    current_user: User = Depends(require_role("Admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Void a cooling log (Manager only)."""
+    """Void a cooling log (Admin only)."""
     await void_record(db, CoolingLog, log_id, body.void_reason, current_user)
     result = await db.execute(_base_query().where(CoolingLog.id == log_id))
     log = result.scalar_one()

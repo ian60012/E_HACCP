@@ -164,7 +164,7 @@ export default function CookingLogDetailPage() {
       </div>
 
       {/* Dialogs */}
-      <ConfirmDialog open={lockDialog} title={bi('confirm.lock.title')} message={bi('confirm.lock.message')} variant="warning" confirmLabel={bi('confirm.void.confirm')} onConfirm={handleLock} onCancel={() => setLockDialog(false)} loading={actionLoading} />
+      <ConfirmDialog open={lockDialog} title={bi('confirm.lock.title')} message={bi('confirm.lock.message')} variant="warning" confirmLabel={bi('confirm.lock.confirm')} onConfirm={handleLock} onCancel={() => setLockDialog(false)} loading={actionLoading} />
       <ConfirmDialog open={voidDialog} title={bi('confirm.void.title')} message={bi('confirm.void.message')} variant="danger" confirmLabel={bi('confirm.void.confirm')} requireReason reasonLabel={bi('confirm.void.reason')} reasonMinLength={5} onConfirm={handleVoid} onCancel={() => setVoidDialog(false)} loading={actionLoading} />
     </div>
   );

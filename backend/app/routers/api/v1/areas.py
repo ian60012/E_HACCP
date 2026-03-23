@@ -58,10 +58,10 @@ async def get_area(
 @router.post("", response_model=AreaResponse, status_code=status.HTTP_201_CREATED)
 async def create_area(
     data: AreaCreate,
-    current_user: User = Depends(require_role("QA", "Manager")),
+    current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new area (QA/Manager only)."""
+    """Create a new area (Admin/QA only)."""
     area = Area(**data.model_dump())
     db.add(area)
     await db.commit()
@@ -73,10 +73,10 @@ async def create_area(
 async def update_area(
     area_id: int,
     data: AreaUpdate,
-    current_user: User = Depends(require_role("QA", "Manager")),
+    current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update an area (QA/Manager only)."""
+    """Update an area (Admin/QA only)."""
     result = await db.execute(select(Area).where(Area.id == area_id))
     area = result.scalar_one_or_none()
     if not area:

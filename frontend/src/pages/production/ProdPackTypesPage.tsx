@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import EmptyState from '@/components/EmptyState';
 import Bi, { bi } from '@/components/Bi';
+import RoleGate from '@/components/RoleGate';
 
 const applicableTypeOptions: { value: PackApplicableType; labelKey: string }[] = [
   { value: 'forming',     labelKey: 'label.applicableForming' },
@@ -114,10 +115,12 @@ export default function ProdPackTypesPage() {
           <h1 className="text-2xl font-bold text-gray-800"><Bi k="page.packTypes.title" /></h1>
           <p className="text-sm text-gray-500 mt-1"><Bi k="page.packTypes.subtitle" /></p>
         </div>
-        <button onClick={startCreate} className="btn btn-primary flex items-center gap-1.5">
-          <PlusIcon className="h-5 w-5" />
-          <span className="hidden sm:inline"><Bi k="btn.newPackType" /></span>
-        </button>
+        <RoleGate roles={['Admin', 'Production']}>
+          <button onClick={startCreate} className="btn btn-primary flex items-center gap-1.5">
+            <PlusIcon className="h-5 w-5" />
+            <span className="hidden sm:inline"><Bi k="btn.newPackType" /></span>
+          </button>
+        </RoleGate>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -241,9 +244,11 @@ export default function ProdPackTypesPage() {
                     </button>
                   </td>
                   <td className="py-2">
-                    <button onClick={() => startEdit(pt)} className="p-1 rounded hover:bg-gray-100">
-                      <PencilIcon className="h-4 w-4 text-gray-400" />
-                    </button>
+                    <RoleGate roles={['Admin', 'Production']}>
+                      <button onClick={() => startEdit(pt)} className="p-1 rounded hover:bg-gray-100">
+                        <PencilIcon className="h-4 w-4 text-gray-400" />
+                      </button>
+                    </RoleGate>
                   </td>
                 </tr>
               ))}

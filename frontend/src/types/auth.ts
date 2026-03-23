@@ -13,7 +13,7 @@ export interface User {
   username: string;
   full_name: string;
   email: string | null;
-  role: 'Operator' | 'QA' | 'Manager';
+  role: 'Admin' | 'QA' | 'Production' | 'Warehouse';
   is_active: boolean;
   created_at: string;
 }
@@ -23,12 +23,12 @@ export interface UserCreate {
   password: string;
   full_name: string;
   email?: string;
-  role?: 'Operator' | 'QA' | 'Manager';
+  role?: 'Admin' | 'QA' | 'Production' | 'Warehouse';
 }
 
 export interface UserUpdate {
   full_name?: string;
   email?: string;
-  role?: 'Operator' | 'QA' | 'Manager';
+  role?: 'Admin' | 'QA' | 'Production' | 'Warehouse';
   is_active?: boolean;
 }

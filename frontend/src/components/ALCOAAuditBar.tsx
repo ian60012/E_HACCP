@@ -104,7 +104,7 @@ export default function ALCOAAuditBar({
         {!isVoided && (
           <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-200">
             {!isLocked && onLock && (
-              <RoleGate roles={['QA', 'Manager']}>
+              <RoleGate roles={['Admin', 'QA']}>
                 <button
                   onClick={onLock}
                   disabled={lockLoading}
@@ -116,7 +116,7 @@ export default function ALCOAAuditBar({
               </RoleGate>
             )}
             {onVoid && (
-              <RoleGate roles={['Manager']}>
+              <RoleGate roles={['Admin']}>
                 <button
                   onClick={onVoid}
                   className="btn btn-danger text-sm flex items-center gap-1.5"

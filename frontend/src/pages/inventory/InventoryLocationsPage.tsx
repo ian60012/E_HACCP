@@ -6,6 +6,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import EmptyState from '@/components/EmptyState';
 import Bi, { bi } from '@/components/Bi';
+import RoleGate from '@/components/RoleGate';
 
 export default function InventoryLocationsPage() {
   const [locations, setLocations] = useState<InvLocation[]>([]);
@@ -67,10 +68,12 @@ export default function InventoryLocationsPage() {
           <h1 className="text-2xl font-bold text-gray-800"><Bi k="nav.invLocations" /></h1>
           <p className="text-sm text-gray-500 mt-1"><Bi k="page.invLocations.subtitle" /></p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="btn btn-primary flex items-center gap-1.5">
-          <PlusIcon className="h-5 w-5" />
-          <span className="hidden sm:inline"><Bi k="btn.newLocation" /></span>
-        </button>
+        <RoleGate roles={['Admin', 'Warehouse']}>
+          <button onClick={() => setShowForm(!showForm)} className="btn btn-primary flex items-center gap-1.5">
+            <PlusIcon className="h-5 w-5" />
+            <span className="hidden sm:inline"><Bi k="btn.newLocation" /></span>
+          </button>
+        </RoleGate>
       </div>
 
       {showForm && (
@@ -124,12 +127,18 @@ export default function InventoryLocationsPage() {
                   <td className="py-2 pr-4 font-medium text-gray-800">{loc.name}</td>
                   <td className="py-2 pr-4 text-gray-500">{loc.zone || '—'}</td>
                   <td className="py-2">
-                    <button
-                      onClick={() => handleToggleActive(loc)}
-                      className={`text-xs px-2 py-0.5 rounded-full ${loc.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
-                    >
-                      {loc.is_active ? <Bi k="label.active" /> : <Bi k="label.inactive" />}
-                    </button>
+                    <RoleGate roles={['Admin', 'Warehouse']} fallback={
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${loc.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {loc.is_active ? <Bi k="label.active" /> : <Bi k="label.inactive" />}
+                      </span>
+                    }>
+                      <button
+                        onClick={() => handleToggleActive(loc)}
+                        className={`text-xs px-2 py-0.5 rounded-full ${loc.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+                      >
+                        {loc.is_active ? <Bi k="label.active" /> : <Bi k="label.inactive" />}
+                      </button>
+                    </RoleGate>
                   </td>
                 </tr>
               ))}

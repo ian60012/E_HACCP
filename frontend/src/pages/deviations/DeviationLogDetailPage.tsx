@@ -316,7 +316,7 @@ export default function DeviationLogDetailPage() {
 
       {/* CAPA Closure Form (only if open and not voided) */}
       {isOpen && !log.is_voided && (
-        <RoleGate roles={['QA', 'Manager']}>
+        <RoleGate roles={['Admin', 'QA']}>
           <div className="card border-2 border-orange-200">
             <h2 className="text-lg font-semibold text-gray-800 mb-1">
               <Bi k="section.capaClose" />
@@ -396,7 +396,7 @@ export default function DeviationLogDetailPage() {
         title={bi('confirm.lock.title')}
         message={bi('confirm.lock.message')}
         variant="warning"
-        confirmLabel={bi('confirm.void.confirm')}
+        confirmLabel={bi('confirm.lock.confirm')}
         onConfirm={handleLock}
         onCancel={() => setLockDialog(false)}
         loading={actionLoading}

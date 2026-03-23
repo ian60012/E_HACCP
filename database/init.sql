@@ -26,7 +26,7 @@
 -- ============================================================================
 
 DO $$ BEGIN
-    CREATE TYPE user_role_enum AS ENUM ('Operator', 'QA', 'Manager');
+    CREATE TYPE user_role_enum AS ENUM ('Admin', 'QA', 'Production', 'Warehouse');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash   VARCHAR(255)    NOT NULL,
     full_name       VARCHAR(100)    NOT NULL DEFAULT '',
     email           VARCHAR(255),
-    role            user_role_enum  NOT NULL DEFAULT 'Operator',
+    role            user_role_enum  NOT NULL DEFAULT 'Production',
     is_active       BOOLEAN         NOT NULL DEFAULT TRUE,
     created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW()
@@ -640,10 +640,10 @@ CREATE INDEX IF NOT EXISTS idx_deviation_logs_open
 -- If deploying fresh, regenerate hashes via the backend's security module.
 
 INSERT INTO users (username, password_hash, full_name, role, is_active) VALUES
-    ('operator1', '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'Alice Wong',   'Operator', TRUE),
-    ('operator2', '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'Bob Chen',     'Operator', TRUE),
-    ('qa1',       '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'Claire Park',  'QA',       TRUE),
-    ('manager1',  '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'David Li',     'Manager',  TRUE)
+    ('production1', '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'Alice Wong',   'Production', TRUE),
+    ('warehouse1',  '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'Bob Chen',     'Warehouse',  TRUE),
+    ('qa1',         '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'Claire Park',  'QA',         TRUE),
+    ('admin1',      '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'David Li',     'Admin',      TRUE)
 ON CONFLICT (username) DO NOTHING;
 
 -- NOTE: 'products' table removed; products are now in prod_products (seeded below)
@@ -693,10 +693,8 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-DO $$ BEGIN
-    CREATE TYPE prod_pack_type_enum AS ENUM ('4KG_SEMI', '1KG_FG', '0.5KG_FG', 'BULK_KG');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+-- Note: prod_pack_type_enum removed — pack_type is now VARCHAR(50),
+-- managed dynamically via the prod_pack_types config table.
 
 -- Production products (生產品項，與 HACCP products 分離)
 CREATE TABLE IF NOT EXISTS prod_products (

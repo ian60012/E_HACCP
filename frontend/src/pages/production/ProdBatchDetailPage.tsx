@@ -11,13 +11,12 @@ import {
   ProdHotInput, ProdHotInputCreate,
   FormingTotals, HotProcessBalance,
 } from '@/types/production';
-import { CookingLog } from '@/types/cooking-log';
-import { CoolingLog } from '@/types/cooling-log';
 import { AssemblyPackingLog, AssemblyPackingLogCreate } from '@/types/assembly-log';
 import { InvLocation } from '@/types/inventory';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import Bi, { bi } from '@/components/Bi';
+import RoleGate from '@/components/RoleGate';
 import DateTimeInput from '@/components/DateTimeInput';
 import { toMelbourneInput, nowMelbourne, melbourneToUTC, formatMelbourne } from '@/utils/timezone';
 
@@ -75,8 +74,11 @@ export default function ProdBatchDetailPage() {
   const [editInputWeight, setEditInputWeight] = useState('');
   const [inputWeightSaving, setInputWeightSaving] = useState(false);
   const [hotBalance, setHotBalance] = useState<HotProcessBalance | null>(null);
-  const [cookingLogs, setCookingLogs] = useState<CookingLog[]>([]);
-  const [coolingLogs, setCoolingLogs] = useState<CoolingLog[]>([]);
+
+  // Cooking/Cooling log status per hot_input_id
+  type LogStatus = { id: number; ccp: string | null };
+  const [cookingByInput, setCookingByInput] = useState<Record<number, LogStatus>>({});
+  const [coolingByInput, setCoolingByInput] = useState<Record<number, LogStatus>>({});
 
   // Hot inputs (multiple entries)
   const [showHotInputForm, setShowHotInputForm] = useState(false);
@@ -150,19 +152,24 @@ export default function ProdBatchDetailPage() {
     } catch { /* ignore */ }
   }, [id]);
 
-  const fetchCookingLogs = useCallback(async () => {
-    if (!id) return;
-    try {
-      const res = await cookingLogsApi.list({ prod_batch_id: Number(id), limit: 100 });
-      setCookingLogs(res.items);
-    } catch { /* ignore */ }
-  }, [id]);
 
-  const fetchCoolingLogs = useCallback(async () => {
+  const fetchCookingCoolingStatus = useCallback(async () => {
     if (!id) return;
     try {
-      const res = await coolingLogsApi.list({ prod_batch_id: Number(id), limit: 100 });
-      setCoolingLogs(res.items);
+      const [ckRes, clRes] = await Promise.all([
+        cookingLogsApi.list({ prod_batch_id: Number(id), limit: 100 }),
+        coolingLogsApi.list({ prod_batch_id: Number(id), limit: 100 }),
+      ]);
+      const ckMap: Record<number, LogStatus> = {};
+      for (const l of ckRes.items) {
+        if (l.hot_input_id) ckMap[l.hot_input_id] = { id: l.id, ccp: l.ccp_status };
+      }
+      const clMap: Record<number, LogStatus> = {};
+      for (const l of clRes.items) {
+        if (l.hot_input_id) clMap[l.hot_input_id] = { id: l.id, ccp: l.ccp_status };
+      }
+      setCookingByInput(ckMap);
+      setCoolingByInput(clMap);
     } catch { /* ignore */ }
   }, [id]);
 
@@ -183,11 +190,10 @@ export default function ProdBatchDetailPage() {
     }
     if (productType === 'hot_process') {
       fetchHotBalance();
-      fetchCookingLogs();
-      fetchCoolingLogs();
+      fetchCookingCoolingStatus();
       fetchAssemblyLogs();
     }
-  }, [productType, fetchFormingTotals, fetchHotBalance, fetchCookingLogs, fetchCoolingLogs, fetchAssemblyLogs]);
+  }, [productType, fetchFormingTotals, fetchHotBalance, fetchCookingCoolingStatus, fetchAssemblyLogs]);
 
   const handleSaveHeader = async () => {
     if (!batch) return;
@@ -315,20 +321,47 @@ export default function ProdBatchDetailPage() {
 
   const openEnterStockModal = async () => {
     try {
-      const [locsRes, prodsRes] = await Promise.all([
-        invLocationsApi.list({ is_active: true, limit: 100 }),
-        prodProductsApi.list({ search: batch?.product_code, limit: 5 }),
-      ]);
-      const product = prodsRes.items.find((p) => p.code === batch?.product_code);
+      const locsRes = await invLocationsApi.list({ is_active: true, limit: 100 });
       let filteredLocs = locsRes.items;
-      // For hot_process batches, filter locations by the item's allowed_location_ids if set
-      if (productType === 'hot_process' && product?.inv_item_id) {
-        const invItem = await invItemsApi.get(product.inv_item_id);
-        if (invItem.allowed_location_ids?.length) {
-          filteredLocs = locsRes.items.filter((l) => invItem.allowed_location_ids.includes(l.id));
+
+      // Collect inv_item_ids to check allowed_location_ids
+      const itemIds = new Set<number>();
+
+      if (productType === 'hot_process') {
+        const prodsRes = await prodProductsApi.list({ search: batch?.product_code, limit: 5 });
+        const product = prodsRes.items.find((p) => p.code === batch?.product_code);
+        if (product?.inv_item_id) itemIds.add(product.inv_item_id);
+      }
+
+      // For forming batches, collect inv_item_ids from packing records
+      if (productType === 'forming' && batch) {
+        for (const rec of batch.packing_records || []) {
+          if (rec.inv_item_id) itemIds.add(rec.inv_item_id);
+        }
+        // Fallback: check the batch's main product
+        if (itemIds.size === 0) {
+          const prodsRes = await prodProductsApi.list({ search: batch.product_code, limit: 5 });
+          const product = prodsRes.items.find((p) => p.code === batch.product_code);
+          if (product?.inv_item_id) itemIds.add(product.inv_item_id);
         }
       }
-      // For forming batches, show all active locations (multi-product lines, no single item filter)
+
+      // Fetch allowed_location_ids from all relevant inv items
+      if (itemIds.size > 0) {
+        const items = await Promise.all([...itemIds].map((iid) => invItemsApi.get(iid)));
+        const allowedIds = new Set<number>();
+        let hasRestriction = false;
+        for (const item of items) {
+          if (item.allowed_location_ids?.length) {
+            hasRestriction = true;
+            item.allowed_location_ids.forEach((lid) => allowedIds.add(lid));
+          }
+        }
+        if (hasRestriction) {
+          filteredLocs = locsRes.items.filter((l) => allowedIds.has(l.id));
+        }
+      }
+
       setLocations(filteredLocs);
       setSelectedLocationId(filteredLocs[0]?.id ?? null);
       setShowEnterStockModal(true);
@@ -424,6 +457,7 @@ export default function ProdBatchDetailPage() {
       </div>
 
       {/* Edit header if open */}
+      <RoleGate roles={['Admin', 'Production']}>
       {batch.status === 'open' && (
         <div className="card space-y-4">
           <h2 className="text-lg font-semibold text-gray-800"><Bi k="section.editBatch" /></h2>
@@ -456,6 +490,7 @@ export default function ProdBatchDetailPage() {
           </div>
         </div>
       )}
+      </RoleGate>
 
       {/* ── HOT PROCESS SECTIONS ── */}
       {isHot && (
@@ -465,12 +500,14 @@ export default function ProdBatchDetailPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-800">投料記錄 Hot Inputs</h2>
               {batch.status === 'open' && !showHotInputForm && (
-                <button
-                  onClick={() => setShowHotInputForm(true)}
-                  className="btn btn-secondary text-sm flex items-center gap-1"
-                >
-                  <PlusIcon className="h-4 w-4" />新增投料
-                </button>
+                <RoleGate roles={['Admin', 'Production']}>
+                  <button
+                    onClick={() => setShowHotInputForm(true)}
+                    className="btn btn-secondary text-sm flex items-center gap-1"
+                  >
+                    <PlusIcon className="h-4 w-4" />新增投料
+                  </button>
+                </RoleGate>
               )}
             </div>
 
@@ -496,18 +533,48 @@ export default function ProdBatchDetailPage() {
                         <span className="ml-2 text-gray-400 text-xs">{subCode}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => navigate(`/cooking-logs/new?${params.toString()}`)}
-                          className="btn btn-secondary text-xs py-1 px-2"
-                        >+烹煮</button>
-                        <button
-                          onClick={() => navigate(`/cooling-logs/new?${params.toString()}`)}
-                          className="btn btn-secondary text-xs py-1 px-2"
-                        >+冷卻</button>
-                        {batch.status === 'open' && (
-                          <button onClick={() => handleRemoveHotInput(inp.id)} className="p-1 rounded hover:bg-red-50">
-                            <TrashIcon className="h-4 w-4 text-red-400" />
+                        {cookingByInput[inp.id] ? (
+                          <button
+                            onClick={() => navigate(`/cooking-logs/${cookingByInput[inp.id].id}`)}
+                            className={`text-xs py-1 px-2 rounded-full font-medium ${
+                              cookingByInput[inp.id].ccp === 'Pass' ? 'bg-green-100 text-green-700' :
+                              cookingByInput[inp.id].ccp === 'Fail' ? 'bg-red-100 text-red-700' :
+                              cookingByInput[inp.id].ccp === 'Deviation' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-blue-100 text-blue-700'
+                            }`}
+                          >
+                            🔥 烹煮 {cookingByInput[inp.id].ccp || '進行中'}
                           </button>
+                        ) : (
+                          <button
+                            onClick={() => navigate(`/cooking-logs/new?${params.toString()}`)}
+                            className="btn btn-secondary text-xs py-1 px-2"
+                          >+烹煮</button>
+                        )}
+                        {coolingByInput[inp.id] ? (
+                          <button
+                            onClick={() => navigate(`/cooling-logs/${coolingByInput[inp.id].id}`)}
+                            className={`text-xs py-1 px-2 rounded-full font-medium ${
+                              coolingByInput[inp.id].ccp === 'Pass' ? 'bg-green-100 text-green-700' :
+                              coolingByInput[inp.id].ccp === 'Fail' ? 'bg-red-100 text-red-700' :
+                              coolingByInput[inp.id].ccp === 'Deviation' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-cyan-100 text-cyan-700'
+                            }`}
+                          >
+                            ❄️ 冷卻 {coolingByInput[inp.id].ccp || '進行中'}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => navigate(`/cooling-logs/new?${params.toString()}`)}
+                            className="btn btn-secondary text-xs py-1 px-2"
+                          >+冷卻</button>
+                        )}
+                        {batch.status === 'open' && (
+                          <RoleGate roles={['Admin', 'Production']}>
+                            <button onClick={() => handleRemoveHotInput(inp.id)} className="p-1 rounded hover:bg-red-50">
+                              <TrashIcon className="h-4 w-4 text-red-400" />
+                            </button>
+                          </RoleGate>
                         )}
                       </div>
                     </div>
@@ -547,101 +614,6 @@ export default function ProdBatchDetailPage() {
                     {hotInputSaving ? <Bi k="btn.saving" /> : <Bi k="btn.add" />}
                   </button>
                 </div>
-              </div>
-            )}
-          </div>
-
-          {/* Cooking logs section */}
-          <div className="card space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-800"><Bi k="section.cookingLogs" /></h2>
-              <button
-                onClick={() => {
-                  const params = new URLSearchParams({ prod_batch_id: String(batch.id), batch_code: batch.batch_code });
-                  if (batch.start_time) params.set('start_time', batch.start_time);
-                  navigate(`/cooking-logs/new?${params.toString()}`);
-                }}
-                className="btn btn-secondary text-sm flex items-center gap-1"
-              >
-                <PlusIcon className="h-4 w-4" /><Bi k="btn.addCookingLog" />
-              </button>
-            </div>
-            {cookingLogs.length === 0 ? (
-              <p className="text-sm text-gray-400 italic">—</p>
-            ) : (
-              <div className="space-y-2">
-                {cookingLogs.map((log) => {
-                  const linkedInput = log.hot_input_id ? (batch.hot_inputs || []).find((i: ProdHotInput) => i.id === log.hot_input_id) : null;
-                  return (
-                    <div
-                      key={log.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer"
-                      onClick={() => navigate(`/cooking-logs/${log.id}`)}
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{log.batch_id}</p>
-                        <p className="text-xs text-gray-500">
-                          {formatMelbourne(log.start_time)}
-                          {linkedInput && <span className="ml-2 text-orange-600">投料#{linkedInput.seq}</span>}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {log.core_temp && (
-                          <span className="text-sm text-gray-600">{log.core_temp}°C</span>
-                        )}
-                        {log.ccp_status && (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ccpColors[log.ccp_status] || ''}`}>
-                            {log.ccp_status}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Cooling logs section */}
-          <div className="card space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-800">冷卻紀錄 Cooling Logs</h2>
-              <button
-                onClick={() => navigate(`/cooling-logs/new?prod_batch_id=${batch.id}&batch_id=${encodeURIComponent(batch.batch_code)}`)}
-                className="btn btn-secondary text-sm flex items-center gap-1"
-              >
-                <PlusIcon className="h-4 w-4" />新增冷卻
-              </button>
-            </div>
-            {coolingLogs.length === 0 ? (
-              <p className="text-sm text-gray-400 italic">—</p>
-            ) : (
-              <div className="space-y-2">
-                {coolingLogs.map((log) => {
-                  const linkedInput = log.hot_input_id ? (batch.hot_inputs || []).find((i: ProdHotInput) => i.id === log.hot_input_id) : null;
-                  return (
-                    <div
-                      key={log.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer"
-                      onClick={() => navigate(`/cooling-logs/${log.id}`)}
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{log.batch_id}</p>
-                        <p className="text-xs text-gray-500">
-                          {formatMelbourne(log.start_time)}
-                          {log.start_temp && ` · 起始 ${log.start_temp}°C`}
-                          {log.end_temp && ` → 終止 ${log.end_temp}°C`}
-                          {linkedInput && <span className="ml-2 text-orange-600">投料#{linkedInput.seq}</span>}
-                        </p>
-                      </div>
-                      {log.ccp_status && (
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ccpColors[log.ccp_status] || ''}`}>
-                          {log.ccp_status}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
               </div>
             )}
           </div>
@@ -845,13 +817,15 @@ export default function ProdBatchDetailPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-800"><Bi k="section.trolleys" /></h2>
               {batch.status === 'open' && (
-                <button
-                  type="button"
-                  onClick={() => setShowTrolleyForm(!showTrolleyForm)}
-                  className="btn btn-secondary text-sm flex items-center gap-1"
-                >
-                  <PlusIcon className="h-4 w-4" /><Bi k="btn.addTrolley" />
-                </button>
+                <RoleGate roles={['Admin', 'Production']}>
+                  <button
+                    type="button"
+                    onClick={() => setShowTrolleyForm(!showTrolleyForm)}
+                    className="btn btn-secondary text-sm flex items-center gap-1"
+                  >
+                    <PlusIcon className="h-4 w-4" /><Bi k="btn.addTrolley" />
+                  </button>
+                </RoleGate>
               )}
             </div>
 
@@ -889,9 +863,11 @@ export default function ProdBatchDetailPage() {
                       <td className="py-2 pr-3 text-gray-400 text-xs">{t.remark || '—'}</td>
                       {batch.status === 'open' && (
                         <td className="py-2">
-                          <button onClick={() => handleRemoveTrolley(t.id)} className="p-1 rounded hover:bg-red-50">
-                            <TrashIcon className="h-4 w-4 text-red-400" />
-                          </button>
+                          <RoleGate roles={['Admin', 'Production']}>
+                            <button onClick={() => handleRemoveTrolley(t.id)} className="p-1 rounded hover:bg-red-50">
+                              <TrashIcon className="h-4 w-4 text-red-400" />
+                            </button>
+                          </RoleGate>
                         </td>
                       )}
                     </tr>
@@ -1158,16 +1134,20 @@ export default function ProdBatchDetailPage() {
         <button onClick={() => navigate('/production/batches')} className="btn btn-secondary">
           <Bi k="btn.back" />
         </button>
-        <button
-          onClick={() => navigate(`/production/batches/${batch.id}/packing`)}
-          className="btn btn-primary"
-        >
-          <Bi k="btn.viewPacking" />
-        </button>
-        {canEnterStock && (
-          <button onClick={openEnterStockModal} className="btn bg-orange-500 text-white hover:bg-orange-600">
-            <Bi k="btn.enterStock" />
+        <RoleGate roles={['Admin', 'Production']}>
+          <button
+            onClick={() => navigate(`/production/batches/${batch.id}/packing`)}
+            className="btn btn-primary"
+          >
+            <Bi k="btn.viewPacking" />
           </button>
+        </RoleGate>
+        {canEnterStock && (
+          <RoleGate roles={['Admin', 'Production', 'Warehouse']}>
+            <button onClick={openEnterStockModal} className="btn bg-orange-500 text-white hover:bg-orange-600">
+              <Bi k="btn.enterStock" />
+            </button>
+          </RoleGate>
         )}
         {batch.inv_stock_doc_id && (
           <button

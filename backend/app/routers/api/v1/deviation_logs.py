@@ -7,7 +7,7 @@ Standard 6-endpoint pattern + extra close endpoint for CAPA completion:
   POST   /deviation-logs             — Create (manual deviation)
   PATCH  /deviation-logs/{id}        — Update CAPA fields
   POST   /deviation-logs/{id}/lock   — QA lock
-  POST   /deviation-logs/{id}/void   — Void (Manager only)
+  POST   /deviation-logs/{id}/void   — Void (Admin only)
   POST   /deviation-logs/{id}/close  — Close deviation (CAPA completion)
 
 Note: Most deviations are auto-created by CCP validators via deviation_service.
@@ -195,14 +195,14 @@ async def update_deviation_log(
 async def close_deviation_log(
     log_id: int,
     data: DeviationCloseRequest,
-    current_user: User = Depends(require_role("QA", "Manager")),
+    current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Close a deviation (CAPA completion).
 
     Requires root_cause and preventive_action. Sets closed_by and closed_at.
-    QA/Manager only.
+    Admin/QA only.
     """
     result = await db.execute(select(DeviationLog).where(DeviationLog.id == log_id))
     log = result.scalar_one_or_none()
@@ -229,10 +229,10 @@ async def close_deviation_log(
 @router.post("/{log_id}/lock", response_model=DeviationLogResponse)
 async def lock_deviation_log(
     log_id: int,
-    current_user: User = Depends(require_role("QA", "Manager")),
+    current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
-    """QA-lock a deviation log (QA/Manager only)."""
+    """QA-lock a deviation log (Admin/QA only)."""
     await lock_record(db, DeviationLog, log_id, current_user)
     result = await db.execute(_base_query().where(DeviationLog.id == log_id))
     log = result.scalar_one()
@@ -243,10 +243,10 @@ async def lock_deviation_log(
 async def void_deviation_log(
     log_id: int,
     body: VoidRequest,
-    current_user: User = Depends(require_role("Manager")),
+    current_user: User = Depends(require_role("Admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Void a deviation log (Manager only)."""
+    """Void a deviation log (Admin only)."""
     await void_record(db, DeviationLog, log_id, body.void_reason, current_user)
     result = await db.execute(_base_query().where(DeviationLog.id == log_id))
     log = result.scalar_one()
