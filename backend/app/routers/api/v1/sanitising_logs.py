@@ -113,7 +113,7 @@ async def get_sanitising_log(
 @router.post("", response_model=SanitisingLogResponse, status_code=status.HTTP_201_CREATED)
 async def create_sanitising_log(
     data: SanitisingLogCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "QA", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -162,7 +162,7 @@ async def create_sanitising_log(
 async def update_sanitising_log(
     log_id: int,
     data: SanitisingLogUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "QA", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a sanitising log (blocked if locked or voided)."""
@@ -199,10 +199,10 @@ async def update_sanitising_log(
 @router.post("/{log_id}/lock", response_model=SanitisingLogResponse)
 async def lock_sanitising_log(
     log_id: int,
-    current_user: User = Depends(require_role("QA", "Manager")),
+    current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
-    """QA-lock a sanitising log (QA/Manager only)."""
+    """QA-lock a sanitising log (Admin/QA only)."""
     await lock_record(db, SanitisingLog, log_id, current_user)
     result = await db.execute(_base_query().where(SanitisingLog.id == log_id))
     log = result.scalar_one()
@@ -213,10 +213,10 @@ async def lock_sanitising_log(
 async def void_sanitising_log(
     log_id: int,
     body: VoidRequest,
-    current_user: User = Depends(require_role("Manager")),
+    current_user: User = Depends(require_role("Admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Void a sanitising log (Manager only)."""
+    """Void a sanitising log (Admin only)."""
     await void_record(db, SanitisingLog, log_id, body.void_reason, current_user)
     result = await db.execute(_base_query().where(SanitisingLog.id == log_id))
     log = result.scalar_one()

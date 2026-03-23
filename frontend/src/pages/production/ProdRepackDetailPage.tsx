@@ -1,17 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { prodRepackApi, prodBatchesApi, prodProductsApi } from '@/api/production';
+import { prodRepackApi, prodBatchesApi, prodProductsApi, packTypesApi } from '@/api/production';
 import {
-  ProdRepackJob, ProdBatch, ProdProduct, ProdPackType,
+  ProdRepackJob, ProdBatch, ProdProduct, PackTypeConfig,
   ProdRepackInputCreate, ProdRepackOutputCreate, ProdRepackTrimCreate,
   RepackTotals,
 } from '@/types/production';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import Bi, { bi } from '@/components/Bi';
-
-const packTypeOptions: ProdPackType[] = ['4KG_SEMI', '1KG_FG', '0.5KG_FG'];
+import RoleGate from '@/components/RoleGate';
 
 const num = (v: any): number => (v == null ? 0 : Number(v));
 
@@ -22,6 +21,7 @@ export default function ProdRepackDetailPage() {
   const [job, setJob] = useState<ProdRepackJob | null>(null);
   const [closedBatches, setClosedBatches] = useState<ProdBatch[]>([]);
   const [products, setProducts] = useState<ProdProduct[]>([]);
+  const [packTypeConfigs, setPackTypeConfigs] = useState<PackTypeConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -40,7 +40,7 @@ export default function ProdRepackDetailPage() {
 
   const [showOutputForm, setShowOutputForm] = useState(false);
   const [outputForm, setOutputForm] = useState<ProdRepackOutputCreate>({
-    pack_type: '4KG_SEMI',
+    pack_type: '',
     product_id: undefined,
     bag_count: 0,
     nominal_weight_kg: 0,
@@ -84,6 +84,7 @@ export default function ProdRepackDetailPage() {
   useEffect(() => {
     prodBatchesApi.list({ status: 'closed', limit: 500 }).then((r) => setClosedBatches(r.items)).catch(() => {});
     prodProductsApi.list({ limit: 500 }).then((r) => setProducts(r.items)).catch(() => {});
+    packTypesApi.list().then(setPackTypeConfigs).catch(() => {});
   }, []);
 
   const refreshData = async () => {
@@ -125,7 +126,7 @@ export default function ProdRepackDetailPage() {
     try {
       await prodRepackApi.addOutput(job.id, outputForm);
       setShowOutputForm(false);
-      setOutputForm({ pack_type: '4KG_SEMI', product_id: undefined, bag_count: 0, nominal_weight_kg: 0 });
+      setOutputForm({ pack_type: packTypeConfigs[0]?.code || '', product_id: undefined, bag_count: 0, nominal_weight_kg: 0 });
       await refreshData();
     } catch (err: any) {
       setError(err?.response?.data?.detail || bi('error.saveFailed'));
@@ -217,13 +218,15 @@ export default function ProdRepackDetailPage() {
       <div className="card space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800"><Bi k="section.repackInputs" /></h2>
-          <button
-            type="button"
-            onClick={() => setShowInputForm(!showInputForm)}
-            className="btn btn-secondary text-sm flex items-center gap-1"
-          >
-            <PlusIcon className="h-4 w-4" /><Bi k="btn.addInput" />
-          </button>
+          <RoleGate roles={['Admin', 'Production']}>
+            <button
+              type="button"
+              onClick={() => setShowInputForm(!showInputForm)}
+              className="btn btn-secondary text-sm flex items-center gap-1"
+            >
+              <PlusIcon className="h-4 w-4" /><Bi k="btn.addInput" />
+            </button>
+          </RoleGate>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -248,9 +251,11 @@ export default function ProdRepackDetailPage() {
                     {inp.total_weight_kg != null ? `${num(inp.total_weight_kg).toFixed(2)} kg` : `${(num(inp.bag_count) * num(inp.nominal_weight_kg)).toFixed(2)} kg`}
                   </td>
                   <td className="py-2">
-                    <button onClick={() => handleRemoveInput(inp.id)} className="p-1 rounded hover:bg-red-50">
-                      <TrashIcon className="h-4 w-4 text-red-400" />
-                    </button>
+                    <RoleGate roles={['Admin', 'Production']}>
+                      <button onClick={() => handleRemoveInput(inp.id)} className="p-1 rounded hover:bg-red-50">
+                        <TrashIcon className="h-4 w-4 text-red-400" />
+                      </button>
+                    </RoleGate>
                   </td>
                 </tr>
               ))}
@@ -328,13 +333,15 @@ export default function ProdRepackDetailPage() {
       <div className="card space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800"><Bi k="section.repackOutputs" /></h2>
-          <button
-            type="button"
-            onClick={() => setShowOutputForm(!showOutputForm)}
-            className="btn btn-secondary text-sm flex items-center gap-1"
-          >
-            <PlusIcon className="h-4 w-4" /><Bi k="btn.addOutput" />
-          </button>
+          <RoleGate roles={['Admin', 'Production']}>
+            <button
+              type="button"
+              onClick={() => setShowOutputForm(!showOutputForm)}
+              className="btn btn-secondary text-sm flex items-center gap-1"
+            >
+              <PlusIcon className="h-4 w-4" /><Bi k="btn.addOutput" />
+            </button>
+          </RoleGate>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -351,7 +358,7 @@ export default function ProdRepackDetailPage() {
             <tbody className="divide-y divide-gray-50">
               {job.outputs.map((out) => (
                 <tr key={out.id}>
-                  <td className="py-2 pr-3 font-medium text-gray-800">{out.pack_type}</td>
+                  <td className="py-2 pr-3 font-medium text-gray-800">{packTypeConfigs.find((c) => c.code === out.pack_type)?.name || out.pack_type}</td>
                   <td className="py-2 pr-3 text-gray-700">{out.product_name || '—'}</td>
                   <td className="py-2 pr-3 text-gray-500">{out.bag_count}</td>
                   <td className="py-2 pr-3 text-gray-500">{out.nominal_weight_kg}</td>
@@ -359,9 +366,11 @@ export default function ProdRepackDetailPage() {
                     {out.total_weight_kg != null ? `${num(out.total_weight_kg).toFixed(2)} kg` : `${(num(out.bag_count) * num(out.nominal_weight_kg)).toFixed(2)} kg`}
                   </td>
                   <td className="py-2">
-                    <button onClick={() => handleRemoveOutput(out.id)} className="p-1 rounded hover:bg-red-50">
-                      <TrashIcon className="h-4 w-4 text-red-400" />
-                    </button>
+                    <RoleGate roles={['Admin', 'Production']}>
+                      <button onClick={() => handleRemoveOutput(out.id)} className="p-1 rounded hover:bg-red-50">
+                        <TrashIcon className="h-4 w-4 text-red-400" />
+                      </button>
+                    </RoleGate>
                   </td>
                 </tr>
               ))}
@@ -377,11 +386,20 @@ export default function ProdRepackDetailPage() {
                 <label className="label text-xs"><Bi k="field.packType" /></label>
                 <select
                   value={outputForm.pack_type}
-                  onChange={(e) => setOutputForm({ ...outputForm, pack_type: e.target.value as ProdPackType })}
+                  onChange={(e) => {
+                    const code = e.target.value;
+                    const cfg = packTypeConfigs.find((c) => c.code === code);
+                    setOutputForm({
+                      ...outputForm,
+                      pack_type: code,
+                      nominal_weight_kg: cfg?.nominal_weight_kg ?? outputForm.nominal_weight_kg,
+                    });
+                  }}
                   className="input"
                 >
-                  {packTypeOptions.map((pt) => (
-                    <option key={pt} value={pt}>{pt}</option>
+                  <option value="">{bi('placeholder.selectPackType')}</option>
+                  {packTypeConfigs.map((pt) => (
+                    <option key={pt.code} value={pt.code}>{pt.name} ({pt.code})</option>
                   ))}
                 </select>
               </div>
@@ -438,13 +456,15 @@ export default function ProdRepackDetailPage() {
       <div className="card space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800"><Bi k="section.trims" /></h2>
-          <button
-            type="button"
-            onClick={() => setShowTrimForm(!showTrimForm)}
-            className="btn btn-secondary text-sm flex items-center gap-1"
-          >
-            <PlusIcon className="h-4 w-4" /><Bi k="btn.addTrim" />
-          </button>
+          <RoleGate roles={['Admin', 'Production']}>
+            <button
+              type="button"
+              onClick={() => setShowTrimForm(!showTrimForm)}
+              className="btn btn-secondary text-sm flex items-center gap-1"
+            >
+              <PlusIcon className="h-4 w-4" /><Bi k="btn.addTrim" />
+            </button>
+          </RoleGate>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -463,9 +483,11 @@ export default function ProdRepackDetailPage() {
                   <td className="py-2 pr-3 text-gray-500">{trim.weight_kg} kg</td>
                   <td className="py-2 pr-3 text-gray-400 text-xs">{trim.remark || '—'}</td>
                   <td className="py-2">
-                    <button onClick={() => handleRemoveTrim(trim.id)} className="p-1 rounded hover:bg-red-50">
-                      <TrashIcon className="h-4 w-4 text-red-400" />
-                    </button>
+                    <RoleGate roles={['Admin', 'Production']}>
+                      <button onClick={() => handleRemoveTrim(trim.id)} className="p-1 rounded hover:bg-red-50">
+                        <TrashIcon className="h-4 w-4 text-red-400" />
+                      </button>
+                    </RoleGate>
                   </td>
                 </tr>
               ))}

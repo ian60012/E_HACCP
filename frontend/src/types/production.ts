@@ -2,7 +2,7 @@
 
 export type ProdBatchStatus = 'open' | 'closed';
 export type ProdShift = 'Morning' | 'Night';
-export type ProdPackType = '4KG_SEMI' | '1KG_FG' | '0.5KG_FG' | 'BULK_KG';
+export type ProdPackType = string;  // Dynamic from pack type config table
 export type ProdProductType = 'forming' | 'hot_process';
 export type PackApplicableType = 'forming' | 'hot_process' | 'both';
 
@@ -296,11 +296,11 @@ export interface FormingTotals {
 
 export interface PackingTotals {
   forming_input_kg: number;
-  total_4kg_kg: number;
-  total_retail_kg: number;
+  total_packed_kg: number;
   total_trim_kg: number;
   output_total_kg: number;
   loss_kg: number;
+  by_pack_type: Record<string, number>;
   loss_rate: number;
 }
 

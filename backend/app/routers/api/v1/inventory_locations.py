@@ -11,7 +11,7 @@ from app.models.inventory import InvLocation
 from app.models.user import User
 from app.schemas.inventory import InvLocationCreate, InvLocationUpdate, InvLocationResponse
 from app.schemas.common import PaginatedResponse
-from app.dependencies.auth import get_current_active_user
+from app.dependencies.auth import get_current_active_user, require_role
 
 router = APIRouter(prefix="/inventory/locations", tags=["inventory-locations"])
 
@@ -55,7 +55,7 @@ async def list_locations(
 @router.post("", response_model=InvLocationResponse, status_code=status.HTTP_201_CREATED)
 async def create_location(
     data: InvLocationCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     existing = await db.execute(select(InvLocation).where(InvLocation.code == data.code))
@@ -88,7 +88,7 @@ async def get_location(
 async def update_location(
     loc_id: int,
     data: InvLocationUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(InvLocation).where(InvLocation.id == loc_id))

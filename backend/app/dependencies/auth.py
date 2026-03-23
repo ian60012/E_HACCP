@@ -67,7 +67,7 @@ def require_role(*allowed_roles: str):
     Usage:
         @router.post("/lock")
         async def lock_record(
-            current_user: User = Depends(require_role("QA", "Manager"))
+            current_user: User = Depends(require_role("Admin", "QA"))
         ):
             ...
     """

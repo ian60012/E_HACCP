@@ -30,6 +30,7 @@ interface NavItem {
   label: string;
   labelKey?: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  roles?: string[];
 }
 
 interface NavSection {
@@ -47,7 +48,7 @@ const haccpSections: NavSection[] = [
       { to: '/cooking-logs', label: '烹飪記錄', labelKey: 'nav.cooking', icon: FireIcon },
       { to: '/receiving-logs', label: '收貨記錄', labelKey: 'nav.receiving', icon: TruckIcon },
       { to: '/cooling-logs', label: '冷卻記錄', labelKey: 'nav.cooling', icon: BeakerIcon },
-      { to: '/assembly-logs', label: '組裝包裝', icon: ClipboardDocumentListIcon },
+      { to: '/assembly-logs', label: '組裝包裝', labelKey: 'nav.assembly', icon: ClipboardDocumentListIcon },
       { to: '/sanitising-logs', label: '清潔消毒', labelKey: 'nav.sanitising', icon: SparklesIcon },
       { to: '/deviations', label: '偏差記錄', labelKey: 'nav.deviations', icon: ExclamationTriangleIcon },
     ],
@@ -68,7 +69,7 @@ const haccpSections: NavSection[] = [
     items: [
       { to: '/users', label: '帳號管理', labelKey: 'nav.users', icon: UserGroupIcon },
     ],
-    roles: ['Manager'],
+    roles: ['Admin'],
   },
 ];
 
@@ -122,9 +123,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     system === 'production' ? productionSections :
     haccpSections;
 
-  const visibleSections = rawSections.filter(
-    (section) => !section.roles || section.roles.includes(user?.role || '')
-  );
+  const visibleSections = rawSections
+    .filter((section) => !section.roles || section.roles.includes(user?.role || ''))
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => !item.roles || item.roles.includes(user?.role || '')),
+    }))
+    .filter((section) => section.items.length > 0);
 
   const activeClass = 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-primary-50 text-primary-700';
   const inactiveClass = 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100 hover:text-gray-900';

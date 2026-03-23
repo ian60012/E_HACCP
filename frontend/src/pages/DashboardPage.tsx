@@ -63,9 +63,10 @@ const logCards = [
 ];
 
 const roleLabelKeys: Record<string, string> = {
-  Operator: 'role.operator',
+  Admin: 'role.admin',
   QA: 'role.qa',
-  Manager: 'role.manager',
+  Production: 'role.production',
+  Warehouse: 'role.warehouse',
 };
 
 export default function DashboardPage() {

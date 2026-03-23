@@ -23,7 +23,7 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=8)
     full_name: str = Field(..., max_length=100)
     email: Optional[str] = None
-    role: str = Field(default="Operator", description="Operator, QA, or Manager")
+    role: str = Field(default="Production", description="Admin, QA, Production, or Warehouse")
 
 
 class UserUpdate(BaseModel):
@@ -34,5 +34,5 @@ class UserUpdate(BaseModel):
 
 
 class PasswordReset(BaseModel):
-    """Manager resets another user's password."""
+    """Admin resets another user's password."""
     new_password: str = Field(..., min_length=8, max_length=128)

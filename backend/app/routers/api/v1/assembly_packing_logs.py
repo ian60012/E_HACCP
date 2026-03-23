@@ -7,7 +7,7 @@ Assembly & Packing Inspection Log router (FSP-LOG-APK-001).
   POST   /assembly-logs           — Create
   PATCH  /assembly-logs/{id}      — Update (blocked if locked/voided)
   POST   /assembly-logs/{id}/lock — QA lock
-  POST   /assembly-logs/{id}/void — Void (Manager only)
+  POST   /assembly-logs/{id}/void — Void (Admin only)
 """
 
 from typing import Optional
@@ -113,7 +113,7 @@ async def get_assembly_log(
 @router.post("", response_model=AssemblyPackingLogResponse, status_code=status.HTTP_201_CREATED)
 async def create_assembly_log(
     data: AssemblyPackingLogCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "QA", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     log = AssemblyPackingLog(
@@ -143,7 +143,7 @@ async def create_assembly_log(
 async def update_assembly_log(
     log_id: int,
     data: AssemblyPackingLogUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "QA", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(AssemblyPackingLog).where(AssemblyPackingLog.id == log_id))
@@ -167,7 +167,7 @@ async def update_assembly_log(
 @router.post("/{log_id}/lock", response_model=AssemblyPackingLogResponse)
 async def lock_assembly_log(
     log_id: int,
-    current_user: User = Depends(require_role("QA", "Manager")),
+    current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
     await lock_record(db, AssemblyPackingLog, log_id, current_user)
@@ -179,7 +179,7 @@ async def lock_assembly_log(
 async def void_assembly_log(
     log_id: int,
     body: VoidRequest,
-    current_user: User = Depends(require_role("Manager")),
+    current_user: User = Depends(require_role("Admin")),
     db: AsyncSession = Depends(get_db),
 ):
     await void_record(db, AssemblyPackingLog, log_id, body.void_reason, current_user)

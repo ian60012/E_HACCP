@@ -207,7 +207,7 @@ export default function AssemblyLogDetailPage() {
         title={bi('confirm.lock.title')}
         message={bi('confirm.lock.message')}
         variant="warning"
-        confirmLabel={bi('confirm.void.confirm')}
+        confirmLabel={bi('confirm.lock.confirm')}
         onConfirm={handleLock}
         onCancel={() => setLockDialog(false)}
         loading={actionLoading}

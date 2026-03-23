@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
 import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import RoleGuard from '@/components/RoleGuard';
 import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
 import PortalPage from '@/pages/PortalPage';
@@ -84,17 +85,17 @@ export default function App() {
         >
           <Route path="/" element={<PortalPage />} />
           <Route path="/haccp" element={<DashboardPage />} />
-          {/* Production module */}
-          <Route path="/production" element={<ProductionDashboardPage />} />
-          <Route path="/production/batches" element={<ProdBatchListPage />} />
-          <Route path="/production/batches/new" element={<ProdBatchFormPage />} />
-          <Route path="/production/batches/:id" element={<ProdBatchDetailPage />} />
-          <Route path="/production/batches/:id/packing" element={<ProdPackingPage />} />
-          <Route path="/production/repack" element={<ProdRepackListPage />} />
-          <Route path="/production/repack/new" element={<ProdRepackFormPage />} />
-          <Route path="/production/repack/:id" element={<ProdRepackDetailPage />} />
-          <Route path="/production/products" element={<ProdProductsPage />} />
-          <Route path="/production/pack-types" element={<ProdPackTypesPage />} />
+          {/* Production module - Admin, QA, Production */}
+          <Route path="/production" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProductionDashboardPage /></RoleGuard>} />
+          <Route path="/production/batches" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdBatchListPage /></RoleGuard>} />
+          <Route path="/production/batches/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdBatchFormPage /></RoleGuard>} />
+          <Route path="/production/batches/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdBatchDetailPage /></RoleGuard>} />
+          <Route path="/production/batches/:id/packing" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdPackingPage /></RoleGuard>} />
+          <Route path="/production/repack" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdRepackListPage /></RoleGuard>} />
+          <Route path="/production/repack/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdRepackFormPage /></RoleGuard>} />
+          <Route path="/production/repack/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdRepackDetailPage /></RoleGuard>} />
+          <Route path="/production/products" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdProductsPage /></RoleGuard>} />
+          <Route path="/production/pack-types" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdPackTypesPage /></RoleGuard>} />
 
           {/* Cooking logs */}
           <Route path="/cooking-logs" element={<CookingLogsPage />} />
@@ -134,21 +135,22 @@ export default function App() {
           <Route path="/reference/equipment" element={<EquipmentPage />} />
           <Route path="/reference/areas" element={<AreasPage />} />
 
-          {/* System management */}
-          <Route path="/users" element={<UsersPage />} />
+          {/* System management - Admin only */}
+          <Route path="/users" element={<RoleGuard allowedRoles={['Admin']}><UsersPage /></RoleGuard>} />
 
-          {/* Inventory module */}
-          <Route path="/inventory/balance" element={<InventoryBalancePage />} />
-          <Route path="/inventory/docs" element={<InventoryStockDocListPage />} />
-          <Route path="/inventory/docs/new" element={<InventoryStockDocFormPage />} />
-          <Route path="/inventory/docs/:id" element={<InventoryStockDocDetailPage />} />
-          <Route path="/inventory/items" element={<InventoryItemsPage />} />
-          <Route path="/inventory/items/new" element={<InventoryItemFormPage />} />
-          <Route path="/inventory/items/:id/edit" element={<InventoryItemFormPage />} />
-          <Route path="/inventory/locations" element={<InventoryLocationsPage />} />
-          <Route path="/inventory/stocktakes" element={<InventoryStocktakeListPage />} />
-          <Route path="/inventory/stocktakes/new" element={<InventoryStocktakePage />} />
-          <Route path="/inventory/stocktakes/:id" element={<InventoryStocktakePage />} />
+          {/* Inventory module - Admin, QA, Warehouse */}
+          <Route path="/inventory/balance" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryBalancePage /></RoleGuard>} />
+          <Route path="/inventory/docs" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStockDocListPage /></RoleGuard>} />
+          <Route path="/inventory/docs/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStockDocFormPage /></RoleGuard>} />
+          <Route path="/inventory/docs/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStockDocDetailPage /></RoleGuard>} />
+          <Route path="/inventory/docs/:id/edit" element={<RoleGuard allowedRoles={['Admin', 'Warehouse']}><InventoryStockDocFormPage /></RoleGuard>} />
+          <Route path="/inventory/items" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemsPage /></RoleGuard>} />
+          <Route path="/inventory/items/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemFormPage /></RoleGuard>} />
+          <Route path="/inventory/items/:id/edit" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemFormPage /></RoleGuard>} />
+          <Route path="/inventory/locations" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryLocationsPage /></RoleGuard>} />
+          <Route path="/inventory/stocktakes" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStocktakeListPage /></RoleGuard>} />
+          <Route path="/inventory/stocktakes/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStocktakePage /></RoleGuard>} />
+          <Route path="/inventory/stocktakes/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStocktakePage /></RoleGuard>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />

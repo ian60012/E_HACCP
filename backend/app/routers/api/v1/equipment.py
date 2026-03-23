@@ -58,10 +58,10 @@ async def get_equipment(
 @router.post("", response_model=EquipmentResponse, status_code=status.HTTP_201_CREATED)
 async def create_equipment(
     data: EquipmentCreate,
-    current_user: User = Depends(require_role("QA", "Manager")),
+    current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create new equipment (QA/Manager only)."""
+    """Create new equipment (Admin/QA only)."""
     item = Equipment(**data.model_dump())
     db.add(item)
     await db.commit()
@@ -73,10 +73,10 @@ async def create_equipment(
 async def update_equipment(
     equipment_id: int,
     data: EquipmentUpdate,
-    current_user: User = Depends(require_role("QA", "Manager")),
+    current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update equipment (QA/Manager only)."""
+    """Update equipment (Admin/QA only)."""
     result = await db.execute(select(Equipment).where(Equipment.id == equipment_id))
     item = result.scalar_one_or_none()
     if not item:

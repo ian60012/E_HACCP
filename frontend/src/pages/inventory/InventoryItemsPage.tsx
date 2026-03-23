@@ -10,6 +10,7 @@ import ErrorCard from '@/components/ErrorCard';
 import EmptyState from '@/components/EmptyState';
 import Pagination from '@/components/Pagination';
 import Bi, { bi } from '@/components/Bi';
+import RoleGate from '@/components/RoleGate';
 
 export default function InventoryItemsPage() {
   const [items, setItems] = useState<InvItem[]>([]);
@@ -83,31 +84,33 @@ export default function InventoryItemsPage() {
           <h1 className="text-2xl font-bold text-gray-800"><Bi k="nav.invItems" /></h1>
           <p className="text-sm text-gray-500 mt-1"><Bi k="page.invItems.subtitle" /></p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleDownloadTemplate}
-            className="btn btn-secondary flex items-center gap-1.5 text-sm"
-          >
-            <ArrowDownTrayIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">下載模板</span>
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={importing}
-            className="btn btn-secondary flex items-center gap-1.5 text-sm"
-          >
-            <ArrowUpTrayIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">{importing ? '匯入中…' : '批量匯入'}</span>
-          </button>
-          <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportFile} />
-          <button
-            onClick={() => navigate('/inventory/items/new')}
-            className="btn btn-primary flex items-center gap-1.5"
-          >
-            <PlusIcon className="h-5 w-5" />
-            <span className="hidden sm:inline"><Bi k="btn.newItem" /></span>
-          </button>
-        </div>
+        <RoleGate roles={['Admin', 'Warehouse']}>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadTemplate}
+              className="btn btn-secondary flex items-center gap-1.5 text-sm"
+            >
+              <ArrowDownTrayIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">下載模板</span>
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              className="btn btn-secondary flex items-center gap-1.5 text-sm"
+            >
+              <ArrowUpTrayIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">{importing ? '匯入中…' : '批量匯入'}</span>
+            </button>
+            <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportFile} />
+            <button
+              onClick={() => navigate('/inventory/items/new')}
+              className="btn btn-primary flex items-center gap-1.5"
+            >
+              <PlusIcon className="h-5 w-5" />
+              <span className="hidden sm:inline"><Bi k="btn.newItem" /></span>
+            </button>
+          </div>
+        </RoleGate>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">

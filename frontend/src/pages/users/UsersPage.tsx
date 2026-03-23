@@ -11,9 +11,10 @@ import RoleGate from '@/components/RoleGate';
 import Bi, { bi } from '@/components/Bi';
 
 const roleBadge: Record<string, { label: string; className: string }> = {
-  Operator: { label: bi('role.operator'), className: 'bg-blue-100 text-blue-700' },
+  Admin: { label: bi('role.admin'), className: 'bg-purple-100 text-purple-700' },
   QA: { label: bi('role.qa'), className: 'bg-green-100 text-green-700' },
-  Manager: { label: bi('role.manager'), className: 'bg-purple-100 text-purple-700' },
+  Production: { label: bi('role.production'), className: 'bg-blue-100 text-blue-700' },
+  Warehouse: { label: bi('role.warehouse'), className: 'bg-amber-100 text-amber-700' },
 };
 
 export default function UsersPage() {
@@ -33,7 +34,7 @@ export default function UsersPage() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'Operator' | 'QA' | 'Manager'>('Operator');
+  const [role, setRole] = useState<'Admin' | 'QA' | 'Production' | 'Warehouse'>('Production');
   const [isActive, setIsActive] = useState(true);
 
   // Password reset modal state
@@ -58,7 +59,7 @@ export default function UsersPage() {
   const openCreate = () => {
     setEditingItem(null);
     setUsername(''); setPassword(''); setFullName(''); setEmail('');
-    setRole('Operator'); setIsActive(true);
+    setRole('Production'); setIsActive(true);
     setFormError(''); setShowForm(true);
   };
 
@@ -141,7 +142,7 @@ export default function UsersPage() {
           <h1 className="text-2xl font-bold text-gray-800"><Bi k="page.users.title" /></h1>
           <p className="text-sm text-gray-500 mt-1"><Bi k="page.users.subtitle" /></p>
         </div>
-        <RoleGate roles={['Manager']}>
+        <RoleGate roles={['Admin']}>
           <button onClick={openCreate} className="btn btn-primary flex items-center gap-1.5">
             <PlusIcon className="h-5 w-5" /><Bi label={{ zh: '新增使用者', en: 'New User' }} />
           </button>
@@ -197,7 +198,7 @@ export default function UsersPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <RoleGate roles={['Manager']}>
+                          <RoleGate roles={['Admin']}>
                             <button
                               onClick={() => toggleActive(item)}
                               className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
@@ -205,14 +206,14 @@ export default function UsersPage() {
                               {item.is_active ? <Bi k="status.active" /> : <Bi k="status.inactive" />}
                             </button>
                           </RoleGate>
-                          {currentUser?.role !== 'Manager' && (
+                          {currentUser?.role !== 'Admin' && (
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                               {item.is_active ? <Bi k="status.active" /> : <Bi k="status.inactive" />}
                             </span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <RoleGate roles={['Manager']}>
+                          <RoleGate roles={['Admin']}>
                             <div className="flex items-center justify-end gap-1">
                               <button onClick={() => openResetPw(item)} className="p-1.5 hover:bg-amber-50 rounded-lg" title={bi('btn.resetPassword')}>
                                 <KeyIcon className="h-4 w-4 text-amber-600" />
@@ -289,10 +290,11 @@ export default function UsersPage() {
                 </FormField>
 
                 <FormField label={bi('field.role')} required>
-                  <select value={role} onChange={(e) => setRole(e.target.value as 'Operator' | 'QA' | 'Manager')} className="input">
-                    <option value="Operator">{bi('role.operator')}</option>
+                  <select value={role} onChange={(e) => setRole(e.target.value as 'Admin' | 'QA' | 'Production' | 'Warehouse')} className="input">
+                    <option value="Admin">{bi('role.admin')}</option>
                     <option value="QA">{bi('role.qa')}</option>
-                    <option value="Manager">{bi('role.manager')}</option>
+                    <option value="Production">{bi('role.production')}</option>
+                    <option value="Warehouse">{bi('role.warehouse')}</option>
                   </select>
                 </FormField>
 

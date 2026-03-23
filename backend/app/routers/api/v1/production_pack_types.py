@@ -14,7 +14,7 @@ from app.schemas.production import (
     ProdPackTypeConfigUpdate,
     ProdPackTypeConfigResponse,
 )
-from app.dependencies.auth import get_current_active_user
+from app.dependencies.auth import get_current_active_user, require_role
 
 router = APIRouter(prefix="/production/pack-types", tags=["Production Pack Types"])
 
@@ -59,7 +59,7 @@ async def list_pack_types(
 @router.post("", response_model=ProdPackTypeConfigResponse, status_code=status.HTTP_201_CREATED)
 async def create_pack_type(
     data: ProdPackTypeConfigCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     existing = await db.execute(
@@ -82,7 +82,7 @@ async def create_pack_type(
 async def update_pack_type(
     pack_type_id: int,
     data: ProdPackTypeConfigUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(

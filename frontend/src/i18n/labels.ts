@@ -90,7 +90,7 @@ const labels: Record<string, BiLabelType> = {
   'field.endTime': { zh: '結束時間', en: 'End Time' },
   'field.coreTemp': { zh: '核心溫度', en: 'Core Temperature' },
   'field.coreTempUnit': { zh: '核心溫度 (°C)', en: 'Core Temperature (°C)' },
-  'field.quantity': { zh: '生產數量 (kg)', en: 'Production Quantity (kg)' },
+  'field.quantity': { zh: '數量', en: 'Quantity' },
   'field.supplier': { zh: '供應商', en: 'Supplier' },
   'field.poNumber': { zh: '採購單號', en: 'PO Number' },
   'field.receivingQuantity': { zh: '到貨數量', en: 'Received Quantity' },
@@ -307,9 +307,10 @@ const labels: Record<string, BiLabelType> = {
   'audit.createdAt': { zh: '建立時間', en: 'Created At' },
 
   // ==================== Roles ====================
-  'role.operator': { zh: '操作員', en: 'Operator' },
+  'role.admin': { zh: '管理員', en: 'Admin' },
   'role.qa': { zh: '品管', en: 'QA' },
-  'role.manager': { zh: '經理', en: 'Manager' },
+  'role.production': { zh: '生產', en: 'Production' },
+  'role.warehouse': { zh: '倉庫', en: 'Warehouse' },
 
   // ==================== Dashboard ====================
   'dashboard.cooking.desc': { zh: '核心溫度監控與CCP驗證', en: 'Core temp monitoring & CCP validation' },
@@ -327,6 +328,7 @@ const labels: Record<string, BiLabelType> = {
   'confirm.void.reason': { zh: '作廢原因', en: 'Void Reason' },
   'confirm.lock.title': { zh: '確認鎖定', en: 'Confirm Lock' },
   'confirm.lock.message': { zh: '鎖定後記錄將無法修改。', en: 'The record cannot be modified after locking.' },
+  'confirm.lock.confirm': { zh: '確認鎖定', en: 'Confirm Lock' },
   'confirm.resetPw.title': { zh: '重設密碼', en: 'Reset Password' },
   'confirm.resetPw.message': { zh: '請輸入新密碼（至少 8 個字元）', en: 'Enter new password (min 8 characters)' },
   'confirm.resetPw.newPassword': { zh: '新密碼', en: 'New Password' },
@@ -393,6 +395,7 @@ const labels: Record<string, BiLabelType> = {
   'page.invLocationNew.title': { zh: '新增儲位', en: 'New Location' },
   'page.invDocs.subtitle': { zh: '管理入庫與出庫記錄', en: 'Manage stock-in and stock-out records' },
   'page.invDocNew.title': { zh: '新增出入庫單', en: 'New Stock Document' },
+  'page.invDocEdit.title': { zh: '編輯出入庫單', en: 'Edit Stock Document' },
   'page.invBalance.subtitle': { zh: '查看各品項的即時庫存', en: 'View real-time stock levels' },
 
   'field.itemCode': { zh: '品項編號', en: 'Item Code' },
@@ -457,7 +460,7 @@ const labels: Record<string, BiLabelType> = {
   'page.portal.haccp': { zh: 'HACCP 食安系統', en: 'HACCP Food Safety' },
   'page.portal.haccpDesc': { zh: '烹飪、收貨、冷卻、清潔、組裝、偏差記錄', en: 'Cooking, receiving, cooling, sanitising, assembly & deviation logs' },
   'page.portal.production': { zh: '生產系統', en: 'Production System' },
-  'page.portal.productionDesc': { zh: '水餃成型、裝袋、分裝報表管理', en: 'Dumpling forming, packing & repack reports' },
+  'page.portal.productionDesc': { zh: '成型批次、熱加工投料、打包與分裝作業', en: 'Forming batches, hot process, packing & repack' },
   'page.portal.inventory': { zh: '出入庫管理', en: 'Inventory' },
   'page.portal.inventoryDesc': { zh: '庫存查詢、入出庫單、品項與儲位管理', en: 'Stock balance, documents, items & locations' },
   'page.portal.comingSoon': { zh: '開發中', en: 'Coming Soon' },
@@ -589,10 +592,10 @@ const labels: Record<string, BiLabelType> = {
 
   // ==================== Production – Missing Labels ====================
   // Dashboard card descriptions
-  'page.prodDashboard.formingDesc': { zh: '成型批次與台車管理', en: 'Forming batches and trolley management' },
-  'page.prodDashboard.hotProcessDesc': { zh: '熱加工批次與烹煮記錄管理', en: 'Hot process batches and cooking records' },
-  'page.prodDashboard.repackDesc': { zh: '分裝作業記錄管理', en: 'Repack job record management' },
-  'page.prodDashboard.productsDesc': { zh: '產品編號與規格管理', en: 'Product codes and spec management' },
+  'page.prodDashboard.formingDesc': { zh: '水餃成型批次與台車秤重', en: 'Dumpling forming batches & trolley weighing' },
+  'page.prodDashboard.hotProcessDesc': { zh: '熱加工投料、烹煮與冷卻記錄', en: 'Hot process input, cooking & cooling logs' },
+  'page.prodDashboard.repackDesc': { zh: '成品分裝與重新包裝作業', en: 'Finished goods repack operations' },
+  'page.prodDashboard.productsDesc': { zh: '生產產品編號與規格設定', en: 'Product codes & specification settings' },
 
   // Packing page title
   'page.packing.title': { zh: '裝袋報表', en: 'Packing Report' },
@@ -652,6 +655,7 @@ const labels: Record<string, BiLabelType> = {
 
   // Placeholders
   'placeholder.selectProduct': { zh: '選擇產品', en: 'Select product' },
+  'placeholder.selectPackType': { zh: '選擇包裝類型', en: 'Select pack type' },
   'placeholder.selectBatch': { zh: '選擇批次', en: 'Select batch' },
   'placeholder.operator': { zh: '操作員姓名', en: 'Operator name' },
   'placeholder.supervisor': { zh: '主管姓名', en: 'Supervisor name' },

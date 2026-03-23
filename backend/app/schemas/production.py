@@ -362,12 +362,12 @@ class FormingTotalsResponse(BaseModel):
 
 class PackingTotalsResponse(BaseModel):
     forming_input_kg: Decimal
-    total_4kg_kg: Decimal
-    total_retail_kg: Decimal
+    total_packed_kg: Decimal
     total_trim_kg: Decimal
     output_total_kg: Decimal
     loss_kg: Decimal
     loss_rate: float
+    by_pack_type: dict[str, Decimal] = {}
 
 
 class RepackTotalsResponse(BaseModel):

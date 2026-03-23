@@ -36,7 +36,7 @@ from app.schemas.production import (
     ProdHotInputResponse,
 )
 from app.schemas.common import PaginatedResponse
-from app.dependencies.auth import get_current_active_user
+from app.dependencies.auth import get_current_active_user, require_role
 from app.services.production_service import (
     generate_batch_code,
     calculate_trolley_metrics,
@@ -196,7 +196,7 @@ async def list_batches(
 )
 async def create_batch(
     data: ProdBatchCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     batch_code = await generate_batch_code(
@@ -240,7 +240,7 @@ async def get_batch(
 async def update_batch(
     batch_id: int,
     data: ProdBatchUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(_base_query().where(ProdBatch.id == batch_id))
@@ -277,7 +277,7 @@ async def update_batch(
 async def add_trolley(
     batch_id: int,
     data: ProdFormingTrolleyCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     batch = await db.get(ProdBatch, batch_id)
@@ -324,7 +324,7 @@ async def add_trolley(
 async def remove_trolley(
     batch_id: int,
     trolley_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -359,7 +359,7 @@ async def remove_trolley(
 async def add_hot_input(
     batch_id: int,
     data: ProdHotInputCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     batch = await db.get(ProdBatch, batch_id)
@@ -390,7 +390,7 @@ async def add_hot_input(
 async def remove_hot_input(
     batch_id: int,
     input_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -434,7 +434,7 @@ async def get_forming_totals(
 async def save_packing(
     batch_id: int,
     data: ProdPackingSaveRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     batch = await db.get(ProdBatch, batch_id)
@@ -522,7 +522,7 @@ async def get_hot_process_balance(
 async def enter_stock(
     batch_id: int,
     data: EnterStockRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     await enter_batch_to_inventory(db, batch_id, data.location_id, current_user.id)

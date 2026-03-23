@@ -118,6 +118,12 @@ class InvStockDocCreate(BaseModel):
     lines: List[InvStockLineCreate] = Field(..., min_length=1)
 
 
+class InvStockDocUpdate(BaseModel):
+    ref_number: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = None
+    lines: List[InvStockLineCreate] = Field(..., min_length=1)
+
+
 class InvStockDocVoidRequest(BaseModel):
     void_reason: str = Field(..., min_length=5, max_length=1000)
 

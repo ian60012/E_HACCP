@@ -1,4 +1,4 @@
-"""Users router — CRUD for user management (Manager-only create/update)."""
+"""Users router — CRUD for user management (Admin-only)."""
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,10 +18,10 @@ router = APIRouter(prefix="/users", tags=["users"])
 async def list_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all users (any authenticated user)."""
+    """List all users (Admin only)."""
     total_result = await db.execute(select(func.count(User.id)))
     total = total_result.scalar()
 
@@ -48,10 +48,10 @@ async def list_users(
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a single user by ID."""
+    """Get a single user by ID (Admin only)."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
@@ -70,10 +70,10 @@ async def get_user(
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
     data: UserCreate,
-    current_user: User = Depends(require_role("Manager")),
+    current_user: User = Depends(require_role("Admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new user (Manager only)."""
+    """Create a new user (Admin only)."""
     # Check uniqueness
     existing = await db.execute(select(User).where(User.username == data.username))
     if existing.scalar_one_or_none():
@@ -105,10 +105,10 @@ async def create_user(
 async def update_user(
     user_id: int,
     data: UserUpdate,
-    current_user: User = Depends(require_role("Manager")),
+    current_user: User = Depends(require_role("Admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update user fields (Manager only)."""
+    """Update user fields (Admin only)."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
@@ -136,10 +136,10 @@ async def update_user(
 async def reset_user_password(
     user_id: int,
     data: PasswordReset,
-    current_user: User = Depends(require_role("Manager")),
+    current_user: User = Depends(require_role("Admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Reset a user's password (Manager only)."""
+    """Reset a user's password (Admin only)."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:

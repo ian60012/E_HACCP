@@ -3,15 +3,17 @@ import { useAuth } from '@/hooks/useAuth';
 import Bi from '@/components/Bi';
 
 const roleBadgeColors: Record<string, string> = {
-  Operator: 'bg-blue-100 text-blue-700',
+  Admin: 'bg-purple-100 text-purple-700',
   QA: 'bg-green-100 text-green-700',
-  Manager: 'bg-purple-100 text-purple-700',
+  Production: 'bg-blue-100 text-blue-700',
+  Warehouse: 'bg-amber-100 text-amber-700',
 };
 
 const roleLabelKeys: Record<string, string> = {
-  Operator: 'role.operator',
+  Admin: 'role.admin',
   QA: 'role.qa',
-  Manager: 'role.manager',
+  Production: 'role.production',
+  Warehouse: 'role.warehouse',
 };
 
 interface NavBarProps {

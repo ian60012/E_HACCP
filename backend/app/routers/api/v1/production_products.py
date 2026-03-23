@@ -19,7 +19,7 @@ from app.schemas.production import (
     FormingOption,
 )
 from app.schemas.common import PaginatedResponse
-from app.dependencies.auth import get_current_active_user
+from app.dependencies.auth import get_current_active_user, require_role
 
 router = APIRouter(prefix="/production/products", tags=["Production Products"])
 
@@ -80,7 +80,7 @@ async def list_products(
 )
 async def create_product(
     data: ProdProductCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     existing = await db.execute(
@@ -166,7 +166,7 @@ async def download_template(
 @router.post("/import")
 async def import_products(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     """Bulk create production products from an uploaded Excel file."""
@@ -282,7 +282,7 @@ async def get_product(
 async def update_product(
     product_id: int,
     data: ProdProductUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(

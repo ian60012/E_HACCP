@@ -5,10 +5,14 @@ import { invStocktakeApi, invLocationsApi } from '@/api/inventory';
 import { InvStocktake, InvStocktakeLine, InvLocation } from '@/types/inventory';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
+import RoleGate from '@/components/RoleGate';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function InventoryStocktakePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canEdit = user && ['Admin', 'Warehouse'].includes(user.role);
   const isNew = !id;
 
   // ── New form state ─────────────────────────────────────────────────────
@@ -297,31 +301,37 @@ export default function InventoryStocktakePage() {
                   <td className="py-2 pr-3 font-mono text-xs text-gray-500">{line.item_code}</td>
                   <td className="py-2 pr-3 text-gray-700">{line.item_name}</td>
                   <td className="py-2 pr-3 text-right text-gray-600">
-                    {Number(line.system_qty).toFixed(3)} {line.item_unit}
+                    {Math.round(Number(line.system_qty))} {line.item_unit}
                   </td>
                   <td className="py-2 pr-3 text-right">
                     {isDraft ? (
-                      <input
-                        type="number"
-                        step="0.001"
-                        min="0"
-                        value={localQty[line.id] ?? ''}
-                        onChange={(e) => setLocalQty((prev) => ({ ...prev, [line.id]: e.target.value }))}
-                        onBlur={() => handleLineBlur(line)}
-                        className="input w-24 text-right"
-                        placeholder="未盤"
-                      />
+                      canEdit ? (
+                        <input
+                          type="number"
+                          step="1"
+                          min="0"
+                          value={localQty[line.id] ?? ''}
+                          onChange={(e) => setLocalQty((prev) => ({ ...prev, [line.id]: e.target.value }))}
+                          onBlur={() => handleLineBlur(line)}
+                          className="input w-24 text-right"
+                          placeholder="未盤"
+                        />
+                      ) : (
+                        <span className="text-gray-700">
+                          {localQty[line.id] ? `${Math.round(Number(localQty[line.id]))}` : <span className="text-gray-400">未盤</span>}
+                        </span>
+                      )
                     ) : (
                       <span className="text-gray-700">
                         {line.physical_qty !== null
-                          ? `${Number(line.physical_qty).toFixed(3)} ${line.item_unit}`
+                          ? `${Math.round(Number(line.physical_qty))} ${line.item_unit}`
                           : <span className="text-gray-400">未盤</span>}
                       </span>
                     )}
                   </td>
                   <td className={`py-2 pr-3 text-right ${varianceClass(variance)}`}>
                     {variance !== null
-                      ? `${Number(variance) > 0 ? '+' : ''}${Number(variance).toFixed(3)}`
+                      ? `${Number(variance) > 0 ? '+' : ''}${Math.round(Number(variance))}`
                       : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="py-2 pr-3 text-gray-400 text-xs">{line.notes || '—'}</td>
@@ -343,13 +353,15 @@ export default function InventoryStocktakePage() {
           <p className="text-sm text-gray-400 flex-1">
             填入實盤數量後離開欄位即自動儲存。未填入的品項視為「未盤」，不產生調整。
           </p>
-          <button
-            onClick={handleConfirm}
-            disabled={confirming}
-            className="btn btn-primary"
-          >
-            {confirming ? '確認中…' : '確認盤點'}
-          </button>
+          <RoleGate roles={['Admin', 'Warehouse']}>
+            <button
+              onClick={handleConfirm}
+              disabled={confirming}
+              className="btn btn-primary"
+            >
+              {confirming ? '確認中…' : '確認盤點'}
+            </button>
+          </RoleGate>
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ import ErrorCard from '@/components/ErrorCard';
 import EmptyState from '@/components/EmptyState';
 import Pagination from '@/components/Pagination';
 import Bi, { bi } from '@/components/Bi';
+import RoleGate from '@/components/RoleGate';
 
 const num = (v: any): number => (v == null ? 0 : Number(v));
 
@@ -88,13 +89,15 @@ export default function ProdBatchListPage() {
           <h1 className="text-2xl font-bold text-gray-800">{pageTitle}</h1>
           <p className="text-sm text-gray-500 mt-1">{pageSubtitle}</p>
         </div>
-        <button
-          onClick={() => navigate(newBatchTo)}
-          className="btn btn-primary flex items-center gap-1.5"
-        >
-          <PlusIcon className="h-5 w-5" />
-          <span className="hidden sm:inline">{newBtnLabel}</span>
-        </button>
+        <RoleGate roles={['Admin', 'Production']}>
+          <button
+            onClick={() => navigate(newBatchTo)}
+            className="btn btn-primary flex items-center gap-1.5"
+          >
+            <PlusIcon className="h-5 w-5" />
+            <span className="hidden sm:inline">{newBtnLabel}</span>
+          </button>
+        </RoleGate>
       </div>
 
       {/* Filters */}

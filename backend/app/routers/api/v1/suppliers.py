@@ -58,10 +58,10 @@ async def get_supplier(
 @router.post("", response_model=SupplierResponse, status_code=status.HTTP_201_CREATED)
 async def create_supplier(
     data: SupplierCreate,
-    current_user: User = Depends(require_role("QA", "Manager")),
+    current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new supplier (QA/Manager only)."""
+    """Create a new supplier (Admin/QA only)."""
     supplier = Supplier(**data.model_dump())
     db.add(supplier)
     await db.commit()
@@ -73,10 +73,10 @@ async def create_supplier(
 async def update_supplier(
     supplier_id: int,
     data: SupplierUpdate,
-    current_user: User = Depends(require_role("QA", "Manager")),
+    current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update a supplier (QA/Manager only)."""
+    """Update a supplier (Admin/QA only)."""
     result = await db.execute(select(Supplier).where(Supplier.id == supplier_id))
     supplier = result.scalar_one_or_none()
     if not supplier:

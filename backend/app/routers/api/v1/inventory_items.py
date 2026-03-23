@@ -17,7 +17,7 @@ from app.schemas.inventory import (
     InvAllowedLocationsUpdate,
 )
 from app.schemas.common import PaginatedResponse
-from app.dependencies.auth import get_current_active_user
+from app.dependencies.auth import get_current_active_user, require_role
 
 router = APIRouter(prefix="/inventory/items", tags=["inventory-items"])
 
@@ -96,7 +96,7 @@ async def list_items(
 @router.post("", response_model=InvItemResponse, status_code=status.HTTP_201_CREATED)
 async def create_item(
     data: InvItemCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     existing = await db.execute(select(InvItem).where(InvItem.code == data.code))
@@ -186,7 +186,7 @@ async def download_template(
 @router.post("/import")
 async def import_items(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     """Bulk create inventory items from an uploaded Excel file."""
@@ -289,7 +289,7 @@ async def get_item(
 async def update_item(
     item_id: int,
     data: InvItemUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(_base_item_query().where(InvItem.id == item_id))
@@ -314,7 +314,7 @@ async def update_item(
 async def set_allowed_locations(
     item_id: int,
     data: InvAllowedLocationsUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     """Replace the allowed-location whitelist for an inventory item."""

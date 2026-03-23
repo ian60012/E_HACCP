@@ -83,7 +83,7 @@ export default function AreasPage() {
           <h1 className="text-2xl font-bold text-gray-800"><Bi k="page.areas.title" /></h1>
           <p className="text-sm text-gray-500 mt-1"><Bi k="page.areas.subtitle" /></p>
         </div>
-        <RoleGate roles={['QA', 'Manager']}>
+        <RoleGate roles={['Admin', 'QA']}>
           <button onClick={openCreate} className="btn btn-primary flex items-center gap-1.5">
             <PlusIcon className="h-5 w-5" /><Bi k="btn.newArea" />
           </button>
@@ -141,7 +141,7 @@ export default function AreasPage() {
                     </button>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <RoleGate roles={['QA', 'Manager']}>
+                    <RoleGate roles={['Admin', 'QA']}>
                       <button onClick={() => openEdit(item)} className="p-1.5 hover:bg-gray-100 rounded-lg">
                         <PencilIcon className="h-4 w-4 text-gray-500" />
                       </button>

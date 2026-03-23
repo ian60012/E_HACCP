@@ -155,30 +155,27 @@ async def calculate_packing_totals(
     )
     trims = result_trims.scalars().all()
 
-    total_4kg = sum(
-        float(r.theoretical_total_weight_kg or (r.bag_count * r.nominal_weight_kg))
-        for r in records
-        if r.pack_type == "4KG_SEMI"
-    )
-    total_retail = sum(
-        float(r.theoretical_total_weight_kg or (r.bag_count * r.nominal_weight_kg))
-        for r in records
-        if r.pack_type in ("1KG_FG", "0.5KG_FG")
-    )
+    # Dynamically group packing records by pack_type
+    by_pack_type: dict[str, float] = {}
+    for r in records:
+        wt = float(r.theoretical_total_weight_kg or (r.bag_count * r.nominal_weight_kg))
+        by_pack_type[r.pack_type] = by_pack_type.get(r.pack_type, 0) + wt
+    total_packed = sum(by_pack_type.values())
     total_trim = sum(float(t.weight_kg) for t in trims)
-    output_total = total_4kg + total_retail + total_trim
+    output_total = total_packed + total_trim
     loss = forming_input - output_total
     loss_rate = (loss / forming_input * 100) if forming_input > 0 else 0
 
-    return {
+    result = {
         "forming_input_kg": Decimal(str(round(forming_input, 3))),
-        "total_4kg_kg": Decimal(str(round(total_4kg, 3))),
-        "total_retail_kg": Decimal(str(round(total_retail, 3))),
+        "total_packed_kg": Decimal(str(round(total_packed, 3))),
         "total_trim_kg": Decimal(str(round(total_trim, 3))),
         "output_total_kg": Decimal(str(round(output_total, 3))),
         "loss_kg": Decimal(str(round(loss, 3))),
         "loss_rate": round(loss_rate, 2),
+        "by_pack_type": {k: Decimal(str(round(v, 3))) for k, v in by_pack_type.items()},
     }
+    return result
 
 
 async def calculate_repack_totals(

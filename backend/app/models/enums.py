@@ -17,9 +17,10 @@ from sqlalchemy import Enum as SAEnum
 # ---------------------------------------------------------------------------
 
 class UserRole(str, enum.Enum):
-    OPERATOR = "Operator"
+    ADMIN = "Admin"
     QA = "QA"
-    MANAGER = "Manager"
+    PRODUCTION = "Production"
+    WAREHOUSE = "Warehouse"
 
 
 class PassFail(str, enum.Enum):
@@ -73,7 +74,7 @@ class LogType(str, enum.Enum):
 # SQLAlchemy column types (reusable in model definitions)
 # create_type=False is CRITICAL — enums already exist in PostgreSQL
 # values_callable=lambda e: [x.value for x in e] tells SQLAlchemy to use
-# the enum .value (e.g., "Operator") for DB I/O instead of .name ("OPERATOR")
+# the enum .value (e.g., "Production") for DB I/O instead of .name ("PRODUCTION")
 # ---------------------------------------------------------------------------
 
 _vals = lambda e: [x.value for x in e]
@@ -117,13 +118,6 @@ class ProdShift(str, enum.Enum):
     NIGHT = "Night"
 
 
-class ProdPackType(str, enum.Enum):
-    SEMI_4KG = "4KG_SEMI"
-    FG_1KG = "1KG_FG"
-    FG_05KG = "0.5KG_FG"
-    BULK_KG = "BULK_KG"
-
-
 class ProdProductType(str, enum.Enum):
     FORMING = "forming"
     HOT_PROCESS = "hot_process"
@@ -131,7 +125,6 @@ class ProdProductType(str, enum.Enum):
 
 ProdBatchStatusType = SAEnum(ProdBatchStatus, name="prod_batch_status_enum", create_type=False, values_callable=_vals)
 ProdShiftType = SAEnum(ProdShift, name="prod_shift_enum", create_type=False, values_callable=_vals)
-ProdPackTypeType = SAEnum(ProdPackType, name="prod_pack_type_enum", create_type=False, values_callable=_vals)
 ProdProductTypeType = SAEnum(ProdProductType, name="prod_product_type_enum", create_type=False, values_callable=_vals)
 
 

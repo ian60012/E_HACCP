@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { invDocsApi } from '@/api/inventory';
 import { InvStockDoc } from '@/types/inventory';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import Bi, { bi } from '@/components/Bi';
+import RoleGate from '@/components/RoleGate';
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString('zh-TW', {
@@ -103,22 +104,33 @@ export default function InventoryStockDocDetailPage() {
 
       {/* Action buttons */}
       {doc.status === 'Draft' && (
-        <div className="flex gap-2">
-          <button
-            onClick={handlePost}
-            disabled={postLoading}
-            className="btn btn-primary"
-          >
-            {postLoading ? <Bi k="btn.posting" /> : <Bi k="btn.postDoc" />}
-          </button>
-        </div>
+        <RoleGate roles={['Admin', 'Warehouse']}>
+          <div className="flex gap-2">
+            <button
+              onClick={() => navigate(`/inventory/docs/${doc.id}/edit`)}
+              className="btn btn-secondary flex items-center gap-1.5"
+            >
+              <PencilIcon className="h-4 w-4" />
+              <Bi k="btn.edit" />
+            </button>
+            <button
+              onClick={handlePost}
+              disabled={postLoading}
+              className="btn btn-primary"
+            >
+              {postLoading ? <Bi k="btn.posting" /> : <Bi k="btn.postDoc" />}
+            </button>
+          </div>
+        </RoleGate>
       )}
       {doc.status === 'Posted' && (
-        <div className="flex gap-2">
-          <button onClick={() => setVoidDialogOpen(true)} className="btn btn-secondary text-red-600">
-            <Bi k="btn.void" />
-          </button>
-        </div>
+        <RoleGate roles={['Admin', 'Warehouse']}>
+          <div className="flex gap-2">
+            <button onClick={() => setVoidDialogOpen(true)} className="btn btn-secondary text-red-600">
+              <Bi k="btn.void" />
+            </button>
+          </div>
+        </RoleGate>
       )}
 
       {/* Info */}
@@ -191,7 +203,7 @@ export default function InventoryStockDocDetailPage() {
                     <span className="text-xs text-gray-400 ml-1">{line.item_code}</span>
                   </td>
                   <td className="py-2 pr-4 text-gray-600">{line.location_name || '—'}</td>
-                  <td className="py-2 pr-4 font-medium">{line.quantity}</td>
+                  <td className="py-2 pr-4 font-medium">{Math.round(Number(line.quantity))}</td>
                   <td className="py-2 pr-4 text-gray-500">{line.unit}</td>
                   <td className="py-2 text-gray-500">{line.unit_cost || '—'}</td>
                 </tr>

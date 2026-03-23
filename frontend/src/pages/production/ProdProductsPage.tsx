@@ -3,7 +3,7 @@ import { PlusIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { PencilIcon, ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { prodProductsApi } from '@/api/production';
 import { invItemsApi } from '@/api/inventory';
-import { ProdProduct, ProdProductCreate } from '@/types/production';
+import { ProdProduct, ProdProductCreate, ProdProductType } from '@/types/production';
 import { InvItem } from '@/types/inventory';
 import { usePagination } from '@/hooks/usePagination';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -11,6 +11,7 @@ import ErrorCard from '@/components/ErrorCard';
 import EmptyState from '@/components/EmptyState';
 import Pagination from '@/components/Pagination';
 import Bi, { bi } from '@/components/Bi';
+import RoleGate from '@/components/RoleGate';
 
 export default function ProdProductsPage() {
   const [products, setProducts] = useState<ProdProduct[]>([]);
@@ -31,6 +32,7 @@ export default function ProdProductsPage() {
   const [formCcpLimitTemp, setFormCcpLimitTemp] = useState('75.00');
   const [formPackSize, setFormPackSize] = useState('');
   const [formLossRateWarn, setFormLossRateWarn] = useState('');
+  const [formProductType, setFormProductType] = useState<ProdProductType>('forming');
   const [formInvItemId, setFormInvItemId] = useState<number | ''>('');
   const [formSaving, setFormSaving] = useState(false);
 
@@ -66,6 +68,7 @@ export default function ProdProductsPage() {
     setFormCcpLimitTemp('75.00');
     setFormPackSize('');
     setFormLossRateWarn('');
+    setFormProductType('forming');
     setFormInvItemId('');
   };
 
@@ -83,6 +86,7 @@ export default function ProdProductsPage() {
     setFormCcpLimitTemp(product.ccp_limit_temp ?? '75.00');
     setFormPackSize(product.pack_size_kg != null ? String(product.pack_size_kg) : '');
     setFormLossRateWarn(product.loss_rate_warn_pct != null ? String(product.loss_rate_warn_pct) : '');
+    setFormProductType(product.product_type || 'forming');
     setFormInvItemId(product.inv_item_id ?? '');
   };
 
@@ -100,6 +104,7 @@ export default function ProdProductsPage() {
           ccp_limit_temp: formCcpLimitTemp || '75.00',
           pack_size_kg: formPackSize ? Number(formPackSize) : null,
           loss_rate_warn_pct: formLossRateWarn ? Number(formLossRateWarn) : null,
+          product_type: formProductType,
           inv_item_id: formInvItemId || null,
         });
       } else {
@@ -109,6 +114,7 @@ export default function ProdProductsPage() {
           ccp_limit_temp: formCcpLimitTemp || '75.00',
           pack_size_kg: formPackSize ? Number(formPackSize) : null,
           loss_rate_warn_pct: formLossRateWarn ? Number(formLossRateWarn) : null,
+          product_type: formProductType,
           inv_item_id: formInvItemId || null,
         };
         await prodProductsApi.create(data);
@@ -170,31 +176,33 @@ export default function ProdProductsPage() {
           <h1 className="text-2xl font-bold text-gray-800"><Bi k="page.prodProducts.title" /></h1>
           <p className="text-sm text-gray-500 mt-1"><Bi k="page.prodProducts.subtitle" /></p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleDownloadTemplate}
-            className="btn btn-secondary flex items-center gap-1.5 text-sm"
-          >
-            <ArrowDownTrayIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">下載模板</span>
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={importing}
-            className="btn btn-secondary flex items-center gap-1.5 text-sm"
-          >
-            <ArrowUpTrayIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">{importing ? '匯入中…' : '批量匯入'}</span>
-          </button>
-          <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportFile} />
-          <button
-            onClick={startCreate}
-            className="btn btn-primary flex items-center gap-1.5"
-          >
-            <PlusIcon className="h-5 w-5" />
-            <span className="hidden sm:inline"><Bi k="btn.newProduct" /></span>
-          </button>
-        </div>
+        <RoleGate roles={['Admin', 'Production']}>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadTemplate}
+              className="btn btn-secondary flex items-center gap-1.5 text-sm"
+            >
+              <ArrowDownTrayIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">下載模板</span>
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              className="btn btn-secondary flex items-center gap-1.5 text-sm"
+            >
+              <ArrowUpTrayIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">{importing ? '匯入中…' : '批量匯入'}</span>
+            </button>
+            <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportFile} />
+            <button
+              onClick={startCreate}
+              className="btn btn-primary flex items-center gap-1.5"
+            >
+              <PlusIcon className="h-5 w-5" />
+              <span className="hidden sm:inline"><Bi k="btn.newProduct" /></span>
+            </button>
+          </div>
+        </RoleGate>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -242,7 +250,7 @@ export default function ProdProductsPage() {
               <XMarkIcon className="h-4 w-4 text-gray-400" />
             </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="label text-xs"><Bi k="field.code" /></label>
               <input
@@ -263,6 +271,17 @@ export default function ProdProductsPage() {
                 className="input"
                 required
               />
+            </div>
+            <div>
+              <label className="label text-xs">產品類型 Product Type</label>
+              <select
+                value={formProductType}
+                onChange={(e) => setFormProductType(e.target.value as ProdProductType)}
+                className="input"
+              >
+                <option value="forming">成型 Forming</option>
+                <option value="hot_process">熱加工 Hot Process</option>
+              </select>
             </div>
             <div>
               <label className="label text-xs"><Bi k="field.ccpLimitTempUnit" /></label>
@@ -337,6 +356,7 @@ export default function ProdProductsPage() {
                 <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
                   <th className="pb-2 pr-4"><Bi k="field.code" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.name" /></th>
+                  <th className="pb-2 pr-4">類型 Type</th>
                   <th className="pb-2 pr-4"><Bi k="th.ccpLimit" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.packSizeKg" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.lossRateWarnPct" /></th>
@@ -350,6 +370,11 @@ export default function ProdProductsPage() {
                   <tr key={product.id} className={!product.is_active ? 'opacity-50' : ''}>
                     <td className="py-2 pr-4 font-medium text-gray-800">{product.code}</td>
                     <td className="py-2 pr-4 text-gray-700">{product.name}</td>
+                    <td className="py-2 pr-4">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${product.product_type === 'forming' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                        {product.product_type === 'forming' ? '成型' : '熱加工'}
+                      </span>
+                    </td>
                     <td className="py-2 pr-4 text-gray-500">{product.ccp_limit_temp}°C</td>
                     <td className="py-2 pr-4 text-gray-500">{product.pack_size_kg ?? '—'}</td>
                     <td className="py-2 pr-4 text-gray-500">{product.loss_rate_warn_pct != null ? `${product.loss_rate_warn_pct}%` : '—'}</td>
@@ -373,9 +398,11 @@ export default function ProdProductsPage() {
                       </button>
                     </td>
                     <td className="py-2">
-                      <button onClick={() => startEdit(product)} className="p-1 rounded hover:bg-gray-100">
-                        <PencilIcon className="h-4 w-4 text-gray-400" />
-                      </button>
+                      <RoleGate roles={['Admin', 'Production']}>
+                        <button onClick={() => startEdit(product)} className="p-1 rounded hover:bg-gray-100">
+                          <PencilIcon className="h-4 w-4 text-gray-400" />
+                        </button>
+                      </RoleGate>
                     </td>
                   </tr>
                 ))}

@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
@@ -12,11 +12,11 @@ from app.models.inventory import InvStockDoc, InvStockLine, InvItem, InvLocation
 from app.models.enums import InvDocType, InvDocStatus
 from app.models.user import User
 from app.schemas.inventory import (
-    InvStockDocCreate, InvStockDocVoidRequest,
+    InvStockDocCreate, InvStockDocUpdate, InvStockDocVoidRequest,
     InvStockDocResponse, InvStockLineResponse,
 )
 from app.schemas.common import PaginatedResponse
-from app.dependencies.auth import get_current_active_user
+from app.dependencies.auth import get_current_active_user, require_role
 from app.services.inventory_service import (
     generate_doc_number, post_document, void_document
 )
@@ -108,7 +108,7 @@ async def list_docs(
 @router.post("", response_model=InvStockDocResponse, status_code=status.HTTP_201_CREATED)
 async def create_doc(
     data: InvStockDocCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     if data.doc_type not in ("IN", "OUT"):
@@ -171,10 +171,69 @@ async def get_doc(
     return _to_response(doc)
 
 
+@router.patch("/{doc_id}", response_model=InvStockDocResponse)
+async def update_doc(
+    doc_id: int,
+    data: InvStockDocUpdate,
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a Draft document (header + replace all lines)."""
+    result = await db.execute(
+        select(InvStockDoc).where(InvStockDoc.id == doc_id)
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    doc_status = doc.status.value if hasattr(doc.status, 'value') else str(doc.status)
+    if doc_status != "Draft":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only Draft documents can be edited",
+        )
+
+    # Update header fields
+    if data.ref_number is not None:
+        doc.ref_number = data.ref_number or None
+    if data.notes is not None:
+        doc.notes = data.notes or None
+
+    # Delete existing lines
+    await db.execute(
+        delete(InvStockLine).where(InvStockLine.doc_id == doc_id)
+    )
+
+    # Insert new lines
+    for line_data in data.lines:
+        item_result = await db.execute(select(InvItem).where(InvItem.id == line_data.item_id))
+        if not item_result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Item {line_data.item_id} not found",
+            )
+        line = InvStockLine(
+            doc_id=doc.id,
+            item_id=line_data.item_id,
+            location_id=line_data.location_id,
+            quantity=line_data.quantity,
+            unit=line_data.unit,
+            unit_cost=line_data.unit_cost,
+            notes=line_data.notes,
+        )
+        db.add(line)
+
+    await db.flush()
+    await db.commit()
+
+    result = await db.execute(_base_query().where(InvStockDoc.id == doc.id))
+    return _to_response(result.scalar_one())
+
+
 @router.post("/{doc_id}/post", response_model=InvStockDocResponse)
 async def post_doc(
     doc_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     doc = await post_document(db, doc_id, current_user.id)
@@ -187,9 +246,23 @@ async def post_doc(
 async def void_doc(
     doc_id: int,
     data: InvStockDocVoidRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
+    # Warehouse can only void Draft docs; Admin can void any status
+    user_role = current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role)
+    if user_role == "Warehouse":
+        check = await db.execute(select(InvStockDoc).where(InvStockDoc.id == doc_id))
+        existing = check.scalar_one_or_none()
+        if not existing:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+        doc_status = existing.status.value if hasattr(existing.status, 'value') else str(existing.status)
+        if doc_status != "Draft":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Warehouse role can only void Draft documents. Posted documents require Admin.",
+            )
+
     doc = await void_document(db, doc_id, data.void_reason)
     await db.commit()
     result = await db.execute(_base_query().where(InvStockDoc.id == doc.id))

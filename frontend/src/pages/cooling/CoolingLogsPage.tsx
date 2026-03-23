@@ -11,6 +11,7 @@ import EmptyState from '@/components/EmptyState';
 import StatusBadge from '@/components/StatusBadge';
 import Pagination from '@/components/Pagination';
 import Bi, { bi } from '@/components/Bi';
+import RoleGate from '@/components/RoleGate';
 import { exportToExcel, exportToPdf, ExportColumn, formatExportDateTime } from '@/utils/export';
 
 function formatDateTime(iso: string): string {
@@ -98,10 +99,12 @@ export default function CoolingLogsPage() {
             className="btn btn-secondary text-sm flex items-center gap-1.5">
             <ArrowDownTrayIcon className="h-4 w-4" /><Bi k="btn.exportPdf" />
           </button>
-          <Link to="/cooling-logs/new" className="btn btn-primary flex items-center gap-1.5">
-            <PlusIcon className="h-5 w-5" />
-            <span className="hidden sm:inline"><Bi k="btn.newRecord" /></span>
-          </Link>
+          <RoleGate roles={['Admin', 'QA', 'Production']}>
+            <Link to="/cooling-logs/new" className="btn btn-primary flex items-center gap-1.5">
+              <PlusIcon className="h-5 w-5" />
+              <span className="hidden sm:inline"><Bi k="btn.newRecord" /></span>
+            </Link>
+          </RoleGate>
         </div>
       </div>
 

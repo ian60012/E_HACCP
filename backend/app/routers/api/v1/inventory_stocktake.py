@@ -16,7 +16,7 @@ from app.schemas.inventory import (
     InvStocktakeLineResponse, InvStocktakeResponse,
 )
 from app.schemas.common import PaginatedResponse
-from app.dependencies.auth import get_current_active_user
+from app.dependencies.auth import get_current_active_user, require_role
 from app.services.inventory_service import create_stocktake, confirm_stocktake
 
 router = APIRouter(prefix="/inventory/stocktakes", tags=["inventory-stocktake"])
@@ -107,7 +107,7 @@ async def list_stocktakes(
 @router.post("", response_model=InvStocktakeResponse, status_code=status.HTTP_201_CREATED)
 async def create_stocktake_endpoint(
     data: InvStocktakeCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     stocktake = await create_stocktake(
@@ -140,7 +140,7 @@ async def update_stocktake_line(
     stocktake_id: int,
     line_id: int,
     data: InvStocktakeLineUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -184,7 +184,7 @@ async def update_stocktake_line(
 @router.post("/{stocktake_id}/confirm", response_model=InvStocktakeResponse)
 async def confirm_stocktake_endpoint(
     stocktake_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
     await confirm_stocktake(db, stocktake_id, current_user.id)
