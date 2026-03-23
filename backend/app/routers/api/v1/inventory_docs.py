@@ -44,8 +44,8 @@ def _to_response(doc: InvStockDoc) -> InvStockDocResponse:
     return InvStockDocResponse(
         id=doc.id,
         doc_number=doc.doc_number,
-        doc_type=doc.doc_type.value if doc.doc_type else doc.doc_type,
-        status=doc.status.value if doc.status else doc.status,
+        doc_type=doc.doc_type.value if hasattr(doc.doc_type, 'value') else doc.doc_type,
+        status=doc.status.value if hasattr(doc.status, 'value') else doc.status,
         location_id=doc.location_id,
         location_name=doc.location.name if doc.location else None,
         receiving_log_id=doc.receiving_log_id,

@@ -238,18 +238,23 @@ async def create_stocktake(
     session.add(stocktake)
     await session.flush()
 
-    # Snapshot all balance rows for this location
+    # Snapshot all active items with their current balance at this location (0 if no balance row)
+    items_result = await session.execute(
+        select(InvItem).where(InvItem.is_active == True)
+    )
+    items = items_result.scalars().all()
+
     bal_result = await session.execute(
         select(InvStockBalance).where(InvStockBalance.location_id == location_id)
     )
-    balances = bal_result.scalars().all()
+    bal_map = {b.item_id: b.quantity for b in bal_result.scalars().all()}
 
-    for bal in balances:
+    for item in items:
         line = InvStocktakeLine(
             stocktake_id=stocktake.id,
-            item_id=bal.item_id,
+            item_id=item.id,
             location_id=location_id,
-            system_qty=bal.quantity,
+            system_qty=bal_map.get(item.id, Decimal("0")),
         )
         session.add(line)
 

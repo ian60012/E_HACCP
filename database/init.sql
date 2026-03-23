@@ -176,8 +176,8 @@ CREATE TABLE IF NOT EXISTS cooking_logs (
 
     -- Business fields
     batch_id                VARCHAR(50)     NOT NULL,
-    prod_product_id         INT             REFERENCES prod_products(id) ON DELETE RESTRICT,  -- Production module product
-    prod_batch_id           INT             REFERENCES prod_batches(id) ON DELETE SET NULL,   -- Optional link to production batch
+    prod_product_id         INT,  -- FK added later: REFERENCES prod_products(id) ON DELETE RESTRICT
+    prod_batch_id           INT,  -- FK added later: REFERENCES prod_batches(id) ON DELETE SET NULL
     quantity                NUMERIC(8,3),                                     -- Optional quantity (kg)
     equipment_id            INT             REFERENCES equipment(id),
     start_time              TIMESTAMPTZ     NOT NULL,
@@ -222,7 +222,7 @@ CREATE TABLE IF NOT EXISTS cooling_logs (
 
     -- Business fields
     batch_id                VARCHAR(50)     NOT NULL,
-    prod_batch_id           INTEGER         REFERENCES prod_batches(id) ON DELETE SET NULL,
+    prod_batch_id           INTEGER,  -- FK added later: REFERENCES prod_batches(id) ON DELETE SET NULL
     start_time              TIMESTAMPTZ     NOT NULL,
     start_temp              NUMERIC(5,2)    NOT NULL,
     stage1_time             TIMESTAMPTZ,
@@ -326,7 +326,7 @@ COMMENT ON TABLE sanitising_logs IS 'FSP-LOG-CLN-001: Cleaning & sanitising log.
 -- -------------------------------------------------
 CREATE TABLE IF NOT EXISTS assembly_packing_logs (
     id                   SERIAL PRIMARY KEY,
-    prod_batch_id        INTEGER NOT NULL REFERENCES prod_batches(id) ON DELETE CASCADE,
+    prod_batch_id        INTEGER NOT NULL,  -- FK added later: REFERENCES prod_batches(id) ON DELETE CASCADE
 
     -- Label checks
     is_allergen_declared BOOLEAN NOT NULL,
@@ -562,7 +562,7 @@ CREATE INDEX IF NOT EXISTS idx_receiving_logs_operator_id   ON receiving_logs(op
 CREATE INDEX IF NOT EXISTS idx_receiving_logs_verified_by   ON receiving_logs(verified_by) WHERE verified_by IS NOT NULL;
 
 -- cooking_logs
-CREATE INDEX IF NOT EXISTS idx_cooking_logs_product_id      ON cooking_logs(product_id);
+CREATE INDEX IF NOT EXISTS idx_cooking_logs_prod_product_id ON cooking_logs(prod_product_id);
 CREATE INDEX IF NOT EXISTS idx_cooking_logs_equipment_id    ON cooking_logs(equipment_id) WHERE equipment_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_cooking_logs_operator_id     ON cooking_logs(operator_id);
 CREATE INDEX IF NOT EXISTS idx_cooking_logs_verified_by     ON cooking_logs(verified_by) WHERE verified_by IS NOT NULL;
@@ -646,19 +646,7 @@ INSERT INTO users (username, password_hash, full_name, role, is_active) VALUES
     ('manager1',  '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'David Li',     'Manager',  TRUE)
 ON CONFLICT (username) DO NOTHING;
 
-INSERT INTO products (name, ccp_limit_temp, is_active) VALUES
-    ('Pork Dumplings',          75.00, TRUE),
-    ('Chicken Dumplings',       75.00, TRUE),
-    ('Beef Dumplings',          75.00, TRUE),
-    ('Vegetable Dumplings',     75.00, TRUE),
-    ('Spring Rolls',            75.00, TRUE),
-    ('Fried Rice',              75.00, TRUE),
-    ('豬肚',                    75.00, TRUE),
-    ('雞肉塊',                  75.00, TRUE),
-    ('牛肉粒',                  75.00, TRUE),
-    ('牛湯骨',                  75.00, TRUE),
-    ('肥腸',                    75.00, TRUE)
-ON CONFLICT DO NOTHING;
+-- NOTE: 'products' table removed; products are now in prod_products (seeded below)
 
 INSERT INTO suppliers (name, contact_name, phone, is_active) VALUES
     ('Fresh Meat Co.',          'John Smith',       '+61 3 9000 1111', TRUE),
@@ -719,7 +707,7 @@ CREATE TABLE IF NOT EXISTS prod_products (
     pack_size_kg        NUMERIC(8,3),
     loss_rate_warn_pct  NUMERIC(5,2),
     product_type        prod_product_type_enum  NOT NULL DEFAULT 'forming',
-    inv_item_id         INTEGER                 REFERENCES inv_items(id) ON DELETE SET NULL,
+    inv_item_id         INTEGER,  -- FK added later: REFERENCES inv_items(id) ON DELETE SET NULL
     is_active           BOOLEAN                 NOT NULL DEFAULT TRUE,
     created_at          TIMESTAMPTZ             NOT NULL DEFAULT NOW()
 );
@@ -752,7 +740,7 @@ CREATE TABLE IF NOT EXISTS prod_batches (
     estimated_forming_net_weight_kg NUMERIC(12,3),
     estimated_forming_pieces        INTEGER,
     input_weight_kg                 NUMERIC(12,3),
-    inv_stock_doc_id                INTEGER                 REFERENCES inv_stock_docs(id) ON DELETE SET NULL,
+    inv_stock_doc_id                INTEGER,  -- FK added later: REFERENCES inv_stock_docs(id) ON DELETE SET NULL
     created_at                      TIMESTAMPTZ             NOT NULL DEFAULT NOW()
 );
 
@@ -779,7 +767,7 @@ CREATE TABLE IF NOT EXISTS prod_packing_records (
     id                          SERIAL PRIMARY KEY,
     batch_id                    INTEGER         NOT NULL REFERENCES prod_batches(id) ON DELETE CASCADE,
     product_id                  INTEGER         REFERENCES prod_products(id),
-    inv_item_id                 INTEGER         REFERENCES inv_items(id) ON DELETE SET NULL,
+    inv_item_id                 INTEGER,  -- FK added later: REFERENCES inv_items(id) ON DELETE SET NULL
     pack_type                   VARCHAR(50)     NOT NULL,
     nominal_weight_kg           NUMERIC(8,3)    NOT NULL,
     bag_count                   INTEGER         NOT NULL,
@@ -987,7 +975,10 @@ CREATE INDEX IF NOT EXISTS idx_inv_items_supplier       ON inv_items(supplier_id
 -- Inventory Stocktake (盤點)
 -- ============================================================================
 
-CREATE TYPE IF NOT EXISTS inv_stocktake_status_enum AS ENUM ('draft', 'confirmed');
+DO $$ BEGIN
+    CREATE TYPE inv_stocktake_status_enum AS ENUM ('draft', 'confirmed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS inv_stocktakes (
     id              SERIAL PRIMARY KEY,
@@ -1016,6 +1007,36 @@ CREATE TABLE IF NOT EXISTS inv_stocktake_lines (
 
 CREATE INDEX IF NOT EXISTS idx_inv_stocktakes_location ON inv_stocktakes(location_id);
 CREATE INDEX IF NOT EXISTS idx_inv_stocktake_lines_stocktake ON inv_stocktake_lines(stocktake_id);
+
+-- ============================================================================
+-- DEFERRED FOREIGN KEY CONSTRAINTS (forward references resolved here)
+-- ============================================================================
+
+ALTER TABLE cooking_logs
+    ADD CONSTRAINT fk_cooking_prod_product
+        FOREIGN KEY (prod_product_id) REFERENCES prod_products(id) ON DELETE RESTRICT,
+    ADD CONSTRAINT fk_cooking_prod_batch
+        FOREIGN KEY (prod_batch_id) REFERENCES prod_batches(id) ON DELETE SET NULL;
+
+ALTER TABLE cooling_logs
+    ADD CONSTRAINT fk_cooling_prod_batch
+        FOREIGN KEY (prod_batch_id) REFERENCES prod_batches(id) ON DELETE SET NULL;
+
+ALTER TABLE assembly_packing_logs
+    ADD CONSTRAINT fk_assembly_prod_batch
+        FOREIGN KEY (prod_batch_id) REFERENCES prod_batches(id) ON DELETE CASCADE;
+
+ALTER TABLE prod_products
+    ADD CONSTRAINT fk_prod_products_inv_item
+        FOREIGN KEY (inv_item_id) REFERENCES inv_items(id) ON DELETE SET NULL;
+
+ALTER TABLE prod_packing_records
+    ADD CONSTRAINT fk_prod_packing_records_inv_item
+        FOREIGN KEY (inv_item_id) REFERENCES inv_items(id) ON DELETE SET NULL;
+
+ALTER TABLE prod_batches
+    ADD CONSTRAINT fk_prod_batches_inv_stock_doc
+        FOREIGN KEY (inv_stock_doc_id) REFERENCES inv_stock_docs(id) ON DELETE SET NULL;
 
 -- ============================================================================
 -- INITIALIZATION COMPLETE
