@@ -838,7 +838,6 @@ CREATE INDEX IF NOT EXISTS idx_prod_repack_outputs_job  ON prod_repack_outputs(r
 
 -- Seed data: production products (sync with backend startup seed)
 INSERT INTO prod_products (code, name, ccp_limit_temp, product_type, is_active) VALUES
-    ('PB', '豬肚',   75.00, 'hot_process', TRUE),
     ('CC', '雞肉塊', 75.00, 'hot_process', TRUE),
     ('BC', '牛肉粒', 75.00, 'hot_process', TRUE),
     ('SB', '牛湯骨', 75.00, 'hot_process', TRUE),
