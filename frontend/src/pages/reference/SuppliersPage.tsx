@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { PlusIcon, XMarkIcon } from '@heroicons/react/24/solid';
+import { PencilIcon, ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { suppliersApi } from '@/api/suppliers';
 import { Supplier } from '@/types/supplier';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -18,6 +19,9 @@ export default function SuppliersPage() {
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('active');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: { row: number; code: string; message: string }[] } | null>(null);
 
   // Form state
   const [name, setName] = useState('');
@@ -82,8 +86,40 @@ export default function SuppliersPage() {
     } catch { /* ignore */ }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const blob = await suppliersApi.downloadTemplate();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'suppliers_template.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('下載模板失敗');
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    setError('');
+    try {
+      const result = await suppliersApi.importSuppliers(file);
+      setImportResult(result);
+      await fetchItems();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || '匯入失敗');
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   if (loading) return <LoadingSpinner fullPage />;
-  if (error) return <ErrorCard message={error} onRetry={fetchItems} />;
+  if (error && !items.length) return <ErrorCard message={error} onRetry={fetchItems} />;
 
   return (
     <div className="space-y-4">
@@ -93,11 +129,44 @@ export default function SuppliersPage() {
           <p className="text-sm text-gray-500 mt-1"><Bi k="page.suppliers.subtitle" /></p>
         </div>
         <RoleGate roles={['Admin', 'QA']}>
-          <button onClick={openCreate} className="btn btn-primary flex items-center gap-1.5">
-            <PlusIcon className="h-5 w-5" /><Bi k="btn.newSupplier" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={handleDownloadTemplate} className="btn btn-secondary flex items-center gap-1.5 text-sm">
+              <ArrowDownTrayIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">下載模板</span>
+            </button>
+            <button onClick={() => fileInputRef.current?.click()} disabled={importing} className="btn btn-secondary flex items-center gap-1.5 text-sm">
+              <ArrowUpTrayIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">{importing ? '匯入中…' : '批量匯入'}</span>
+            </button>
+            <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportFile} />
+            <button onClick={openCreate} className="btn btn-primary flex items-center gap-1.5">
+              <PlusIcon className="h-5 w-5" /><Bi k="btn.newSupplier" />
+            </button>
+          </div>
         </RoleGate>
       </div>
+
+      {error && <div className="p-2 bg-red-50 text-red-700 text-sm rounded">{error}</div>}
+
+      {importResult && (
+        <div className={`rounded-lg border p-3 text-sm ${importResult.errors.length > 0 ? 'border-yellow-300 bg-yellow-50' : 'border-green-300 bg-green-50'}`}>
+          <div className="flex items-center justify-between">
+            <span className="font-medium">
+              匯入完成：新增 {importResult.created} 筆，略過 {importResult.skipped} 筆
+            </span>
+            <button onClick={() => setImportResult(null)} className="p-1 rounded hover:bg-white/60">
+              <XMarkIcon className="h-4 w-4 text-gray-500" />
+            </button>
+          </div>
+          {importResult.errors.length > 0 && (
+            <ul className="mt-2 space-y-0.5 text-xs text-yellow-800">
+              {importResult.errors.map((e, idx) => (
+                <li key={idx}>列 {e.row}（{e.code}）：{e.message}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Filter tabs */}
       {(() => {

@@ -24,4 +24,18 @@ export const suppliersApi = {
     const response = await apiClient.patch<Supplier>(`/api/v1/suppliers/${id}`, data);
     return response.data;
   },
+
+  downloadTemplate: async (): Promise<Blob> => {
+    const res = await apiClient.get('/api/v1/suppliers/template', { responseType: 'blob' });
+    return res.data;
+  },
+
+  importSuppliers: async (file: File): Promise<{ created: number; skipped: number; errors: { row: number; code: string; message: string }[] }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await apiClient.post('/api/v1/suppliers/import', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
 };
