@@ -49,6 +49,7 @@ export default function ProdPackingPage() {
   // Local editable state
   const [records, setRecords] = useState<LocalPackRecord[]>([]);
   const [trims, setTrims] = useState<LocalTrim[]>([]);
+  const [editing, setEditing] = useState(false);
 
   const fetchBatch = useCallback(async () => {
     if (!id) return;
@@ -219,7 +220,6 @@ export default function ProdPackingPage() {
   if (error && !batch) return <ErrorCard message={error} onRetry={fetchBatch} />;
   if (!batch) return <ErrorCard message={bi('error.loadFailed')} />;
 
-  const [editing, setEditing] = useState(false);
   const isPacked = batch.status === 'packed';
   const isClosed = batch.status === 'closed';
   const isReadOnly = isClosed || (isPacked && !editing);
