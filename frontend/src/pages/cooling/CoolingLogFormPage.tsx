@@ -217,9 +217,6 @@ export default function CoolingLogFormPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
             {isEdit ? <Bi k="page.cooling.edit" /> : <Bi k="page.cooling.new" />}
-            {searchParams.get('product_name') && (
-              <span className="ml-2 text-lg font-normal text-gray-500">— {searchParams.get('product_name')}</span>
-            )}
           </h1>
           <p className="text-sm text-gray-500">FSP-LOG-005 <Bi k="page.cooling.subtitle" /></p>
           <p className="text-sm text-gray-500">記錄人 Operator: <span className="font-medium text-gray-700">{user?.full_name}</span></p>
@@ -227,6 +224,12 @@ export default function CoolingLogFormPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {searchParams.get('product_name') && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+            <span className="text-blue-600 font-medium">產品 Product:</span>{' '}
+            <span className="text-blue-800 font-semibold">{searchParams.get('product_name')}</span>
+          </div>
+        )}
         {/* Start Section - always shown */}
         <div className="card">
           <h2 className="text-lg font-semibold text-gray-800 mb-4"><Bi k="section.startRecord" /></h2>

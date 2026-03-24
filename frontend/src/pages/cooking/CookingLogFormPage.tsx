@@ -85,7 +85,16 @@ export default function CookingLogFormPage() {
           const paramProdBatchId = searchParams.get('prod_batch_id');
           if (paramProdBatchId) {
             setProdBatchId(Number(paramProdBatchId));
-            // Auto-match product by production batch's product_name
+          }
+          // Auto-match product by product_name param (from batch detail)
+          const paramProductName = searchParams.get('product_name');
+          if (paramProductName) {
+            const matchedProduct = prodRes.items.find(
+              p => p.is_active && p.name === paramProductName
+            );
+            if (matchedProduct) setProdProductId(matchedProduct.id);
+          } else if (paramProdBatchId) {
+            // Fallback: try matching from open batches list
             const linkedBatch = batchRes?.items.find(b => b.id === Number(paramProdBatchId));
             if (linkedBatch) {
               const matchedProduct = prodRes.items.find(
@@ -165,9 +174,6 @@ export default function CookingLogFormPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
             {isEdit ? <Bi k="page.cooking.edit" /> : <Bi k="page.cooking.new" />}
-            {searchParams.get('product_name') && (
-              <span className="ml-2 text-lg font-normal text-gray-500">— {searchParams.get('product_name')}</span>
-            )}
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">記錄人 Operator: <span className="font-medium text-gray-700">{user?.full_name}</span></p>
         </div>
@@ -184,6 +190,12 @@ export default function CookingLogFormPage() {
       )}
 
       <form onSubmit={handleSubmit} className="card space-y-4">
+        {searchParams.get('product_name') && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+            <span className="text-blue-600 font-medium">產品 Product:</span>{' '}
+            <span className="text-blue-800 font-semibold">{searchParams.get('product_name')}</span>
+          </div>
+        )}
         <FormField label={<Bi k="field.batchId" />} required>
           <input type="text" value={batchId} onChange={(e) => setBatchId(e.target.value)}
             className="input" placeholder="例如：BATCH-2026-001" required disabled={isEdit} maxLength={50} />
