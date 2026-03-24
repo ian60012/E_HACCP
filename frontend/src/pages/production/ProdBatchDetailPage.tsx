@@ -457,7 +457,11 @@ export default function ProdBatchDetailPage() {
           {isHot && (
             <div>
               <p className="text-xs text-gray-400"><Bi k="field.inputWeight" /></p>
-              <p className="font-medium text-gray-800">{batch.input_weight_kg ? `${batch.input_weight_kg} kg` : '—'}</p>
+              <p className="font-medium text-gray-800">
+                {(batch.hot_inputs || []).length > 0
+                  ? `${(batch.hot_inputs || []).reduce((sum: number, inp: ProdHotInput) => sum + Number(inp.weight_kg || 0), 0).toFixed(3)} kg`
+                  : batch.input_weight_kg ? `${batch.input_weight_kg} kg` : '—'}
+              </p>
             </div>
           )}
         </div>
