@@ -534,6 +534,7 @@ export default function ProdBatchDetailPage() {
                     prod_batch_id: String(batch.id),
                     batch_code: subCode,
                     hot_input_id: String(inp.id),
+                    product_name: batch.product_name || '',
                   });
                   if (batch.start_time) params.set('start_time', batch.start_time);
                   return (

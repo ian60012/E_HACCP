@@ -165,6 +165,9 @@ export default function CookingLogFormPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
             {isEdit ? <Bi k="page.cooking.edit" /> : <Bi k="page.cooking.new" />}
+            {searchParams.get('product_name') && (
+              <span className="ml-2 text-lg font-normal text-gray-500">— {searchParams.get('product_name')}</span>
+            )}
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">記錄人 Operator: <span className="font-medium text-gray-700">{user?.full_name}</span></p>
         </div>

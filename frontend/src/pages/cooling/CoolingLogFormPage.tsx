@@ -217,6 +217,9 @@ export default function CoolingLogFormPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
             {isEdit ? <Bi k="page.cooling.edit" /> : <Bi k="page.cooling.new" />}
+            {searchParams.get('product_name') && (
+              <span className="ml-2 text-lg font-normal text-gray-500">— {searchParams.get('product_name')}</span>
+            )}
           </h1>
           <p className="text-sm text-gray-500">FSP-LOG-005 <Bi k="page.cooling.subtitle" /></p>
           <p className="text-sm text-gray-500">記錄人 Operator: <span className="font-medium text-gray-700">{user?.full_name}</span></p>
