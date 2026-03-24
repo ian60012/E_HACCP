@@ -1,6 +1,6 @@
 // Production module types
 
-export type ProdBatchStatus = 'open' | 'closed';
+export type ProdBatchStatus = 'open' | 'packed' | 'closed';
 export type ProdShift = 'Morning' | 'Night';
 export type ProdPackType = string;  // Dynamic from pack type config table
 export type ProdProductType = 'forming' | 'hot_process';
