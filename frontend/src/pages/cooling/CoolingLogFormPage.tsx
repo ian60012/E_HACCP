@@ -11,6 +11,7 @@ import Bi, { bi } from '@/components/Bi';
 import DateTimeInput from '@/components/DateTimeInput';
 
 import { toMelbourneInput, nowMelbourne, melbourneToUTC } from '@/utils/timezone';
+import { useAuth } from '@/hooks/useAuth';
 
 function nowLocalISO(): string { return nowMelbourne(); }
 function toLocalInput(iso: string): string { return toMelbourneInput(iso); }
@@ -20,6 +21,7 @@ export default function CoolingLogFormPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const isEdit = Boolean(id);
 
   const [loading, setLoading] = useState(false);
@@ -217,6 +219,7 @@ export default function CoolingLogFormPage() {
             {isEdit ? <Bi k="page.cooling.edit" /> : <Bi k="page.cooling.new" />}
           </h1>
           <p className="text-sm text-gray-500">FSP-LOG-005 <Bi k="page.cooling.subtitle" /></p>
+          <p className="text-sm text-gray-500">記錄人 Operator: <span className="font-medium text-gray-700">{user?.full_name}</span></p>
         </div>
       </div>
 

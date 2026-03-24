@@ -10,6 +10,7 @@ import ErrorCard from '@/components/ErrorCard';
 import FormField from '@/components/FormField';
 import CCPIndicator from '@/components/CCPIndicator';
 import Bi, { bi } from '@/components/Bi';
+import { useAuth } from '@/hooks/useAuth';
 
 type ChemicalType = 'Buff' | 'Hybrid' | 'Command' | 'Keyts' | 'Chlorine';
 
@@ -24,6 +25,7 @@ const CHEMICAL_OPTIONS: { value: ChemicalType; label: string }[] = [
 export default function SanitisingLogFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const isEdit = Boolean(id);
 
   const [loading, setLoading] = useState(false);
@@ -160,6 +162,7 @@ export default function SanitisingLogFormPage() {
             {isEdit ? <Bi k="page.sanitising.edit" /> : <Bi k="page.sanitising.new" />}
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">FSP-LOG-005 清潔消毒檢查</p>
+          <p className="text-sm text-gray-500">記錄人 Operator: <span className="font-medium text-gray-700">{user?.full_name}</span></p>
         </div>
       </div>
 

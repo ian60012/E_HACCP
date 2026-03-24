@@ -5,6 +5,7 @@ import { deviationLogsApi } from '@/api/deviation-logs';
 import { LogType, Severity, ImmediateAction } from '@/types/deviation-log';
 import FormField from '@/components/FormField';
 import Bi, { bi } from '@/components/Bi';
+import { useAuth } from '@/hooks/useAuth';
 
 const sourceLabels: Record<LogType, { zh: string; en: string }> = {
   receiving: { zh: '收貨', en: 'Receiving' },
@@ -30,6 +31,7 @@ const actionLabels: Record<ImmediateAction, { zh: string; en: string }> = {
 
 export default function DeviationLogFormPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -98,7 +100,10 @@ export default function DeviationLogFormPage() {
         >
           <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
         </Link>
-        <h1 className="text-2xl font-bold text-gray-800"><Bi k="page.deviation.new" /></h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800"><Bi k="page.deviation.new" /></h1>
+          <p className="text-sm text-gray-500 mt-0.5">記錄人 Operator: <span className="font-medium text-gray-700">{user?.full_name}</span></p>
+        </div>
       </div>
 
       {error && (

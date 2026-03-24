@@ -15,6 +15,7 @@ import Bi, { bi } from '@/components/Bi';
 import DateTimeInput from '@/components/DateTimeInput';
 
 import { toMelbourneInput, nowMelbourne, melbourneToUTC } from '@/utils/timezone';
+import { useAuth } from '@/hooks/useAuth';
 
 function toLocalInput(iso: string): string { return toMelbourneInput(iso); }
 function nowLocalISO(): string { return nowMelbourne(); }
@@ -23,6 +24,7 @@ export default function CookingLogFormPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const isEdit = !!id;
 
   const [products, setProducts] = useState<ProdProduct[]>([]);
@@ -160,9 +162,12 @@ export default function CookingLogFormPage() {
         <Link to={isEdit ? `/cooking-logs/${id}` : searchParams.get('prod_batch_id') ? `/production/batches/${searchParams.get('prod_batch_id')}` : '/cooking-logs'} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
         </Link>
-        <h1 className="text-2xl font-bold text-gray-800">
-          {isEdit ? <Bi k="page.cooking.edit" /> : <Bi k="page.cooking.new" />}
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">
+            {isEdit ? <Bi k="page.cooking.edit" /> : <Bi k="page.cooking.new" />}
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5">記錄人 Operator: <span className="font-medium text-gray-700">{user?.full_name}</span></p>
+        </div>
       </div>
 
       {error && (

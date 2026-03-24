@@ -10,10 +10,12 @@ import ErrorCard from '@/components/ErrorCard';
 import FormField from '@/components/FormField';
 import CCPIndicator from '@/components/CCPIndicator';
 import Bi, { bi } from '@/components/Bi';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function ReceivingLogFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const isEdit = Boolean(id);
 
   const [loading, setLoading] = useState(false);
@@ -150,6 +152,7 @@ export default function ReceivingLogFormPage() {
             {isEdit ? <Bi k="page.receiving.edit" /> : <Bi k="page.receiving.new" />}
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">FSP-LOG-001 原料收貨檢查</p>
+          <p className="text-sm text-gray-500">記錄人 Operator: <span className="font-medium text-gray-700">{user?.full_name}</span></p>
         </div>
       </div>
 
