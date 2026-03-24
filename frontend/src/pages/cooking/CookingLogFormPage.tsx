@@ -228,7 +228,7 @@ export default function CookingLogFormPage() {
             <DateTimeInput value={startTime} onChange={setStartTime} required disabled={isEdit} />
           </FormField>
           <FormField label={<Bi k="field.endTime" />}>
-            <DateTimeInput value={endTime} onChange={setEndTime} min={startTime} />
+            <DateTimeInput value={endTime} onChange={setEndTime} min={startTime} copyDateFrom={startTime} />
           </FormField>
         </div>
 

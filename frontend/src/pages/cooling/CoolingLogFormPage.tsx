@@ -299,7 +299,7 @@ export default function CoolingLogFormPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label={<Bi k="field.stage1Time" />} error={errors.stage1Time}>
-              <DateTimeInput value={stage1Time} onChange={setStage1Time} disabled={isEdit && existingHasStage1} />
+              <DateTimeInput value={stage1Time} onChange={setStage1Time} disabled={isEdit && existingHasStage1} copyDateFrom={startTime} />
             </FormField>
 
             <FormField label={<Bi k="field.stage1TempUnit" />} error={errors.stage1Temp}>
@@ -363,7 +363,7 @@ export default function CoolingLogFormPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField label={<Bi k="field.endTime" />} error={errors.endTime}>
-                <DateTimeInput value={endTime} onChange={setEndTime} disabled={(isEdit && existingHasEnd) || (isEdit && !existingHasStage1)} />
+                <DateTimeInput value={endTime} onChange={setEndTime} disabled={(isEdit && existingHasEnd) || (isEdit && !existingHasStage1)} copyDateFrom={startTime} />
               </FormField>
 
               <FormField label={<Bi k="field.endTempUnit" />} error={errors.endTemp}>
