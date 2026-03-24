@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { prodBatchesApi, prodProductsApi, packTypesApi } from '@/api/production';
 import { invItemsApi } from '@/api/inventory';
 import {
@@ -207,6 +207,7 @@ export default function ProdPackingPage() {
         trims: validTrims,
       });
       setBatch(updated);
+      setEditing(false);
     } catch (err: any) {
       setError(err?.response?.data?.detail || bi('error.saveFailed'));
     } finally {
@@ -218,25 +219,35 @@ export default function ProdPackingPage() {
   if (error && !batch) return <ErrorCard message={error} onRetry={fetchBatch} />;
   if (!batch) return <ErrorCard message={bi('error.loadFailed')} />;
 
-  const isReadOnly = batch.status === 'closed';
+  const [editing, setEditing] = useState(false);
+  const isPacked = batch.status === 'packed';
+  const isClosed = batch.status === 'closed';
+  const isReadOnly = isClosed || (isPacked && !editing);
 
   // ── Hot process layout ──────────────────────────────────────────────────
   if (isHotProcess) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(`/production/batches/${batch.id}`)} className="p-2 rounded-lg hover:bg-gray-100">
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">
-              <Bi k="page.packing.title" /> — {batch.batch_code}
-            </h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              {batch.product_name}
-              {packSizeKg != null && <> &middot; <Bi k="field.packSizeKg" />: {packSizeKg} kg</>}
-            </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate(`/production/batches/${batch.id}`)} className="p-2 rounded-lg hover:bg-gray-100">
+              <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">
+                <Bi k="page.packing.title" /> — {batch.batch_code}
+              </h1>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {batch.product_name}
+                {packSizeKg != null && <> &middot; <Bi k="field.packSizeKg" />: {packSizeKg} kg</>}
+              </p>
+            </div>
           </div>
+          {isPacked && !editing && (
+            <button onClick={() => setEditing(true)} className="btn btn-secondary flex items-center gap-1.5">
+              <PencilIcon className="h-4 w-4" /> 編輯 Edit
+            </button>
+          )}
         </div>
 
         {error && <ErrorCard message={error} />}
@@ -397,6 +408,11 @@ export default function ProdPackingPage() {
           <button onClick={() => navigate(`/production/batches/${batch.id}`)} className="btn btn-secondary">
             <Bi k="btn.back" />
           </button>
+          {editing && (
+            <button onClick={() => { setEditing(false); fetchBatch(); }} className="btn btn-secondary">
+              取消 Cancel
+            </button>
+          )}
           {!isReadOnly && (
             <button onClick={handleSave} disabled={saving} className="btn btn-primary">
               {saving ? <Bi k="btn.saving" /> : <Bi k="btn.saveCloseBatch" />}
@@ -410,18 +426,25 @@ export default function ProdPackingPage() {
   // ── Forming layout (original) ────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate(`/production/batches/${batch.id}`)} className="p-2 rounded-lg hover:bg-gray-100">
-          <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">
-            <Bi k="page.packing.title" /> — {batch.batch_code}
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {batch.product_name} &middot; <Bi k="field.formingNet" />: {formingInput.toFixed(2)} kg
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(`/production/batches/${batch.id}`)} className="p-2 rounded-lg hover:bg-gray-100">
+            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">
+              <Bi k="page.packing.title" /> — {batch.batch_code}
+            </h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {batch.product_name} &middot; <Bi k="field.formingNet" />: {formingInput.toFixed(2)} kg
+            </p>
+          </div>
         </div>
+        {isPacked && !editing && (
+          <button onClick={() => setEditing(true)} className="btn btn-secondary flex items-center gap-1.5">
+            <PencilIcon className="h-4 w-4" /> 編輯 Edit
+          </button>
+        )}
       </div>
 
       {error && <ErrorCard message={error} />}
@@ -669,6 +692,11 @@ export default function ProdPackingPage() {
         <button onClick={() => navigate(`/production/batches/${batch.id}`)} className="btn btn-secondary">
           <Bi k="btn.back" />
         </button>
+        {editing && (
+          <button onClick={() => { setEditing(false); fetchBatch(); }} className="btn btn-secondary">
+            取消 Cancel
+          </button>
+        )}
         {!isReadOnly && (
           <button onClick={handleSave} disabled={saving} className="btn btn-primary">
             {saving ? <Bi k="btn.saving" /> : <Bi k="btn.saveCloseBatch" />}
