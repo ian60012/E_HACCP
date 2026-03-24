@@ -15,7 +15,14 @@ const num = (v: any): number => (v == null ? 0 : Number(v));
 
 const statusColors: Record<string, string> = {
   open: 'bg-blue-100 text-blue-800',
+  packed: 'bg-yellow-100 text-yellow-800',
   closed: 'bg-green-100 text-green-800',
+};
+
+const statusLabels: Record<string, string> = {
+  open: '進行中 Open',
+  packed: '已裝袋 Packed',
+  closed: '已結案 Closed',
 };
 
 export default function ProdBatchListPage() {
@@ -166,7 +173,7 @@ export default function ProdBatchListPage() {
                     <td className="py-2 pr-4 text-gray-500">{batch.shift || '—'}</td>
                     <td className="py-2 pr-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[batch.status] || ''}`}>
-                        {batch.status}
+                        {statusLabels[batch.status] || batch.status}
                       </span>
                     </td>
                     <td className="py-2 text-gray-500">

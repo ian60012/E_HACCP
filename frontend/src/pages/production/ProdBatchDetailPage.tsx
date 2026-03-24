@@ -24,7 +24,14 @@ const num = (v: any): number => (v == null ? 0 : Number(v));
 
 const statusColors: Record<string, string> = {
   open: 'bg-blue-100 text-blue-800',
+  packed: 'bg-yellow-100 text-yellow-800',
   closed: 'bg-green-100 text-green-800',
+};
+
+const statusLabels: Record<string, string> = {
+  open: '進行中 Open',
+  packed: '已裝袋 Packed',
+  closed: '已結案 Closed',
 };
 
 const ccpColors: Record<string, string> = {
@@ -390,7 +397,7 @@ export default function ProdBatchDetailPage() {
   if (!batch) return <ErrorCard message={bi('error.loadFailed')} />;
 
   const isHot = productType === 'hot_process';
-  const canEnterStock = batch.status === 'closed' && !batch.inv_stock_doc_id;
+  const canEnterStock = batch.status === 'packed' && !batch.inv_stock_doc_id;
 
   return (
     <div className="space-y-6">
@@ -421,7 +428,7 @@ export default function ProdBatchDetailPage() {
             </span>
           )}
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[batch.status] || ''}`}>
-            {batch.status}
+            {statusLabels[batch.status] || batch.status}
           </span>
         </div>
       </div>

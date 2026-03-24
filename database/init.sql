@@ -684,7 +684,7 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE prod_batch_status_enum AS ENUM ('open', 'closed');
+    CREATE TYPE prod_batch_status_enum AS ENUM ('open', 'packed', 'closed');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 

@@ -110,6 +110,7 @@ InvDocStatusType = SAEnum(InvDocStatus, name="inv_doc_status_enum", create_type=
 
 class ProdBatchStatus(str, enum.Enum):
     OPEN = "open"
+    PACKED = "packed"
     CLOSED = "closed"
 
 

@@ -290,10 +290,10 @@ async def enter_batch_to_inventory(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Batch not found")
 
     batch_status = batch.status.value if hasattr(batch.status, "value") else batch.status
-    if batch_status != "closed":
+    if batch_status not in ("packed", "closed"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Batch must be closed before entering stock"
+            detail="Batch must be packed before entering stock"
         )
     if batch.inv_stock_doc_id is not None:
         raise HTTPException(
@@ -400,8 +400,9 @@ async def enter_batch_to_inventory(
     from app.services.inventory_service import post_document
     posted_doc = await post_document(session, doc.id, operator_id)
 
-    # Link batch to stock doc
+    # Link batch to stock doc and close batch
     batch.inv_stock_doc_id = posted_doc.id
+    batch.status = "closed"
     await session.flush()
 
     return posted_doc

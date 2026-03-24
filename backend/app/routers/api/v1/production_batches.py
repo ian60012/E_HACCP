@@ -475,8 +475,8 @@ async def save_packing(
         )
         db.add(trim)
 
-    # Set batch status to closed
-    batch.status = "closed"
+    # Set batch status to packed (editable until enter-stock)
+    batch.status = "packed"
     await db.flush()
     await db.commit()
 
