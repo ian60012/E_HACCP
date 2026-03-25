@@ -144,7 +144,7 @@ export default function ProdBatchFormPage() {
               </FormField>
             )}
             <FormField label={<Bi k="field.startTime" />}>
-              <DateTimeInput value={startTime} onChange={setStartTime} />
+              <DateTimeInput value={startTime} onChange={setStartTime} copyDateFrom={productionDate} />
             </FormField>
             <FormField label={<Bi k="field.operator" />}>
               <input
