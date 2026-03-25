@@ -21,6 +21,7 @@ import {
   Squares2X2Icon,
   PresentationChartLineIcon,
   TagIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
 import Bi from '@/components/Bi';
@@ -50,6 +51,7 @@ const haccpSections: NavSection[] = [
       { to: '/cooling-logs', label: '冷卻記錄', labelKey: 'nav.cooling', icon: BeakerIcon },
       { to: '/assembly-logs', label: '組裝包裝', labelKey: 'nav.assembly', icon: ClipboardDocumentListIcon },
       { to: '/sanitising-logs', label: '清潔消毒', labelKey: 'nav.sanitising', icon: SparklesIcon },
+      { to: '/ppe-compliance-logs', label: 'PPE合規', labelKey: 'nav.ppe', icon: ShieldCheckIcon },
       { to: '/deviations', label: '偏差記錄', labelKey: 'nav.deviations', icon: ExclamationTriangleIcon },
     ],
   },

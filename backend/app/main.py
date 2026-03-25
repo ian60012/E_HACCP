@@ -27,6 +27,7 @@ from app.routers.api.v1 import receiving_logs
 from app.routers.api.v1 import cooling_logs
 from app.routers.api.v1 import sanitising_logs
 from app.routers.api.v1 import deviation_logs
+from app.routers.api.v1 import ppe_compliance_logs
 from app.routers.api.v1 import inventory_items
 from app.routers.api.v1 import inventory_locations
 from app.routers.api.v1 import inventory_docs
@@ -501,6 +502,7 @@ app.include_router(receiving_logs.router, prefix="/api/v1")
 app.include_router(cooling_logs.router, prefix="/api/v1")
 app.include_router(sanitising_logs.router, prefix="/api/v1")
 app.include_router(deviation_logs.router, prefix="/api/v1")
+app.include_router(ppe_compliance_logs.router, prefix="/api/v1")
 
 # Inventory module
 app.include_router(inventory_items.router, prefix="/api/v1")

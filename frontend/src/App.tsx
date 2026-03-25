@@ -49,6 +49,11 @@ import DeviationLogsPage from '@/pages/deviations/DeviationLogsPage';
 import DeviationLogDetailPage from '@/pages/deviations/DeviationLogDetailPage';
 import DeviationLogFormPage from '@/pages/deviations/DeviationLogFormPage';
 
+// PPE Compliance logs
+import PPEComplianceLogsPage from '@/pages/ppe/PPEComplianceLogsPage';
+import PPEComplianceLogDetailPage from '@/pages/ppe/PPEComplianceLogDetailPage';
+import PPEComplianceLogFormPage from '@/pages/ppe/PPEComplianceLogFormPage';
+
 // Reference data
 import SuppliersPage from '@/pages/reference/SuppliersPage';
 import EquipmentPage from '@/pages/reference/EquipmentPage';
@@ -124,6 +129,12 @@ export default function App() {
           <Route path="/sanitising-logs/new" element={<SanitisingLogFormPage />} />
           <Route path="/sanitising-logs/:id" element={<SanitisingLogDetailPage />} />
           <Route path="/sanitising-logs/:id/edit" element={<SanitisingLogFormPage />} />
+
+          {/* PPE Compliance logs */}
+          <Route path="/ppe-compliance-logs" element={<PPEComplianceLogsPage />} />
+          <Route path="/ppe-compliance-logs/new" element={<PPEComplianceLogFormPage />} />
+          <Route path="/ppe-compliance-logs/:id" element={<PPEComplianceLogDetailPage />} />
+          <Route path="/ppe-compliance-logs/:id/edit" element={<PPEComplianceLogFormPage />} />
 
           {/* Deviation logs */}
           <Route path="/deviations" element={<DeviationLogsPage />} />

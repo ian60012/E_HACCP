@@ -6,6 +6,7 @@ import {
   BeakerIcon,
   SparklesIcon,
   ScaleIcon,
+  ShieldCheckIcon,
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
@@ -51,6 +52,14 @@ const logCards = [
     color: 'bg-purple-50 text-purple-600 border-purple-200',
     listTo: '/assembly-logs',
     newTo: '/assembly-logs/new',
+  },
+  {
+    titleKey: 'nav.ppe',
+    descKey: 'dashboard.ppe.desc',
+    icon: ShieldCheckIcon,
+    color: 'bg-teal-50 text-teal-600 border-teal-200',
+    listTo: '/ppe-compliance-logs',
+    newTo: '/ppe-compliance-logs/new',
   },
   {
     titleKey: 'nav.deviations',
