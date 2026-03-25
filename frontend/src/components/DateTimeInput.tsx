@@ -36,7 +36,7 @@ export default function DateTimeInput({
   const timeRef = useRef<HTMLInputElement>(null);
   const refDate = copyDateFrom ? copyDateFrom.split('T')[0] : '';
 
-  const handleDate = (d: string) => onChange(d ? `${d}T${timePart || '00:00'}` : '');
+  const handleDate = (d: string) => onChange(d ? `${d}T${timePart}` : '');
 
   const handleTimeChange = (raw: string) => {
     const formatted = formatTimeInput(raw);
@@ -48,7 +48,7 @@ export default function DateTimeInput({
   };
 
   const handleCopyDate = () => {
-    if (refDate) onChange(`${refDate}T${timePart || '00:00'}`);
+    if (refDate) onChange(`${refDate}T${timePart}`);
   };
 
   return (
