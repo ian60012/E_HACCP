@@ -34,7 +34,7 @@ export default function CoolingLogFormPage() {
   const [batchId, setBatchId] = useState('');
   const [prodBatchId, setProdBatchId] = useState<number | undefined>(undefined);
   const [hotInputId, setHotInputId] = useState<number | undefined>(undefined);
-  const [startTime, setStartTime] = useState(nowLocalISO());
+  const [startTime, setStartTime] = useState('');
   const [startTemp, setStartTemp] = useState('');
   const [stage1Time, setStage1Time] = useState('');
   const [stage1Temp, setStage1Temp] = useState('');
