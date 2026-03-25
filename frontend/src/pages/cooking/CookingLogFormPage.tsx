@@ -52,14 +52,21 @@ export default function CookingLogFormPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [prodRes, equipRes, batchRes] = await Promise.all([
+        const paramProdBatchId = searchParams.get('prod_batch_id');
+        const [prodRes, equipRes, batchRes, linkedBatchRes] = await Promise.all([
           prodProductsApi.list({ limit: 200 }),
           equipmentApi.list(0, 200),
           isEdit ? Promise.resolve(null) : prodBatchesApi.list({ status: 'open', limit: 100 }),
+          !isEdit && paramProdBatchId ? prodBatchesApi.get(Number(paramProdBatchId)).catch(() => null) : Promise.resolve(null),
         ]);
         setProducts(prodRes.items.filter(p => p.is_active));
         setEquipmentList(equipRes.items.filter(e => e.is_active));
-        if (batchRes) setOpenBatches(batchRes.items);
+        const batches = batchRes ? [...batchRes.items] : [];
+        // Ensure the linked batch is in the list even if not 'open'
+        if (linkedBatchRes && !batches.find(b => b.id === linkedBatchRes.id)) {
+          batches.push(linkedBatchRes);
+        }
+        setOpenBatches(batches);
 
         if (isEdit) {
           const log = await cookingLogsApi.get(Number(id));
@@ -82,7 +89,6 @@ export default function CookingLogFormPage() {
         } else {
           // Defaults for new record — use local time
           setStartTime(nowLocalISO());
-          const paramProdBatchId = searchParams.get('prod_batch_id');
           if (paramProdBatchId) {
             setProdBatchId(Number(paramProdBatchId));
           }
