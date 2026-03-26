@@ -19,6 +19,7 @@ class MixingLogCreate(BaseModel):
     final_temp: Optional[Decimal] = None
     start_time: datetime
     end_time: Optional[datetime] = None
+    visual_check: bool = False
     corrective_action: Optional[str] = None
     notes: Optional[str] = None
 
@@ -29,6 +30,7 @@ class MixingLogUpdate(BaseModel):
     initial_temp: Optional[Decimal] = None
     final_temp: Optional[Decimal] = None
     end_time: Optional[datetime] = None
+    visual_check: Optional[bool] = None
     corrective_action: Optional[str] = None
     notes: Optional[str] = None
 
@@ -48,5 +50,6 @@ class MixingLogResponse(ALCOAResponseMixin):
     final_temp: Optional[Decimal] = None
     start_time: datetime
     end_time: Optional[datetime] = None
+    visual_check: bool = False
     corrective_action: Optional[str] = None
     notes: Optional[str] = None

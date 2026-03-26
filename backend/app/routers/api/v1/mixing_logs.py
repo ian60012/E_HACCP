@@ -41,6 +41,7 @@ def _to_response(log: MixingLog) -> MixingLogResponse:
         final_temp=log.final_temp,
         start_time=log.start_time,
         end_time=log.end_time,
+        visual_check=log.visual_check,
         corrective_action=log.corrective_action,
         notes=log.notes,
         operator_id=log.operator_id,

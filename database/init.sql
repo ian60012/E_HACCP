@@ -490,6 +490,7 @@ CREATE TABLE IF NOT EXISTS mixing_logs (
     final_temp              NUMERIC(5, 2),
     start_time              TIMESTAMPTZ     NOT NULL,
     end_time                TIMESTAMPTZ,
+    visual_check            BOOLEAN         NOT NULL DEFAULT FALSE,
     corrective_action       TEXT,
     notes                   TEXT,
 

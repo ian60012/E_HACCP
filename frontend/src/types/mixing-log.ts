@@ -12,6 +12,7 @@ export interface MixingLog extends ALCOAFields {
   final_temp: number | null;
   start_time: string;
   end_time: string | null;
+  visual_check: boolean;
   corrective_action: string | null;
   notes: string | null;
 }
@@ -25,6 +26,7 @@ export interface MixingLogCreate {
   final_temp?: number;
   start_time: string;
   end_time?: string;
+  visual_check?: boolean;
   corrective_action?: string;
   notes?: string;
 }
@@ -34,6 +36,7 @@ export interface MixingLogUpdate {
   initial_temp?: number;
   final_temp?: number;
   end_time?: string;
+  visual_check?: boolean;
   corrective_action?: string;
   notes?: string;
 }

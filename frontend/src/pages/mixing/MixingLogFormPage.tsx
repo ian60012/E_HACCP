@@ -39,6 +39,7 @@ export default function MixingLogFormPage() {
   const [finalTemp, setFinalTemp] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [visualCheck, setVisualCheck] = useState(false);
   const [correctiveAction, setCorrectiveAction] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -72,6 +73,7 @@ export default function MixingLogFormPage() {
           setFinalTemp(log.final_temp != null ? String(log.final_temp) : '');
           setStartTime(log.start_time ? toLocalInput(log.start_time) : '');
           setEndTime(log.end_time ? toLocalInput(log.end_time) : '');
+          setVisualCheck(log.visual_check ?? false);
           setCorrectiveAction(log.corrective_action || '');
           setNotes(log.notes || '');
         } else {
@@ -117,6 +119,7 @@ export default function MixingLogFormPage() {
           initial_temp: initialTemp ? Number(initialTemp) : undefined,
           final_temp: finalTemp ? Number(finalTemp) : undefined,
           end_time: endTime ? melbourneToUTC(endTime) : undefined,
+          visual_check: visualCheck,
           corrective_action: correctiveAction || undefined,
           notes: notes || undefined,
         });
@@ -131,6 +134,7 @@ export default function MixingLogFormPage() {
           final_temp: finalTemp ? Number(finalTemp) : undefined,
           start_time: melbourneToUTC(startTime),
           end_time: endTime ? melbourneToUTC(endTime) : undefined,
+          visual_check: visualCheck,
           corrective_action: correctiveAction || undefined,
           notes: notes || undefined,
         });
@@ -242,6 +246,19 @@ export default function MixingLogFormPage() {
             <DateTimeInput value={endTime} onChange={setEndTime} min={startTime} copyDateFrom={startTime} />
           </FormField>
         </div>
+
+        <FormField label={<Bi k="field.visualCheck" />}>
+          <div className="flex gap-2">
+            <button type="button"
+              onClick={() => setVisualCheck(true)}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${visualCheck ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+            >Yes</button>
+            <button type="button"
+              onClick={() => setVisualCheck(false)}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${!visualCheck ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+            >No</button>
+          </div>
+        </FormField>
 
         <FormField label={<Bi k="field.correctiveAction" />}>
           <textarea value={correctiveAction} onChange={(e) => setCorrectiveAction(e.target.value)}

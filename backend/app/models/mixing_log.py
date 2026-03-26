@@ -1,6 +1,6 @@
 """Mixing Log model (FSP-LOG-MIX-001)."""
 
-from sqlalchemy import Column, Integer, Numeric, Text, ForeignKey, VARCHAR
+from sqlalchemy import Column, Integer, Numeric, Text, ForeignKey, VARCHAR, Boolean
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 from sqlalchemy.orm import relationship
 
@@ -22,6 +22,7 @@ class MixingLog(ALCOAMixin, Base):
     final_temp = Column(Numeric(5, 2), nullable=True)
     start_time = Column(TIMESTAMP(timezone=True), nullable=False)
     end_time = Column(TIMESTAMP(timezone=True), nullable=True)
+    visual_check = Column(Boolean, nullable=False, server_default="false")
     corrective_action = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
 
