@@ -7,12 +7,21 @@ import {
   SparklesIcon,
   ScaleIcon,
   ShieldCheckIcon,
+  AdjustmentsHorizontalIcon,
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import Bi from '@/components/Bi';
 
 const logCards = [
+  {
+    titleKey: 'nav.mixing',
+    descKey: 'dashboard.mixing.desc',
+    icon: AdjustmentsHorizontalIcon,
+    color: 'bg-amber-50 text-amber-600 border-amber-200',
+    listTo: '/mixing-logs',
+    newTo: '/mixing-logs/new',
+  },
   {
     titleKey: 'nav.cooking',
     descKey: 'dashboard.cooking.desc',

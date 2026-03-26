@@ -22,6 +22,7 @@ import {
   PresentationChartLineIcon,
   TagIcon,
   ShieldCheckIcon,
+  AdjustmentsHorizontalIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
 import Bi from '@/components/Bi';
@@ -46,6 +47,7 @@ const haccpSections: NavSection[] = [
     title: '記錄',
     titleKey: 'nav.records',
     items: [
+      { to: '/mixing-logs', label: '攪拌記錄', labelKey: 'nav.mixing', icon: AdjustmentsHorizontalIcon },
       { to: '/cooking-logs', label: '烹飪記錄', labelKey: 'nav.cooking', icon: FireIcon },
       { to: '/receiving-logs', label: '收貨記錄', labelKey: 'nav.receiving', icon: TruckIcon },
       { to: '/cooling-logs', label: '冷卻記錄', labelKey: 'nav.cooling', icon: BeakerIcon },

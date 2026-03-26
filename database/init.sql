@@ -474,6 +474,39 @@ CREATE TABLE IF NOT EXISTS ppe_compliance_logs (
 COMMENT ON TABLE ppe_compliance_logs IS 'FSP-LOG-PPE-001: PPE compliance check log. Records pass/fail for 9 PPE items per area per date.';
 
 
+-- -------------------------------------------------
+-- Table 8: Mixing Log (FSP-LOG-MIX-001)
+-- Raw material mixing/blending before forming
+-- -------------------------------------------------
+CREATE TABLE IF NOT EXISTS mixing_logs (
+    id                      SERIAL PRIMARY KEY,
+
+    -- Business fields
+    batch_id                VARCHAR(50)     NOT NULL,
+    prod_batch_id           INT             REFERENCES prod_batches(id) ON DELETE SET NULL,
+    prod_product_id         INT             REFERENCES prod_products(id) ON DELETE RESTRICT,
+    weight_kg               NUMERIC(12, 3),
+    initial_temp            NUMERIC(5, 2),
+    final_temp              NUMERIC(5, 2),
+    start_time              TIMESTAMPTZ     NOT NULL,
+    end_time                TIMESTAMPTZ,
+    corrective_action       TEXT,
+    notes                   TEXT,
+
+    -- ALCOA+ audit fields
+    operator_id             INT             NOT NULL REFERENCES users(id),
+    verified_by             INT             REFERENCES users(id),
+    is_locked               BOOLEAN         NOT NULL DEFAULT FALSE,
+    is_voided               BOOLEAN         NOT NULL DEFAULT FALSE,
+    void_reason             TEXT,
+    voided_at               TIMESTAMPTZ,
+    voided_by               INT             REFERENCES users(id),
+    created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE mixing_logs IS 'FSP-LOG-MIX-001: Mixing/blending log before forming. Records batch, weight, initial/final temperature, and time.';
+
+
 -- ============================================================================
 -- SECTION 4: AUDIT LOG TABLE
 -- Tracks all modifications to locked records for ALCOA+ compliance.
@@ -568,6 +601,10 @@ CREATE TRIGGER trg_prevent_delete_ppe_compliance_logs
     BEFORE DELETE ON ppe_compliance_logs FOR EACH ROW
     EXECUTE FUNCTION prevent_log_delete();
 
+CREATE TRIGGER trg_prevent_delete_mixing_logs
+    BEFORE DELETE ON mixing_logs FOR EACH ROW
+    EXECUTE FUNCTION prevent_log_delete();
+
 CREATE TRIGGER trg_prevent_delete_audit_log
     BEFORE DELETE ON audit_log FOR EACH ROW
     EXECUTE FUNCTION prevent_log_delete();
@@ -599,6 +636,10 @@ CREATE TRIGGER trg_prevent_locked_mod_deviation_logs
 
 CREATE TRIGGER trg_prevent_locked_mod_ppe_compliance_logs
     BEFORE UPDATE ON ppe_compliance_logs FOR EACH ROW
+    EXECUTE FUNCTION prevent_locked_modification();
+
+CREATE TRIGGER trg_prevent_locked_mod_mixing_logs
+    BEFORE UPDATE ON mixing_logs FOR EACH ROW
     EXECUTE FUNCTION prevent_locked_modification();
 
 -- 6.3: Auto-update timestamp trigger (users table)
@@ -646,6 +687,13 @@ CREATE INDEX IF NOT EXISTS idx_ppe_logs_area_id             ON ppe_compliance_lo
 CREATE INDEX IF NOT EXISTS idx_ppe_logs_operator_id         ON ppe_compliance_logs(operator_id);
 CREATE INDEX IF NOT EXISTS idx_ppe_logs_verified_by         ON ppe_compliance_logs(verified_by) WHERE verified_by IS NOT NULL;
 
+-- mixing_logs
+CREATE INDEX IF NOT EXISTS idx_mixing_logs_batch_id         ON mixing_logs(batch_id);
+CREATE INDEX IF NOT EXISTS idx_mixing_logs_prod_batch_id    ON mixing_logs(prod_batch_id) WHERE prod_batch_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_mixing_logs_prod_product_id  ON mixing_logs(prod_product_id) WHERE prod_product_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_mixing_logs_operator_id      ON mixing_logs(operator_id);
+CREATE INDEX IF NOT EXISTS idx_mixing_logs_verified_by      ON mixing_logs(verified_by) WHERE verified_by IS NOT NULL;
+
 -- 7.2: Time-range query indexes (created_at)
 CREATE INDEX IF NOT EXISTS idx_receiving_logs_created_at    ON receiving_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_cooking_logs_created_at      ON cooking_logs(created_at);
@@ -654,6 +702,7 @@ CREATE INDEX IF NOT EXISTS idx_sanitising_logs_created_at   ON sanitising_logs(c
 CREATE INDEX IF NOT EXISTS idx_assembly_logs_created_at     ON assembly_packing_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_deviation_logs_created_at    ON deviation_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_ppe_logs_created_at           ON ppe_compliance_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_mixing_logs_created_at       ON mixing_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_log_changed_at         ON audit_log(changed_at);
 
 -- 7.3: Batch ID indexes (cross-table batch traceability)
@@ -688,6 +737,9 @@ CREATE INDEX IF NOT EXISTS idx_assembly_logs_active
 
 CREATE INDEX IF NOT EXISTS idx_ppe_logs_active
     ON ppe_compliance_logs(created_at) WHERE is_voided = FALSE;
+
+CREATE INDEX IF NOT EXISTS idx_mixing_logs_active
+    ON mixing_logs(created_at) WHERE is_voided = FALSE;
 
 -- Open deviations (not closed, not voided)
 CREATE INDEX IF NOT EXISTS idx_deviation_logs_open

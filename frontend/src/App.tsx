@@ -54,6 +54,11 @@ import PPEComplianceLogsPage from '@/pages/ppe/PPEComplianceLogsPage';
 import PPEComplianceLogDetailPage from '@/pages/ppe/PPEComplianceLogDetailPage';
 import PPEComplianceLogFormPage from '@/pages/ppe/PPEComplianceLogFormPage';
 
+// Mixing logs
+import MixingLogsPage from '@/pages/mixing/MixingLogsPage';
+import MixingLogDetailPage from '@/pages/mixing/MixingLogDetailPage';
+import MixingLogFormPage from '@/pages/mixing/MixingLogFormPage';
+
 // Reference data
 import SuppliersPage from '@/pages/reference/SuppliersPage';
 import EquipmentPage from '@/pages/reference/EquipmentPage';
@@ -129,6 +134,12 @@ export default function App() {
           <Route path="/sanitising-logs/new" element={<SanitisingLogFormPage />} />
           <Route path="/sanitising-logs/:id" element={<SanitisingLogDetailPage />} />
           <Route path="/sanitising-logs/:id/edit" element={<SanitisingLogFormPage />} />
+
+          {/* Mixing logs */}
+          <Route path="/mixing-logs" element={<MixingLogsPage />} />
+          <Route path="/mixing-logs/new" element={<MixingLogFormPage />} />
+          <Route path="/mixing-logs/:id" element={<MixingLogDetailPage />} />
+          <Route path="/mixing-logs/:id/edit" element={<MixingLogFormPage />} />
 
           {/* PPE Compliance logs */}
           <Route path="/ppe-compliance-logs" element={<PPEComplianceLogsPage />} />
