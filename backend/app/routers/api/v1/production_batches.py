@@ -110,6 +110,8 @@ def _to_response(batch: ProdBatch) -> ProdBatchResponse:
         estimated_forming_net_weight_kg=batch.estimated_forming_net_weight_kg,
         estimated_forming_pieces=batch.estimated_forming_pieces,
         input_weight_kg=batch.input_weight_kg,
+        contamination_found=batch.contamination_found,
+        change_over=batch.change_over,
         inv_stock_doc_id=batch.inv_stock_doc_id,
         created_at=batch.created_at,
         trolleys=[_trolley_response(t) for t in (batch.forming_trolleys or [])],
