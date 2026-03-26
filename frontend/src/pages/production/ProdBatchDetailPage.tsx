@@ -536,25 +536,33 @@ export default function ProdBatchDetailPage() {
             </div>
           </div>
           {isForming && (
-            <div className="flex items-center gap-6 mt-2">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={editContaminationFound}
-                  onChange={(e) => setEditContaminationFound(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <span className="text-sm font-medium text-gray-700"><Bi k="field.contaminationFound" /></span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={editChangeOver}
-                  onChange={(e) => setEditChangeOver(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <span className="text-sm font-medium text-gray-700"><Bi k="field.changeOver" /></span>
-              </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+              <div>
+                <label className="label text-xs"><Bi k="field.contaminationFound" /></label>
+                <div className="flex gap-2">
+                  <button type="button"
+                    onClick={() => setEditContaminationFound(true)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${editContaminationFound ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                  >Yes</button>
+                  <button type="button"
+                    onClick={() => setEditContaminationFound(false)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${!editContaminationFound ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                  >No</button>
+                </div>
+              </div>
+              <div>
+                <label className="label text-xs"><Bi k="field.changeOver" /></label>
+                <div className="flex gap-2">
+                  <button type="button"
+                    onClick={() => setEditChangeOver(true)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${editChangeOver ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                  >Yes</button>
+                  <button type="button"
+                    onClick={() => setEditChangeOver(false)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${!editChangeOver ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                  >No</button>
+                </div>
+              </div>
             </div>
           )}
           <div className="flex justify-end">
