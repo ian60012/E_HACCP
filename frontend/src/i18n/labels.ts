@@ -157,7 +157,6 @@ const labels: Record<string, BiLabelType> = {
   'field.equipmentType': { zh: '設備類型', en: 'Equipment Type' },
   'field.location': { zh: '位置', en: 'Location' },
   'field.name': { zh: '名稱', en: 'Name' },
-  'field.weightKg': { zh: '重量 (kg)', en: 'Weight (kg)' },
   'field.initialTemp': { zh: '初始溫度 (°C)', en: 'Initial Temp (°C)' },
   'field.finalTemp': { zh: '結束溫度 (°C)', en: 'Final Temp (°C)' },
   'section.mixingInfo': { zh: '攪拌資訊', en: 'Mixing Information' },
