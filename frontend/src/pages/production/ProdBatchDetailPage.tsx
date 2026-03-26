@@ -5,6 +5,8 @@ import { prodBatchesApi, prodProductsApi } from '@/api/production';
 import { cookingLogsApi } from '@/api/cooking-logs';
 import { coolingLogsApi } from '@/api/cooling-logs';
 import { assemblyLogsApi } from '@/api/assembly-logs';
+import { mixingLogsApi } from '@/api/mixing-logs';
+import { MixingLog } from '@/types/mixing-log';
 import { invLocationsApi, invItemsApi } from '@/api/inventory';
 import {
   ProdBatch, ProdFormingTrolley, ProdFormingTrolleyCreate,
@@ -113,6 +115,9 @@ export default function ProdBatchDetailPage() {
     notes: undefined,
   });
 
+  // Mixing logs (forming)
+  const [mixingLogs, setMixingLogs] = useState<MixingLog[]>([]);
+
   // Enter stock modal
   const [showEnterStockModal, setShowEnterStockModal] = useState(false);
   const [locations, setLocations] = useState<InvLocation[]>([]);
@@ -188,19 +193,28 @@ export default function ProdBatchDetailPage() {
     } catch { /* ignore */ }
   }, [id]);
 
+  const fetchMixingLogs = useCallback(async () => {
+    if (!id) return;
+    try {
+      const res = await mixingLogsApi.list({ prod_batch_id: Number(id), limit: 100 });
+      setMixingLogs(res.items);
+    } catch { /* ignore */ }
+  }, [id]);
+
   useEffect(() => { fetchBatch(); }, [fetchBatch]);
 
   useEffect(() => {
     if (productType === 'forming') {
       fetchFormingTotals();
       fetchAssemblyLogs();
+      fetchMixingLogs();
     }
     if (productType === 'hot_process') {
       fetchHotBalance();
       fetchCookingCoolingStatus();
       fetchAssemblyLogs();
     }
-  }, [productType, fetchFormingTotals, fetchHotBalance, fetchCookingCoolingStatus, fetchAssemblyLogs]);
+  }, [productType, fetchFormingTotals, fetchHotBalance, fetchCookingCoolingStatus, fetchAssemblyLogs, fetchMixingLogs]);
 
   const handleSaveHeader = async () => {
     if (!batch) return;
@@ -824,6 +838,48 @@ export default function ProdBatchDetailPage() {
       {/* ── FORMING SECTIONS ── */}
       {!isHot && (
         <>
+          {/* Mixing Logs */}
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800">攪拌記錄 Mixing Logs</h2>
+              <RoleGate roles={['Admin', 'QA', 'Production']}>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/mixing-logs/new?prod_batch_id=${batch.id}&batch_code=${batch.batch_code}&product_name=${encodeURIComponent(batch.product_name)}${batch.start_time ? `&start_time=${batch.start_time}` : ''}`)}
+                  className="btn btn-secondary text-sm flex items-center gap-1"
+                >
+                  <PlusIcon className="h-4 w-4" /> 新增攪拌
+                </button>
+              </RoleGate>
+            </div>
+
+            {mixingLogs.length === 0 ? (
+              <p className="text-sm text-gray-400 py-2">尚無攪拌記錄</p>
+            ) : (
+              <div className="space-y-2">
+                {mixingLogs.map((ml) => (
+                  <div
+                    key={ml.id}
+                    onClick={() => navigate(`/mixing-logs/${ml.id}`)}
+                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 text-sm cursor-pointer hover:bg-gray-100 transition-colors"
+                  >
+                    <div>
+                      <span className="font-medium text-gray-800">#{ml.id}</span>
+                      {ml.weight_kg != null && <span className="ml-2 text-gray-600">{ml.weight_kg} kg</span>}
+                      {ml.initial_temp != null && (
+                        <span className="ml-2 text-gray-500">{ml.initial_temp}°C → {ml.final_temp ?? '—'}°C</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {formatMelbourne(ml.start_time)}
+                      {ml.operator_name && <span className="ml-2">{ml.operator_name}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Trolley Table */}
           <div className="card space-y-4">
             <div className="flex items-center justify-between">
