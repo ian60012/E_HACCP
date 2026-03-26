@@ -715,6 +715,8 @@ const labels: Record<string, BiLabelType> = {
   // ==================== Hot Process ====================
   'section.hotProcessBalance': { zh: '物料平衡', en: 'Material Balance' },
   'field.inputWeight': { zh: '投料量 (KG)', en: 'Input Weight (KG)' },
+  'field.contaminationFound': { zh: '有無汙染', en: 'Contamination Found' },
+  'field.changeOver': { zh: '有無換線', en: 'Change Over' },
   'field.packedWeight': { zh: '打包總重', en: 'Packed Weight' },
   'field.lossWeight': { zh: '耗損量', en: 'Loss Weight' },
   'section.cookingLogs': { zh: '烹煮記錄', en: 'Cooking Records' },

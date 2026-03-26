@@ -54,6 +54,8 @@ class ProdBatch(Base):
     estimated_forming_net_weight_kg = Column(Numeric(12, 3), nullable=True)
     estimated_forming_pieces = Column(Integer, nullable=True)
     input_weight_kg = Column(Numeric(12, 3), nullable=True)
+    contamination_found = Column(Boolean, nullable=False, server_default="false")
+    change_over = Column(Boolean, nullable=False, server_default="false")
     inv_stock_doc_id = Column(Integer, ForeignKey("inv_stock_docs.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
 

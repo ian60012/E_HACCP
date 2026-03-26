@@ -62,6 +62,8 @@ export default function ProdBatchDetailPage() {
   const [editEndTime, setEditEndTime] = useState('');
   const [editOperator, setEditOperator] = useState('');
   const [editSupervisor, setEditSupervisor] = useState('');
+  const [editContaminationFound, setEditContaminationFound] = useState(false);
+  const [editChangeOver, setEditChangeOver] = useState(false);
   const [headerSaving, setHeaderSaving] = useState(false);
 
   // Forming trolleys
@@ -139,6 +141,8 @@ export default function ProdBatchDetailPage() {
       setEditOperator(data.operator || '');
       setEditSupervisor(data.supervisor || '');
       setEditInputWeight(data.input_weight_kg ?? '');
+      setEditContaminationFound(data.contamination_found ?? false);
+      setEditChangeOver(data.change_over ?? false);
       const matched = options.find((o) => o.code === data.product_code);
       setProductType((matched?.product_type as 'forming' | 'hot_process') ?? 'forming');
     } catch {
@@ -225,6 +229,8 @@ export default function ProdBatchDetailPage() {
         end_time: editEndTime ? melbourneToUTC(editEndTime) : undefined,
         operator: editOperator || undefined,
         supervisor: editSupervisor || undefined,
+        contamination_found: editContaminationFound,
+        change_over: editChangeOver,
       });
       setBatch(updated);
     } catch (err: any) {
@@ -411,6 +417,7 @@ export default function ProdBatchDetailPage() {
   if (!batch) return <ErrorCard message={bi('error.loadFailed')} />;
 
   const isHot = productType === 'hot_process';
+  const isForming = productType === 'forming';
   const canEnterStock = batch.status === 'packed' && !batch.inv_stock_doc_id;
 
   return (
@@ -478,6 +485,26 @@ export default function ProdBatchDetailPage() {
               </p>
             </div>
           )}
+          {isForming && (
+            <>
+              <div>
+                <p className="text-xs text-gray-400"><Bi k="field.contaminationFound" /></p>
+                <p className="font-medium">
+                  {batch.contamination_found
+                    ? <span className="text-red-600">Yes</span>
+                    : <span className="text-green-600">No</span>}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400"><Bi k="field.changeOver" /></p>
+                <p className="font-medium">
+                  {batch.change_over
+                    ? <span className="text-yellow-600">Yes</span>
+                    : <span className="text-green-600">No</span>}
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -508,6 +535,28 @@ export default function ProdBatchDetailPage() {
                 className="input" placeholder={bi('placeholder.supervisor')} />
             </div>
           </div>
+          {isForming && (
+            <div className="flex items-center gap-6 mt-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={editContaminationFound}
+                  onChange={(e) => setEditContaminationFound(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="text-sm font-medium text-gray-700"><Bi k="field.contaminationFound" /></span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={editChangeOver}
+                  onChange={(e) => setEditChangeOver(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="text-sm font-medium text-gray-700"><Bi k="field.changeOver" /></span>
+              </label>
+            </div>
+          )}
           <div className="flex justify-end">
             <button onClick={handleSaveHeader} disabled={headerSaving} className="btn btn-primary">
               {headerSaving ? <Bi k="btn.saving" /> : <Bi k="btn.save" />}

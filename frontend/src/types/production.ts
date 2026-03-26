@@ -178,6 +178,8 @@ export interface ProdBatch {
   estimated_forming_net_weight_kg: string | null;
   estimated_forming_pieces: number | null;
   input_weight_kg: string | null;
+  contamination_found: boolean;
+  change_over: boolean;
   inv_stock_doc_id: number | null;
   created_at: string;
   trolleys: ProdFormingTrolley[];
@@ -196,6 +198,8 @@ export interface ProdBatchCreate {
   operator?: string;
   supervisor?: string;
   input_weight_kg?: number;
+  contamination_found?: boolean;
+  change_over?: boolean;
 }
 
 export interface ProdBatchUpdate {
@@ -206,6 +210,8 @@ export interface ProdBatchUpdate {
   operator?: string;
   supervisor?: string;
   input_weight_kg?: number;
+  contamination_found?: boolean;
+  change_over?: boolean;
 }
 
 // ----- Hot Process Balance -----

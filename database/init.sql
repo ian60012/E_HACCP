@@ -855,6 +855,8 @@ CREATE TABLE IF NOT EXISTS prod_batches (
     estimated_forming_net_weight_kg NUMERIC(12,3),
     estimated_forming_pieces        INTEGER,
     input_weight_kg                 NUMERIC(12,3),
+    contamination_found             BOOLEAN                 NOT NULL DEFAULT FALSE,
+    change_over                     BOOLEAN                 NOT NULL DEFAULT FALSE,
     inv_stock_doc_id                INTEGER,  -- FK added later: REFERENCES inv_stock_docs(id) ON DELETE SET NULL
     created_at                      TIMESTAMPTZ             NOT NULL DEFAULT NOW()
 );

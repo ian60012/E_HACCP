@@ -191,6 +191,8 @@ class ProdBatchCreate(BaseModel):
     operator: Optional[str] = Field(None, max_length=100)
     supervisor: Optional[str] = Field(None, max_length=100)
     input_weight_kg: Optional[Decimal] = None
+    contamination_found: bool = False
+    change_over: bool = False
 
 
 class ProdBatchUpdate(BaseModel):
@@ -201,6 +203,8 @@ class ProdBatchUpdate(BaseModel):
     operator: Optional[str] = Field(None, max_length=100)
     supervisor: Optional[str] = Field(None, max_length=100)
     input_weight_kg: Optional[Decimal] = None
+    contamination_found: Optional[bool] = None
+    change_over: Optional[bool] = None
 
 
 class ProdHotInputCreate(BaseModel):
@@ -237,6 +241,8 @@ class ProdBatchResponse(BaseModel):
     estimated_forming_net_weight_kg: Optional[Decimal] = None
     estimated_forming_pieces: Optional[int] = None
     input_weight_kg: Optional[Decimal] = None
+    contamination_found: bool = False
+    change_over: bool = False
     inv_stock_doc_id: Optional[int] = None
     created_at: datetime
     trolleys: List[ProdFormingTrolleyResponse] = []
