@@ -57,7 +57,7 @@ export const prodProductsApi = {
 
 export const prodBatchesApi = {
   list: async (params?: {
-    skip?: number; limit?: number; status?: string; date_from?: string; date_to?: string; product_type?: string;
+    skip?: number; limit?: number; status?: string; date_from?: string; date_to?: string; product_type?: string; product_code?: string;
   }): Promise<PaginatedResponse<ProdBatch>> => {
     const res = await apiClient.get<PaginatedResponse<ProdBatch>>('/api/v1/production/batches', { params });
     return res.data;

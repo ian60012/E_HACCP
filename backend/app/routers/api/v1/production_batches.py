@@ -150,6 +150,7 @@ async def list_batches(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     product_type: Optional[str] = None,
+    product_code: Optional[str] = None,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -173,6 +174,9 @@ async def list_batches(
                 select(ProdProduct.code).where(ProdProduct.product_type == product_type)
             )
         )
+    if product_code:
+        q = q.where(ProdBatch.product_code == product_code)
+        filters.append(ProdBatch.product_code == product_code)
 
     count_q = select(func.count()).select_from(
         select(ProdBatch).where(*filters).subquery()
