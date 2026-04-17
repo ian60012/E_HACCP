@@ -181,6 +181,10 @@ export interface ProdBatch {
   contamination_found: boolean;
   change_over: boolean;
   inv_stock_doc_id: number | null;
+  is_voided: boolean;
+  void_reason: string | null;
+  voided_at: string | null;
+  voided_by: number | null;
   created_at: string;
   trolleys: ProdFormingTrolley[];
   packing_records: ProdPackingRecord[];

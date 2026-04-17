@@ -35,7 +35,7 @@ from app.schemas.production import (
     ProdHotInputCreate,
     ProdHotInputResponse,
 )
-from app.schemas.common import PaginatedResponse
+from app.schemas.common import PaginatedResponse, VoidRequest
 from app.dependencies.auth import get_current_active_user, require_role
 from app.services.production_service import (
     generate_batch_code,
@@ -45,6 +45,7 @@ from app.services.production_service import (
     calculate_hot_process_balance,
     enter_batch_to_inventory,
 )
+from app.services.production_void_service import void_batch as void_batch_service
 
 router = APIRouter(prefix="/production/batches", tags=["Production Batches"])
 
@@ -113,6 +114,10 @@ def _to_response(batch: ProdBatch) -> ProdBatchResponse:
         contamination_found=batch.contamination_found,
         change_over=batch.change_over,
         inv_stock_doc_id=batch.inv_stock_doc_id,
+        is_voided=batch.is_voided,
+        void_reason=batch.void_reason,
+        voided_at=batch.voided_at,
+        voided_by=batch.voided_by,
         created_at=batch.created_at,
         trolleys=[_trolley_response(t) for t in (batch.forming_trolleys or [])],
         packing_records=[_packing_record_response(r) for r in (batch.packing_records or [])],
@@ -151,11 +156,15 @@ async def list_batches(
     date_to: Optional[date] = None,
     product_type: Optional[str] = None,
     product_code: Optional[str] = None,
+    include_voided: bool = Query(False),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     q = _base_query()
     filters = []
+    if not include_voided:
+        q = q.where(ProdBatch.is_voided.is_(False))
+        filters.append(ProdBatch.is_voided.is_(False))
     if status_filter:
         q = q.where(ProdBatch.status == status_filter)
         filters.append(ProdBatch.status == status_filter)
@@ -533,5 +542,18 @@ async def enter_stock(
 ):
     await enter_batch_to_inventory(db, batch_id, data.location_id, current_user.id)
     await db.commit()
+    result = await db.execute(_base_query().where(ProdBatch.id == batch_id))
+    return _to_response(result.scalar_one())
+
+
+@router.post("/{batch_id}/void", response_model=ProdBatchResponse)
+async def void_prod_batch(
+    batch_id: int,
+    body: VoidRequest,
+    current_user: User = Depends(require_role("Admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin-only: soft-delete a batch and cascade-void its downstream logs + stock doc."""
+    await void_batch_service(db, batch_id, body.void_reason, current_user)
     result = await db.execute(_base_query().where(ProdBatch.id == batch_id))
     return _to_response(result.scalar_one())

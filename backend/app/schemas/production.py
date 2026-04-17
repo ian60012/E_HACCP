@@ -244,6 +244,10 @@ class ProdBatchResponse(BaseModel):
     contamination_found: bool = False
     change_over: bool = False
     inv_stock_doc_id: Optional[int] = None
+    is_voided: bool = False
+    void_reason: Optional[str] = None
+    voided_at: Optional[datetime] = None
+    voided_by: Optional[int] = None
     created_at: datetime
     trolleys: List[ProdFormingTrolleyResponse] = []
     packing_records: List[ProdPackingRecordResponse] = []

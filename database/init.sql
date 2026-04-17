@@ -859,8 +859,14 @@ CREATE TABLE IF NOT EXISTS prod_batches (
     contamination_found             BOOLEAN                 NOT NULL DEFAULT FALSE,
     change_over                     BOOLEAN                 NOT NULL DEFAULT FALSE,
     inv_stock_doc_id                INTEGER,  -- FK added later: REFERENCES inv_stock_docs(id) ON DELETE SET NULL
+    is_voided                       BOOLEAN                 NOT NULL DEFAULT FALSE,
+    void_reason                     TEXT,
+    voided_at                       TIMESTAMPTZ,
+    voided_by                       INTEGER                 REFERENCES users(id),
     created_at                      TIMESTAMPTZ             NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS ix_prod_batches_is_voided ON prod_batches(is_voided);
 
 -- Forming trolleys (生產托盤記錄)
 CREATE TABLE IF NOT EXISTS prod_forming_trolleys (

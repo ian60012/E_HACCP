@@ -57,7 +57,7 @@ export const prodProductsApi = {
 
 export const prodBatchesApi = {
   list: async (params?: {
-    skip?: number; limit?: number; status?: string; date_from?: string; date_to?: string; product_type?: string; product_code?: string;
+    skip?: number; limit?: number; status?: string; date_from?: string; date_to?: string; product_type?: string; product_code?: string; include_voided?: boolean;
   }): Promise<PaginatedResponse<ProdBatch>> => {
     const res = await apiClient.get<PaginatedResponse<ProdBatch>>('/api/v1/production/batches', { params });
     return res.data;
@@ -107,6 +107,10 @@ export const prodBatchesApi = {
   },
   removeHotInput: async (batchId: number, inputId: number): Promise<void> => {
     await apiClient.delete(`/api/v1/production/batches/${batchId}/hot-inputs/${inputId}`);
+  },
+  void: async (batchId: number, voidReason: string): Promise<ProdBatch> => {
+    const res = await apiClient.post<ProdBatch>(`/api/v1/production/batches/${batchId}/void`, { void_reason: voidReason });
+    return res.data;
   },
 };
 

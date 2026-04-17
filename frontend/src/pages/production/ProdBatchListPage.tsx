@@ -36,6 +36,7 @@ export default function ProdBatchListPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [productCodeFilter, setProductCodeFilter] = useState('');
+  const [includeVoided, setIncludeVoided] = useState(false);
   const [products, setProducts] = useState<ProdProduct[]>([]);
   const pagination = usePagination(20);
   const navigate = useNavigate();
@@ -80,6 +81,7 @@ export default function ProdBatchListPage() {
         date_to: dateTo || undefined,
         product_type: productType || undefined,
         product_code: productCodeFilter || undefined,
+        include_voided: includeVoided || undefined,
       });
       setBatches(res.items);
       pagination.setTotal(res.total);
@@ -88,7 +90,7 @@ export default function ProdBatchListPage() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.skip, pagination.limit, statusFilter, dateFrom, dateTo, productType, productCodeFilter]);
+  }, [pagination.skip, pagination.limit, statusFilter, dateFrom, dateTo, productType, productCodeFilter, includeVoided]);
 
   useEffect(() => { fetchBatches(); }, [fetchBatches]);
 
@@ -103,6 +105,7 @@ export default function ProdBatchListPage() {
     let totalInput = 0;
     let totalOutput = 0;
     for (const b of batches) {
+      if (b.is_voided) continue;
       const inputKg = b.hot_inputs && b.hot_inputs.length > 0
         ? b.hot_inputs.reduce((s, h) => s + num(h.weight_kg), 0)
         : num(b.input_weight_kg);
@@ -172,6 +175,17 @@ export default function ProdBatchListPage() {
             ))}
           </select>
         )}
+        <RoleGate roles={['Admin']}>
+          <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeVoided}
+              onChange={(e) => setIncludeVoided(e.target.checked)}
+              className="rounded"
+            />
+            顯示已廢棄
+          </label>
+        </RoleGate>
       </div>
 
       {/* Hot Process Summary Stats */}
@@ -244,7 +258,7 @@ export default function ProdBatchListPage() {
                     <tr
                       key={batch.id}
                       onClick={() => navigate(`/production/batches/${batch.id}`)}
-                      className="cursor-pointer hover:bg-gray-50 transition-colors"
+                      className={`cursor-pointer hover:bg-gray-50 transition-colors ${batch.is_voided ? 'opacity-60 line-through' : ''}`}
                     >
                       <td className="py-2 pr-4 font-medium text-gray-800">{batch.batch_code}</td>
                       <td className="py-2 pr-4 text-gray-500">{batch.product_code}</td>
@@ -252,9 +266,18 @@ export default function ProdBatchListPage() {
                       <td className="py-2 pr-4 text-gray-500">{batch.production_date}</td>
                       <td className="py-2 pr-4 text-gray-500">{batch.shift || '—'}</td>
                       <td className="py-2 pr-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[batch.status] || ''}`}>
-                          {statusLabels[batch.status] || batch.status}
-                        </span>
+                        {batch.is_voided ? (
+                          <span
+                            className="px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-600 no-underline"
+                            title={batch.void_reason || ''}
+                          >
+                            已廢棄 Voided
+                          </span>
+                        ) : (
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[batch.status] || ''}`}>
+                            {statusLabels[batch.status] || batch.status}
+                          </span>
+                        )}
                       </td>
                       {productType === 'hot_process' ? (
                         <>

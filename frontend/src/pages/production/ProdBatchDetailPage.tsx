@@ -126,6 +126,11 @@ export default function ProdBatchDetailPage() {
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
   const [enteringStock, setEnteringStock] = useState(false);
 
+  // Void modal
+  const [showVoidModal, setShowVoidModal] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
+  const [voiding, setVoiding] = useState(false);
+
   const fetchBatch = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -412,13 +417,34 @@ export default function ProdBatchDetailPage() {
     }
   };
 
+  const handleVoid = async () => {
+    if (!batch) return;
+    const reason = voidReason.trim();
+    if (reason.length < 5) {
+      setError('廢棄原因至少需要 5 個字元');
+      return;
+    }
+    setVoiding(true);
+    try {
+      const updated = await prodBatchesApi.void(batch.id, reason);
+      setBatch(updated);
+      setShowVoidModal(false);
+      setVoidReason('');
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || bi('error.saveFailed'));
+    } finally {
+      setVoiding(false);
+    }
+  };
+
   if (loading) return <LoadingSpinner fullPage />;
   if (error && !batch) return <ErrorCard message={error} onRetry={fetchBatch} />;
   if (!batch) return <ErrorCard message={bi('error.loadFailed')} />;
 
   const isHot = productType === 'hot_process';
   const isForming = productType === 'forming';
-  const canEnterStock = batch.status === 'packed' && !batch.inv_stock_doc_id;
+  const canEnterStock = batch.status === 'packed' && !batch.inv_stock_doc_id && !batch.is_voided;
+  const isVoided = batch.is_voided;
 
   return (
     <div className="space-y-6">
@@ -443,16 +469,49 @@ export default function ProdBatchDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {batch.inv_stock_doc_id && (
+          {batch.inv_stock_doc_id && !isVoided && (
             <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
               <Bi k="msg.stockEntered" />
             </span>
           )}
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[batch.status] || ''}`}>
-            {statusLabels[batch.status] || batch.status}
-          </span>
+          {isVoided ? (
+            <span
+              className="px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-700"
+              title={batch.void_reason || ''}
+            >
+              已廢棄 Voided
+            </span>
+          ) : (
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[batch.status] || ''}`}>
+              {statusLabels[batch.status] || batch.status}
+            </span>
+          )}
+          {!isVoided && (
+            <RoleGate roles={['Admin']}>
+              <button
+                onClick={() => setShowVoidModal(true)}
+                className="px-3 py-1 rounded-lg text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+              >
+                廢棄批次
+              </button>
+            </RoleGate>
+          )}
         </div>
       </div>
+
+      {isVoided && (
+        <div className="card bg-gray-50 border-gray-300">
+          <div className="flex items-start gap-3">
+            <div className="text-gray-500 text-sm flex-1">
+              <p className="font-medium text-gray-700">此批次已廢棄</p>
+              <p className="mt-1"><span className="text-gray-400">原因：</span>{batch.void_reason || '—'}</p>
+              <p className="mt-0.5 text-xs text-gray-400">
+                {batch.voided_at ? `廢棄時間：${formatMelbourne(batch.voided_at, { year: 'numeric' })}` : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && <ErrorCard message={error} />}
 
@@ -509,6 +568,7 @@ export default function ProdBatchDetailPage() {
       </div>
 
       {/* Edit header if open */}
+      {!isVoided && (
       <RoleGate roles={['Admin', 'Production']}>
       {batch.status === 'open' && (
         <div className="card space-y-4">
@@ -573,6 +633,7 @@ export default function ProdBatchDetailPage() {
         </div>
       )}
       </RoleGate>
+      )}
 
       {/* ── HOT PROCESS SECTIONS ── */}
       {isHot && (
@@ -581,7 +642,7 @@ export default function ProdBatchDetailPage() {
           <div className="card space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-800">投料記錄 Hot Inputs</h2>
-              {batch.status === 'open' && !showHotInputForm && (
+              {batch.status === 'open' && !showHotInputForm && !isVoided && (
                 <RoleGate roles={['Admin', 'Production']}>
                   <button
                     onClick={() => setShowHotInputForm(true)}
@@ -652,7 +713,7 @@ export default function ProdBatchDetailPage() {
                             className="btn btn-secondary text-xs py-1 px-2"
                           >+冷卻</button>
                         )}
-                        {batch.status === 'open' && (
+                        {batch.status === 'open' && !isVoided && (
                           <RoleGate roles={['Admin', 'Production']}>
                             <button onClick={() => handleRemoveHotInput(inp.id)} className="p-1 rounded hover:bg-red-50">
                               <TrashIcon className="h-4 w-4 text-red-400" />
@@ -705,7 +766,7 @@ export default function ProdBatchDetailPage() {
           <div className="card space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-800">組裝包裝紀錄 Assembly & Packing</h2>
-              {!showAssemblyForm && (
+              {!showAssemblyForm && !isVoided && (
                 <button
                   onClick={() => { setEditingAssemblyId(null); setShowAssemblyForm(true); }}
                   className="btn btn-secondary text-sm flex items-center gap-1"
@@ -899,15 +960,17 @@ export default function ProdBatchDetailPage() {
           <div className="card space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-800">攪拌記錄 Mixing Logs</h2>
-              <RoleGate roles={['Admin', 'QA', 'Production']}>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/mixing-logs/new?prod_batch_id=${batch.id}&batch_code=${batch.batch_code}&product_name=${encodeURIComponent(batch.product_name)}${batch.start_time ? `&start_time=${batch.start_time}` : ''}`)}
-                  className="btn btn-secondary text-sm flex items-center gap-1"
-                >
-                  <PlusIcon className="h-4 w-4" /> 新增攪拌
-                </button>
-              </RoleGate>
+              {!isVoided && (
+                <RoleGate roles={['Admin', 'QA', 'Production']}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/mixing-logs/new?prod_batch_id=${batch.id}&batch_code=${batch.batch_code}&product_name=${encodeURIComponent(batch.product_name)}${batch.start_time ? `&start_time=${batch.start_time}` : ''}`)}
+                    className="btn btn-secondary text-sm flex items-center gap-1"
+                  >
+                    <PlusIcon className="h-4 w-4" /> 新增攪拌
+                  </button>
+                </RoleGate>
+              )}
             </div>
 
             {mixingLogs.length === 0 ? (
@@ -941,7 +1004,7 @@ export default function ProdBatchDetailPage() {
           <div className="card space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-800"><Bi k="section.trolleys" /></h2>
-              {batch.status === 'open' && (
+              {batch.status === 'open' && !isVoided && (
                 <RoleGate roles={['Admin', 'Production']}>
                   <button
                     type="button"
@@ -986,7 +1049,7 @@ export default function ProdBatchDetailPage() {
                       <td className="py-2 pr-3 text-gray-500">{t.equivalent_tray_count != null ? num(t.equivalent_tray_count).toFixed(1) : '—'}</td>
                       <td className="py-2 pr-3 text-gray-500">{t.estimated_net_weight_kg != null ? num(t.estimated_net_weight_kg).toFixed(2) : '—'}</td>
                       <td className="py-2 pr-3 text-gray-400 text-xs">{t.remark || '—'}</td>
-                      {batch.status === 'open' && (
+                      {batch.status === 'open' && !isVoided && (
                         <td className="py-2">
                           <RoleGate roles={['Admin', 'Production']}>
                             <button onClick={() => handleRemoveTrolley(t.id)} className="p-1 rounded hover:bg-red-50">
@@ -1071,7 +1134,7 @@ export default function ProdBatchDetailPage() {
           <div className="card space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-800">組裝包裝紀錄 Assembly & Packing</h2>
-              {!showAssemblyForm && (
+              {!showAssemblyForm && !isVoided && (
                 <button
                   onClick={() => { setEditingAssemblyId(null); setShowAssemblyForm(true); }}
                   className="btn btn-secondary text-sm flex items-center gap-1"
@@ -1313,6 +1376,50 @@ export default function ProdBatchDetailPage() {
                 className="btn bg-orange-500 text-white hover:bg-orange-600"
               >
                 {enteringStock ? <Bi k="btn.saving" /> : <Bi k="btn.enterStock" />}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Void batch modal */}
+      {showVoidModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
+            <h3 className="text-lg font-semibold text-red-700">廢棄批次 {batch.batch_code}</h3>
+            <div className="text-sm text-gray-600 space-y-2">
+              <p>此動作將：</p>
+              <ul className="list-disc list-inside text-xs space-y-1 ml-2">
+                <li>把此批次標記為已廢棄（軟刪除，稽核軌跡保留）</li>
+                <li>連帶廢棄此批次所有 烹煮 / 冷卻 / 攪拌 / 組裝包裝 紀錄</li>
+                {batch.inv_stock_doc_id && <li className="text-orange-700 font-medium">沖銷已入庫的庫存單據</li>}
+              </ul>
+              <p className="text-xs text-gray-500 mt-2">此動作無法復原，請確認後輸入廢棄原因。</p>
+            </div>
+            <div>
+              <label className="label text-xs">廢棄原因（至少 5 字元）</label>
+              <textarea
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                rows={3}
+                className="input"
+                placeholder="例如：批次誤報、產品污染、製程異常…"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { setShowVoidModal(false); setVoidReason(''); }}
+                className="btn btn-secondary"
+                disabled={voiding}
+              >
+                <Bi k="btn.cancel" />
+              </button>
+              <button
+                onClick={handleVoid}
+                disabled={voiding || voidReason.trim().length < 5}
+                className="btn bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {voiding ? <Bi k="btn.saving" /> : '確認廢棄'}
               </button>
             </div>
           </div>
