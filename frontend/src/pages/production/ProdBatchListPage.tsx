@@ -239,6 +239,7 @@ export default function ProdBatchListPage() {
                     (s, r) => s + num(r.theoretical_total_weight_kg), 0
                   );
                   const lossKg = inputKg > 0 ? inputKg - outputKg : null;
+                  const lossPct = lossKg != null && inputKg > 0 ? (lossKg / inputKg) * 100 : null;
                   return (
                     <tr
                       key={batch.id}
@@ -264,7 +265,7 @@ export default function ProdBatchListPage() {
                             {outputKg > 0 ? `${outputKg.toFixed(2)} kg` : '—'}
                           </td>
                           <td className="py-2 text-right text-red-600">
-                            {lossKg != null ? `${lossKg.toFixed(2)} kg` : '—'}
+                            {lossPct != null ? `${lossPct.toFixed(1)}%` : '—'}
                           </td>
                         </>
                       ) : (
