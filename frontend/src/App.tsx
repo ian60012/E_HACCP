@@ -54,6 +54,10 @@ import PPEComplianceLogsPage from '@/pages/ppe/PPEComplianceLogsPage';
 import PPEComplianceLogDetailPage from '@/pages/ppe/PPEComplianceLogDetailPage';
 import PPEComplianceLogFormPage from '@/pages/ppe/PPEComplianceLogFormPage';
 
+// Batch sheets (FSP-LOG-017)
+import BatchSheetListPage from '@/pages/batch-sheets/BatchSheetListPage';
+import BatchSheetDetailPage from '@/pages/batch-sheets/BatchSheetDetailPage';
+
 // Mixing logs
 import MixingLogsPage from '@/pages/mixing/MixingLogsPage';
 import MixingLogDetailPage from '@/pages/mixing/MixingLogDetailPage';
@@ -134,6 +138,10 @@ export default function App() {
           <Route path="/sanitising-logs/new" element={<SanitisingLogFormPage />} />
           <Route path="/sanitising-logs/:id" element={<SanitisingLogDetailPage />} />
           <Route path="/sanitising-logs/:id/edit" element={<SanitisingLogFormPage />} />
+
+          {/* Batch sheets (FSP-LOG-017) */}
+          <Route path="/batch-sheets" element={<BatchSheetListPage />} />
+          <Route path="/batch-sheets/:batchId" element={<BatchSheetDetailPage />} />
 
           {/* Mixing logs */}
           <Route path="/mixing-logs" element={<MixingLogsPage />} />

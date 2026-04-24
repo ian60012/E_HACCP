@@ -555,6 +555,7 @@ app.include_router(inventory_stocktake.router, prefix="/api/v1")
 
 # Daily Batch Sheet (FSP-LOG-017)
 app.include_router(batch_sheets.router, prefix="/api/v1")
+app.include_router(batch_sheets.list_router, prefix="/api/v1")
 
 
 @app.get("/")

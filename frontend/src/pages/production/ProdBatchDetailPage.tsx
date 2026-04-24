@@ -9,9 +9,7 @@ import { mixingLogsApi } from '@/api/mixing-logs';
 import { MixingLog } from '@/types/mixing-log';
 import { invLocationsApi, invItemsApi } from '@/api/inventory';
 import { batchSheetApi } from '@/api/batch-sheet';
-import { ProdDailyBatchSheet, ProdBatchSheetLineCreate } from '@/types/batch-sheet';
-import { receivingLogsApi } from '@/api/receiving-logs';
-import { ReceivingLog } from '@/types/receiving-log';
+import { ProdDailyBatchSheet } from '@/types/batch-sheet';
 import {
   ProdBatch, ProdFormingTrolley, ProdFormingTrolleyCreate,
   ProdHotInput, ProdHotInputCreate,
@@ -135,14 +133,8 @@ export default function ProdBatchDetailPage() {
   const [voidReason, setVoidReason] = useState('');
   const [voiding, setVoiding] = useState(false);
 
-  // Daily Batch Sheet (FSP-LOG-017)
+  // Daily Batch Sheet (FSP-LOG-017) — summary only, detail on /batch-sheets/:id
   const [batchSheet, setBatchSheet] = useState<ProdDailyBatchSheet | null>(null);
-  const [batchSheetDraft, setBatchSheetDraft] = useState<ProdBatchSheetLineCreate[]>([]);
-  const [batchSheetLoading, setBatchSheetLoading] = useState(false);
-  const [batchSheetSaving, setBatchSheetSaving] = useState(false);
-  const [batchSheetVerifying, setBatchSheetVerifying] = useState(false);
-  const [batchSheetError, setBatchSheetError] = useState('');
-  const [receivingLogsByItemId, setReceivingLogsByItemId] = useState<Record<number, ReceivingLog[]>>({});
 
   const fetchBatch = useCallback(async () => {
     if (!id) return;
@@ -225,38 +217,10 @@ export default function ProdBatchDetailPage() {
 
   const fetchBatchSheet = useCallback(async () => {
     if (!id) return;
-    setBatchSheetLoading(true);
-    setBatchSheetError('');
     try {
       const sheet = await batchSheetApi.get(Number(id));
       setBatchSheet(sheet);
-      // Init local draft from sheet lines
-      setBatchSheetDraft(sheet.lines.map((l) => ({
-        inv_item_id: l.inv_item_id,
-        ingredient_name: l.ingredient_name,
-        receiving_log_id: l.receiving_log_id,
-        is_used: l.is_used,
-        supplier: l.supplier,
-        supplier_batch_no: l.supplier_batch_no,
-        qty_used: l.qty_used,
-        unit: l.unit,
-        seq: l.seq,
-      })));
-
-      // Pre-load receiving logs for items that have inv_item_id
-      const itemIds = [...new Set(sheet.lines.map((l) => l.inv_item_id).filter(Boolean) as number[])];
-      const rlMap: Record<number, ReceivingLog[]> = {};
-      await Promise.all(
-        itemIds.map(async (itemId) => {
-          try {
-            const res = await receivingLogsApi.list({ inv_item_id: itemId, limit: 50 });
-            rlMap[itemId] = res.items;
-          } catch { /* ignore */ }
-        })
-      );
-      setReceivingLogsByItemId(rlMap);
     } catch { /* ignore */ }
-    finally { setBatchSheetLoading(false); }
   }, [id]);
 
   useEffect(() => { fetchBatch(); }, [fetchBatch]);
@@ -486,34 +450,6 @@ export default function ProdBatchDetailPage() {
       setError(err?.response?.data?.detail || bi('error.saveFailed'));
     } finally {
       setVoiding(false);
-    }
-  };
-
-  const handleSaveBatchSheet = async () => {
-    if (!id) return;
-    setBatchSheetSaving(true);
-    setBatchSheetError('');
-    try {
-      const sheet = await batchSheetApi.save(Number(id), { lines: batchSheetDraft });
-      setBatchSheet(sheet);
-    } catch (err: any) {
-      setBatchSheetError(err?.response?.data?.detail || '儲存失敗');
-    } finally {
-      setBatchSheetSaving(false);
-    }
-  };
-
-  const handleVerifyBatchSheet = async () => {
-    if (!id) return;
-    setBatchSheetVerifying(true);
-    setBatchSheetError('');
-    try {
-      const sheet = await batchSheetApi.verify(Number(id));
-      setBatchSheet(sheet);
-    } catch (err: any) {
-      setBatchSheetError(err?.response?.data?.detail || '驗核失敗');
-    } finally {
-      setBatchSheetVerifying(false);
     }
   };
 
@@ -1397,161 +1333,27 @@ export default function ProdBatchDetailPage() {
         </>
       )}
 
-      {/* Daily Batch Sheet (FSP-LOG-017) */}
-      <div className="card space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800">Daily Batch Sheet <span className="text-xs text-gray-400 font-normal">FSP-LOG-017</span></h2>
-            {batchSheet?.is_locked && (
-              <p className="text-xs text-green-700 mt-0.5">
-                已驗核 · {batchSheet.verifier_name} · {batchSheet.verified_at ? formatMelbourne(batchSheet.verified_at) : ''}
-              </p>
-            )}
-          </div>
-          {batchSheet && !batchSheet.is_locked && !isVoided && (
-            <RoleGate roles={['Admin', 'QA']}>
-              <button
-                onClick={handleVerifyBatchSheet}
-                disabled={batchSheetVerifying}
-                className="btn btn-secondary text-sm"
-              >
-                {batchSheetVerifying ? '驗核中…' : '驗核鎖定 QA Verify'}
-              </button>
-            </RoleGate>
+      {/* Daily Batch Sheet (FSP-LOG-017) — link to standalone page */}
+      <div className="card flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-gray-800">
+            Daily Batch Sheet
+            <span className="ml-2 text-xs font-normal text-gray-400">FSP-LOG-017</span>
+          </h2>
+          {batchSheet?.is_locked ? (
+            <p className="text-xs text-green-700 mt-0.5">已驗核 · {batchSheet.verifier_name}</p>
+          ) : batchSheet && batchSheet.lines.length > 0 ? (
+            <p className="text-xs text-yellow-600 mt-0.5">填寫中 · {batchSheet.lines.length} 項原料</p>
+          ) : (
+            <p className="text-xs text-gray-400 mt-0.5">尚未填寫</p>
           )}
         </div>
-
-        {batchSheetError && <p className="text-sm text-red-600">{batchSheetError}</p>}
-
-        {batchSheetLoading ? (
-          <LoadingSpinner />
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs text-gray-400 border-b">
-                    <th className="text-left py-2 pr-3 w-8">✓</th>
-                    <th className="text-left py-2 pr-3">原料 Ingredient</th>
-                    <th className="text-left py-2 pr-3 min-w-[140px]">收貨紀錄 Receiving Log</th>
-                    <th className="text-left py-2 pr-3 min-w-[120px]">供應商批號 Supplier Batch No.</th>
-                    <th className="text-left py-2 pr-3 w-28">用量 Qty</th>
-                    <th className="text-left py-2 w-20">單位 Unit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {batchSheetDraft.map((line, idx) => (
-                    <tr key={idx} className={`border-b last:border-0 ${line.is_used ? 'bg-green-50' : ''}`}>
-                      <td className="py-2 pr-3">
-                        <input
-                          type="checkbox"
-                          checked={line.is_used}
-                          disabled={batchSheet?.is_locked || isVoided}
-                          onChange={(e) => {
-                            const next = [...batchSheetDraft];
-                            next[idx] = { ...next[idx], is_used: e.target.checked };
-                            setBatchSheetDraft(next);
-                          }}
-                          className="rounded"
-                        />
-                      </td>
-                      <td className="py-2 pr-3 font-medium text-gray-800">{line.ingredient_name}</td>
-                      <td className="py-2 pr-3">
-                        {line.inv_item_id && receivingLogsByItemId[line.inv_item_id]?.length > 0 ? (
-                          <select
-                            value={line.receiving_log_id ?? ''}
-                            disabled={batchSheet?.is_locked || isVoided}
-                            onChange={(e) => {
-                              const rlId = e.target.value ? Number(e.target.value) : null;
-                              const rl = rlId && line.inv_item_id
-                                ? (receivingLogsByItemId[line.inv_item_id] ?? []).find((r) => r.id === rlId)
-                                : null;
-                              const next = [...batchSheetDraft];
-                              next[idx] = {
-                                ...next[idx],
-                                receiving_log_id: rlId,
-                                supplier: rl?.supplier_name ?? next[idx].supplier,
-                              };
-                              setBatchSheetDraft(next);
-                            }}
-                            className="input text-xs py-1 px-2"
-                          >
-                            <option value="">— 不指定 —</option>
-                            {(line.inv_item_id ? receivingLogsByItemId[line.inv_item_id] ?? [] : []).map((rl) => (
-                              <option key={rl.id} value={rl.id}>
-                                {rl.created_at.slice(0, 10)} {rl.po_number ? `· ${rl.po_number}` : ''} {rl.supplier_name ? `· ${rl.supplier_name}` : ''}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="text-xs text-gray-300">—</span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <input
-                          type="text"
-                          value={line.supplier_batch_no ?? ''}
-                          disabled={batchSheet?.is_locked || isVoided}
-                          onChange={(e) => {
-                            const next = [...batchSheetDraft];
-                            next[idx] = { ...next[idx], supplier_batch_no: e.target.value || null };
-                            setBatchSheetDraft(next);
-                          }}
-                          className="input text-xs py-1 px-2"
-                          placeholder="Lot No."
-                        />
-                      </td>
-                      <td className="py-2 pr-3">
-                        <input
-                          type="number"
-                          step="0.001"
-                          min="0"
-                          value={line.qty_used ?? ''}
-                          disabled={batchSheet?.is_locked || isVoided}
-                          onChange={(e) => {
-                            const next = [...batchSheetDraft];
-                            next[idx] = { ...next[idx], qty_used: e.target.value || null };
-                            setBatchSheetDraft(next);
-                          }}
-                          className="input text-xs py-1 px-2 w-24"
-                          placeholder="0.000"
-                        />
-                      </td>
-                      <td className="py-2">
-                        <select
-                          value={line.unit ?? 'KG'}
-                          disabled={batchSheet?.is_locked || isVoided}
-                          onChange={(e) => {
-                            const next = [...batchSheetDraft];
-                            next[idx] = { ...next[idx], unit: e.target.value };
-                            setBatchSheetDraft(next);
-                          }}
-                          className="input text-xs py-1 px-2"
-                        >
-                          {['KG', 'G', 'L', 'ML', '包', '罐', 'PCS'].map((u) => (
-                            <option key={u} value={u}>{u}</option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {!batchSheet?.is_locked && !isVoided && (
-              <div className="flex justify-end">
-                <button
-                  onClick={handleSaveBatchSheet}
-                  disabled={batchSheetSaving}
-                  className="btn btn-primary text-sm"
-                >
-                  {batchSheetSaving ? '儲存中…' : '儲存 Save'}
-                </button>
-              </div>
-            )}
-          </>
-        )}
+        <button
+          onClick={() => navigate(`/batch-sheets/${batch.id}`)}
+          className="btn btn-secondary text-sm"
+        >
+          {batchSheet?.is_locked ? '查看' : '填寫 / 編輯'}
+        </button>
       </div>
 
       {/* Bottom actions */}

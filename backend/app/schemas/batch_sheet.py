@@ -1,6 +1,6 @@
 """Daily Batch Sheet schemas (FSP-LOG-017)."""
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, List
 
@@ -22,7 +22,6 @@ class ProdBatchSheetLineCreate(BaseModel):
     inv_item_id: Optional[int] = None
     ingredient_name: str
     receiving_log_id: Optional[int] = None
-    is_used: bool = False
     supplier: Optional[str] = None
     supplier_batch_no: Optional[str] = None
     qty_used: Optional[Decimal] = None
@@ -39,7 +38,6 @@ class ProdBatchSheetLineResponse(BaseModel):
     ingredient_name: str
     receiving_log_id: Optional[int] = None
     receiving_log: Optional[ReceivingLogSummary] = None
-    is_used: bool
     supplier: Optional[str] = None
     supplier_batch_no: Optional[str] = None
     qty_used: Optional[Decimal] = None
@@ -66,3 +64,17 @@ class ProdDailyBatchSheetResponse(BaseModel):
     is_locked: bool
     created_at: datetime
     lines: List[ProdBatchSheetLineResponse] = []
+
+
+class BatchSheetSummaryResponse(BaseModel):
+    """For the list page — one item per production batch."""
+    batch_id: int
+    batch_code: str
+    product_name: str
+    production_date: date
+    sheet_id: Optional[int] = None
+    has_sheet: bool
+    is_locked: bool
+    line_count: int
+    operator_name: Optional[str] = None
+    verified_by: Optional[int] = None

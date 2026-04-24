@@ -1,22 +1,25 @@
 """
 Daily Batch Sheet router (FSP-LOG-017).
 
-Endpoints:
-  GET  /production/batches/{batch_id}/batch-sheet        — Get or auto-init sheet
+Endpoints (under /production/batches):
+  GET  /production/batches/{batch_id}/batch-sheet        — Get sheet (null body if none)
   POST /production/batches/{batch_id}/batch-sheet        — Upsert (save all lines)
   POST /production/batches/{batch_id}/batch-sheet/verify — QA lock
+
+Endpoints (under /batch-sheets):
+  GET  /batch-sheets  — List recent production batches with sheet status
 """
 
 from datetime import datetime, timezone
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, outerjoin
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.batch_sheet import ProdDailyBatchSheet, ProdBatchSheetLine
-from app.models.inventory import InvItem
 from app.models.production import ProdBatch
 from app.models.receiving_log import ReceivingLog
 from app.models.user import User
@@ -25,10 +28,16 @@ from app.schemas.batch_sheet import (
     ProdDailyBatchSheetResponse,
     ProdBatchSheetLineResponse,
     ReceivingLogSummary,
+    BatchSheetSummaryResponse,
 )
+from app.schemas.common import PaginatedResponse
 from app.dependencies.auth import get_current_active_user, require_role
 
+# Router for /production/batches/{id}/batch-sheet endpoints
 router = APIRouter(prefix="/production/batches", tags=["batch-sheets"])
+
+# Router for /batch-sheets list endpoint
+list_router = APIRouter(prefix="/batch-sheets", tags=["batch-sheets"])
 
 
 # ---------------------------------------------------------------------------
@@ -52,7 +61,6 @@ def _line_to_response(line: ProdBatchSheetLine) -> ProdBatchSheetLineResponse:
         ingredient_name=line.ingredient_name,
         receiving_log_id=line.receiving_log_id,
         receiving_log=rl_summary,
-        is_used=line.is_used,
         supplier=line.supplier,
         supplier_batch_no=line.supplier_batch_no,
         qty_used=line.qty_used,
@@ -95,59 +103,87 @@ async def _get_batch_or_404(batch_id: int, db: AsyncSession) -> ProdBatch:
     return batch
 
 
-async def _get_or_init_sheet(batch_id: int, db: AsyncSession) -> ProdDailyBatchSheet:
-    """Return existing sheet, or create one pre-populated with active 原料 items."""
-    result = await db.execute(
-        _base_sheet_query().where(ProdDailyBatchSheet.batch_id == batch_id)
+# ---------------------------------------------------------------------------
+# List endpoint (/batch-sheets)
+# ---------------------------------------------------------------------------
+
+@list_router.get("", response_model=PaginatedResponse[BatchSheetSummaryResponse])
+async def list_batch_sheets(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List recent production batches with their batch sheet status."""
+    # Count
+    count_stmt = (
+        select(func.count(ProdBatch.id))
+        .where(ProdBatch.is_voided == False)
     )
-    sheet = result.scalar_one_or_none()
-    if sheet:
-        return sheet
+    total = (await db.execute(count_stmt)).scalar()
 
-    # Auto-initialize: create sheet + one line per active 原料 item
-    sheet = ProdDailyBatchSheet(batch_id=batch_id)
-    db.add(sheet)
-    await db.flush()  # get sheet.id
-
-    items_result = await db.execute(
-        select(InvItem)
-        .where(InvItem.category == "原料", InvItem.is_active == True)
-        .order_by(InvItem.code)
-    )
-    items = items_result.scalars().all()
-
-    for seq, item in enumerate(items):
-        line = ProdBatchSheetLine(
-            sheet_id=sheet.id,
-            inv_item_id=item.id,
-            ingredient_name=item.name,
-            unit=item.base_unit,
-            seq=seq,
+    # Main query: batches LEFT JOIN sheets LEFT JOIN lines (count)
+    stmt = (
+        select(
+            ProdBatch.id,
+            ProdBatch.batch_code,
+            ProdBatch.product_name,
+            ProdBatch.production_date,
+            ProdDailyBatchSheet.id.label("sheet_id"),
+            ProdDailyBatchSheet.is_locked,
+            ProdDailyBatchSheet.operator_name,
+            ProdDailyBatchSheet.verified_by,
+            func.count(ProdBatchSheetLine.id).label("line_count"),
         )
-        db.add(line)
-
-    await db.commit()
-
-    # Reload with relationships
-    result = await db.execute(
-        _base_sheet_query().where(ProdDailyBatchSheet.batch_id == batch_id)
+        .select_from(
+            outerjoin(ProdBatch, ProdDailyBatchSheet, ProdBatch.id == ProdDailyBatchSheet.batch_id)
+            .outerjoin(ProdBatchSheetLine, ProdDailyBatchSheet.id == ProdBatchSheetLine.sheet_id)
+        )
+        .where(ProdBatch.is_voided == False)
+        .group_by(ProdBatch.id, ProdDailyBatchSheet.id)
+        .order_by(ProdBatch.production_date.desc(), ProdBatch.created_at.desc())
+        .offset(skip)
+        .limit(limit)
     )
-    return result.scalar_one()
+    rows = (await db.execute(stmt)).all()
+
+    items = [
+        BatchSheetSummaryResponse(
+            batch_id=row.id,
+            batch_code=row.batch_code,
+            product_name=row.product_name,
+            production_date=row.production_date,
+            sheet_id=row.sheet_id,
+            has_sheet=row.sheet_id is not None,
+            is_locked=bool(row.is_locked),
+            line_count=row.line_count or 0,
+            operator_name=row.operator_name,
+            verified_by=row.verified_by,
+        )
+        for row in rows
+    ]
+
+    return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
 
 
 # ---------------------------------------------------------------------------
-# Endpoints
+# Per-batch endpoints (/production/batches/{id}/batch-sheet)
 # ---------------------------------------------------------------------------
 
-@router.get("/{batch_id}/batch-sheet", response_model=ProdDailyBatchSheetResponse)
+@router.get("/{batch_id}/batch-sheet", response_model=Optional[ProdDailyBatchSheetResponse])
 async def get_batch_sheet(
     batch_id: int,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get (or auto-initialize) the daily batch sheet for a production batch."""
+    """Get the daily batch sheet for a batch. Returns null if not created yet."""
     await _get_batch_or_404(batch_id, db)
-    sheet = await _get_or_init_sheet(batch_id, db)
+    result = await db.execute(
+        _base_sheet_query().where(ProdDailyBatchSheet.batch_id == batch_id)
+    )
+    sheet = result.scalar_one_or_none()
+    if not sheet:
+        return None
     return _sheet_to_response(sheet)
 
 
@@ -165,7 +201,6 @@ async def save_batch_sheet(
     """
     await _get_batch_or_404(batch_id, db)
 
-    # Get or create the sheet header
     result = await db.execute(
         select(ProdDailyBatchSheet).where(ProdDailyBatchSheet.batch_id == batch_id)
     )
@@ -182,41 +217,37 @@ async def save_batch_sheet(
     else:
         if sheet.is_locked:
             raise HTTPException(status_code=403, detail="Batch sheet is locked and cannot be modified")
-        # Update operator info on first real save
         if not sheet.operator_id:
             sheet.operator_id = current_user.id
             sheet.operator_name = data.operator_name or current_user.full_name
 
-    # Delete existing lines and replace
-    existing_result = await db.execute(
+    # Replace all lines
+    existing = await db.execute(
         select(ProdBatchSheetLine).where(ProdBatchSheetLine.sheet_id == sheet.id)
     )
-    for old_line in existing_result.scalars().all():
-        await db.delete(old_line)
+    for old in existing.scalars().all():
+        await db.delete(old)
     await db.flush()
 
     for line_data in data.lines:
-        line = ProdBatchSheetLine(
+        db.add(ProdBatchSheetLine(
             sheet_id=sheet.id,
             inv_item_id=line_data.inv_item_id,
             ingredient_name=line_data.ingredient_name,
             receiving_log_id=line_data.receiving_log_id,
-            is_used=line_data.is_used,
             supplier=line_data.supplier,
             supplier_batch_no=line_data.supplier_batch_no,
             qty_used=line_data.qty_used,
             unit=line_data.unit,
             seq=line_data.seq,
-        )
-        db.add(line)
+        ))
 
     await db.commit()
 
     result = await db.execute(
         _base_sheet_query().where(ProdDailyBatchSheet.batch_id == batch_id)
     )
-    sheet = result.scalar_one()
-    return _sheet_to_response(sheet)
+    return _sheet_to_response(result.scalar_one())
 
 
 @router.post("/{batch_id}/batch-sheet/verify", response_model=ProdDailyBatchSheetResponse)
@@ -245,5 +276,4 @@ async def verify_batch_sheet(
     result = await db.execute(
         _base_sheet_query().where(ProdDailyBatchSheet.batch_id == batch_id)
     )
-    sheet = result.scalar_one()
-    return _sheet_to_response(sheet)
+    return _sheet_to_response(result.scalar_one())

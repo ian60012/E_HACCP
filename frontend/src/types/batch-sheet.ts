@@ -14,10 +14,9 @@ export interface ProdBatchSheetLine {
   ingredient_name: string;
   receiving_log_id: number | null;
   receiving_log: ReceivingLogSummary | null;
-  is_used: boolean;
   supplier: string | null;
   supplier_batch_no: string | null;
-  qty_used: string | null; // Decimal serialized as string
+  qty_used: string | null;
   unit: string | null;
   seq: number;
 }
@@ -39,7 +38,6 @@ export interface ProdBatchSheetLineCreate {
   inv_item_id: number | null;
   ingredient_name: string;
   receiving_log_id: number | null;
-  is_used: boolean;
   supplier: string | null;
   supplier_batch_no: string | null;
   qty_used: string | null;
@@ -50,4 +48,17 @@ export interface ProdBatchSheetLineCreate {
 export interface SaveBatchSheetRequest {
   operator_name?: string;
   lines: ProdBatchSheetLineCreate[];
+}
+
+export interface BatchSheetSummary {
+  batch_id: number;
+  batch_code: string;
+  product_name: string;
+  production_date: string;
+  sheet_id: number | null;
+  has_sheet: boolean;
+  is_locked: boolean;
+  line_count: number;
+  operator_name: string | null;
+  verified_by: number | null;
 }
