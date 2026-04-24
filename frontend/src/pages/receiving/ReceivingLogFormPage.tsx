@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { receivingLogsApi } from '@/api/receiving-logs';
 import { suppliersApi } from '@/api/suppliers';
@@ -15,8 +15,14 @@ import { useAuth } from '@/hooks/useAuth';
 export default function ReceivingLogFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const isEdit = Boolean(id);
+
+  // Pre-fill params from 原料管理 page
+  const prefilledInvItemId = searchParams.get('inv_item_id') ? Number(searchParams.get('inv_item_id')) : undefined;
+  const prefilledInvItemName = searchParams.get('inv_item_name') || '';
+  const prefilledSupplierId = searchParams.get('supplier_id') ? Number(searchParams.get('supplier_id')) : 0;
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -24,9 +30,9 @@ export default function ReceivingLogFormPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
   // Form state
-  const [supplierId, setSupplierId] = useState<number>(0);
+  const [supplierId, setSupplierId] = useState<number>(prefilledSupplierId);
   const [poNumber, setPoNumber] = useState('');
-  const [productName, setProductName] = useState('');
+  const [productName, setProductName] = useState(prefilledInvItemName);
   const [quantity, setQuantity] = useState('');
   const [quantityUnit, setQuantityUnit] = useState<string>(QUANTITY_UNITS[0]);
   const [tempChilled, setTempChilled] = useState('');
@@ -123,6 +129,7 @@ export default function ReceivingLogFormPage() {
           acceptance_status: acceptanceStatus,
           corrective_action: correctiveAction || undefined,
           notes: notes || undefined,
+          inv_item_id: prefilledInvItemId,
         };
         const created = await receivingLogsApi.create(createData);
         navigate(`/receiving-logs/${created.id}`);
@@ -153,6 +160,9 @@ export default function ReceivingLogFormPage() {
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">FSP-LOG-001 原料收貨檢查</p>
           <p className="text-sm text-gray-500">記錄人 Operator: <span className="font-medium text-gray-700">{user?.full_name}</span></p>
+          {prefilledInvItemName && (
+            <p className="text-sm text-blue-600 mt-0.5">品項：{prefilledInvItemName}</p>
+          )}
         </div>
       </div>
 

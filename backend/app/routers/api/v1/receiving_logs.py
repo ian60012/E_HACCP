@@ -85,6 +85,7 @@ async def list_receiving_logs(
     limit: int = Query(50, ge=1, le=10000),
     is_voided: bool = Query(False),
     supplier_id: Optional[int] = None,
+    inv_item_id: Optional[int] = Query(None, description="Filter by linked inventory item"),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -97,6 +98,9 @@ async def list_receiving_logs(
     if supplier_id:
         query = query.where(ReceivingLog.supplier_id == supplier_id)
         count_query = count_query.where(ReceivingLog.supplier_id == supplier_id)
+    if inv_item_id:
+        query = query.where(ReceivingLog.inv_item_id == inv_item_id)
+        count_query = count_query.where(ReceivingLog.inv_item_id == inv_item_id)
 
     total = (await db.execute(count_query)).scalar()
     result = await db.execute(
@@ -149,6 +153,7 @@ async def create_receiving_log(
         corrective_action=data.corrective_action,
         notes=data.notes,
         operator_id=current_user.id,
+        inv_item_id=data.inv_item_id,
     )
     db.add(log)
     await db.flush()

@@ -68,6 +68,7 @@ async def list_items(
     limit: int = Query(100, ge=1, le=1000),
     search: Optional[str] = None,
     is_active: Optional[bool] = True,
+    category: Optional[str] = Query(None, description="Filter by category (e.g. '原料')"),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -78,6 +79,8 @@ async def list_items(
         q = q.where(
             InvItem.name.ilike(f"%{search}%") | InvItem.code.ilike(f"%{search}%")
         )
+    if category:
+        q = q.where(InvItem.category == category)
 
     total_result = await db.execute(select(func.count()).select_from(q.subquery()))
     total = total_result.scalar()

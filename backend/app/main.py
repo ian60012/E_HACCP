@@ -39,6 +39,7 @@ from app.routers.api.v1 import production_batches
 from app.routers.api.v1 import production_repack
 from app.routers.api.v1 import assembly_packing_logs
 from app.routers.api.v1 import inventory_stocktake
+from app.routers.api.v1 import batch_sheets
 
 
 @asynccontextmanager
@@ -463,6 +464,34 @@ async def lifespan(app: FastAPI):
                 created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         """))
+        # Daily Batch Sheet (FSP-LOG-017)
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_daily_batch_sheets (
+                id            SERIAL PRIMARY KEY,
+                batch_id      INTEGER NOT NULL UNIQUE REFERENCES prod_batches(id) ON DELETE CASCADE,
+                operator_id   INTEGER REFERENCES users(id),
+                operator_name VARCHAR(100),
+                verified_by   INTEGER REFERENCES users(id),
+                verified_at   TIMESTAMPTZ,
+                is_locked     BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_batch_sheet_lines (
+                id                SERIAL PRIMARY KEY,
+                sheet_id          INTEGER NOT NULL REFERENCES prod_daily_batch_sheets(id) ON DELETE CASCADE,
+                inv_item_id       INTEGER REFERENCES inv_items(id) ON DELETE SET NULL,
+                ingredient_name   VARCHAR(200) NOT NULL,
+                receiving_log_id  INTEGER REFERENCES receiving_logs(id) ON DELETE SET NULL,
+                is_used           BOOLEAN NOT NULL DEFAULT FALSE,
+                supplier          VARCHAR(200),
+                supplier_batch_no VARCHAR(100),
+                qty_used          NUMERIC(12,3),
+                unit              VARCHAR(20),
+                seq               INTEGER NOT NULL DEFAULT 0
+            )
+        """))
     yield
     # Shutdown: Close database connections
     await engine.dispose()
@@ -523,6 +552,9 @@ app.include_router(assembly_packing_logs.router, prefix="/api/v1")
 
 # Inventory stocktake (盤點)
 app.include_router(inventory_stocktake.router, prefix="/api/v1")
+
+# Daily Batch Sheet (FSP-LOG-017)
+app.include_router(batch_sheets.router, prefix="/api/v1")
 
 
 @app.get("/")

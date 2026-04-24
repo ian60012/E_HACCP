@@ -26,6 +26,7 @@ class ReceivingLogCreate(BaseModel):
     acceptance_status: str = Field(default="Accept", description="Accept, Reject, or Hold")
     corrective_action: Optional[str] = None
     notes: Optional[str] = None
+    inv_item_id: Optional[int] = Field(None, description="Link to inventory item at creation (from 原料管理)")
 
     @model_validator(mode="after")
     def validate_corrective_action(self):

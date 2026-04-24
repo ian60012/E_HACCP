@@ -12,7 +12,7 @@ import { PaginatedResponse } from '@/types/common';
 
 export const invItemsApi = {
   list: async (params?: {
-    skip?: number; limit?: number; search?: string; is_active?: boolean;
+    skip?: number; limit?: number; search?: string; is_active?: boolean; category?: string;
   }): Promise<PaginatedResponse<InvItem>> => {
     const res = await apiClient.get<PaginatedResponse<InvItem>>('/api/v1/inventory/items', { params });
     return res.data;

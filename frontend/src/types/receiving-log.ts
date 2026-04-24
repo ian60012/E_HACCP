@@ -36,6 +36,7 @@ export interface ReceivingLogCreate {
   acceptance_status?: 'Accept' | 'Reject' | 'Hold';
   corrective_action?: string;
   notes?: string;
+  inv_item_id?: number; // Pre-link from 原料管理 page
 }
 
 export interface ReceivingLogUpdate {

@@ -4,7 +4,7 @@ import { PaginatedResponse, VoidRequest } from '@/types/common';
 import { InvStockDoc } from '@/types/inventory';
 
 export const receivingLogsApi = {
-  list: async (params?: { skip?: number; limit?: number; is_voided?: boolean }): Promise<PaginatedResponse<ReceivingLog>> => {
+  list: async (params?: { skip?: number; limit?: number; is_voided?: boolean; inv_item_id?: number }): Promise<PaginatedResponse<ReceivingLog>> => {
     const response = await apiClient.get<PaginatedResponse<ReceivingLog>>('/api/v1/receiving-logs', { params });
     return response.data;
   },

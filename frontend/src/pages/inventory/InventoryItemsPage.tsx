@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { PlusIcon, XMarkIcon } from '@heroicons/react/24/solid';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { PlusIcon, XMarkIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/solid';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { invItemsApi } from '@/api/inventory';
 import { InvItem } from '@/types/inventory';
@@ -13,6 +13,9 @@ import Bi, { bi } from '@/components/Bi';
 import RoleGate from '@/components/RoleGate';
 
 export default function InventoryItemsPage() {
+  const [searchParams] = useSearchParams();
+  const categoryFilter = searchParams.get('category') || undefined;
+
   const [items, setItems] = useState<InvItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -33,6 +36,7 @@ export default function InventoryItemsPage() {
         limit: pagination.limit,
         search: search || undefined,
         is_active: showInactive ? undefined : true,
+        category: categoryFilter,
       });
       setItems(res.items);
       pagination.setTotal(res.total);
@@ -41,7 +45,7 @@ export default function InventoryItemsPage() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.skip, pagination.limit, search, showInactive]);
+  }, [pagination.skip, pagination.limit, search, showInactive, categoryFilter]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
@@ -81,7 +85,9 @@ export default function InventoryItemsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800"><Bi k="nav.invItems" /></h1>
+          <h1 className="text-2xl font-bold text-gray-800">
+            {categoryFilter ? `${categoryFilter}管理` : <Bi k="nav.invItems" />}
+          </h1>
           <p className="text-sm text-gray-500 mt-1"><Bi k="page.invItems.subtitle" /></p>
         </div>
         <RoleGate roles={['Admin', 'Warehouse']}>
@@ -167,15 +173,17 @@ export default function InventoryItemsPage() {
           {items.map((item) => (
             <div
               key={item.id}
-              onClick={() => navigate(`/inventory/items/${item.id}/edit`)}
-              className={`card cursor-pointer hover:shadow-lg transition-shadow ${!item.is_active ? 'opacity-50' : ''}`}
+              className={`card ${!item.is_active ? 'opacity-50' : ''}`}
             >
               <div className="flex items-center justify-between">
-                <div>
+                <div
+                  className="flex-1 cursor-pointer"
+                  onClick={() => navigate(`/inventory/items/${item.id}/edit`)}
+                >
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-800">{item.name}</span>
                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{item.code}</span>
-                    {item.category && (
+                    {item.category && !categoryFilter && (
                       <span className="text-xs text-gray-500">{item.category}</span>
                     )}
                   </div>
@@ -183,7 +191,27 @@ export default function InventoryItemsPage() {
                     <p className="text-sm text-gray-500 mt-0.5">{item.supplier_name}</p>
                   )}
                 </div>
-                <span className="text-sm text-gray-400">{item.base_unit}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-400">{item.base_unit}</span>
+                  {categoryFilter === '原料' && item.is_active && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const params = new URLSearchParams({
+                          inv_item_id: String(item.id),
+                          inv_item_name: item.name,
+                        });
+                        if (item.supplier_id) params.set('supplier_id', String(item.supplier_id));
+                        navigate(`/receiving/logs/new?${params.toString()}`);
+                      }}
+                      className="btn btn-secondary text-xs flex items-center gap-1 py-1 px-2"
+                      title="建立收貨紀錄"
+                    >
+                      <ClipboardDocumentListIcon className="h-4 w-4" />
+                      <span className="hidden sm:inline">建立收貨紀錄</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
