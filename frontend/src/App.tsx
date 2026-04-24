@@ -177,6 +177,7 @@ export default function App() {
           <Route path="/inventory/items" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemsPage /></RoleGuard>} />
           <Route path="/inventory/items/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemFormPage /></RoleGuard>} />
           <Route path="/inventory/items/:id/edit" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemFormPage /></RoleGuard>} />
+          <Route path="/inventory/raw-materials" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemsPage defaultCategory="原料" basePath="/inventory/raw-materials" /></RoleGuard>} />
           <Route path="/inventory/locations" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryLocationsPage /></RoleGuard>} />
           <Route path="/inventory/stocktakes" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStocktakeListPage /></RoleGuard>} />
           <Route path="/inventory/stocktakes/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStocktakePage /></RoleGuard>} />

@@ -86,7 +86,7 @@ const inventorySections: NavSection[] = [
       { to: '/inventory/balance', label: '庫存查詢', labelKey: 'nav.invBalance', icon: ChartBarIcon },
       { to: '/inventory/docs', label: '入出庫單', labelKey: 'nav.invDocs', icon: DocumentTextIcon },
       { to: '/inventory/stocktakes', label: '盤點', icon: ClipboardDocumentCheckIcon },
-      { to: '/inventory/items?category=原料', label: '原料管理', icon: BeakerIcon },
+      { to: '/inventory/raw-materials', label: '原料管理', icon: BeakerIcon },
       { to: '/inventory/items', label: '品項管理', labelKey: 'nav.invItems', icon: ArchiveBoxIcon },
       { to: '/inventory/locations', label: '儲位管理', labelKey: 'nav.invLocations', icon: MapPinIcon },
     ],
@@ -109,7 +109,7 @@ const productionSections: NavSection[] = [
 ];
 
 function detectSystem(pathname: string): 'haccp' | 'inventory' | 'production' {
-  if (pathname.startsWith('/inventory')) return 'inventory';
+  if (pathname.startsWith('/inventory') || pathname.startsWith('/inventory/raw-materials')) return 'inventory';
   if (pathname.startsWith('/production')) return 'production';
   return 'haccp';
 }

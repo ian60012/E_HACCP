@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { invItemsApi, invLocationsApi } from '@/api/inventory';
 import { InvLocation } from '@/types/inventory';
@@ -13,6 +13,8 @@ const UNITS = ['PCS', 'KG', 'G', 'L', 'ML', '包', '箱', '袋', '罐', '卷', '
 export default function InventoryItemFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const backUrl = searchParams.get('returnTo') || '/inventory/items';
   const isEdit = Boolean(id);
 
   const [code, setCode] = useState('');
@@ -80,7 +82,7 @@ export default function InventoryItemFormPage() {
           allowed_location_ids: allowedLocationIds,
         });
       }
-      navigate('/inventory/items');
+      navigate(backUrl);
     } catch (err: any) {
       setError(err?.response?.data?.detail || bi('error.saveFailed'));
     } finally {

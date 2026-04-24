@@ -51,6 +51,13 @@ class InvAllowedLocationsUpdate(BaseModel):
     location_ids: List[int]
 
 
+class InvItemBulkUpdate(BaseModel):
+    ids: List[int] = Field(..., min_length=1)
+    category: Optional[str] = Field(None, max_length=100)
+    base_unit: Optional[str] = Field(None, max_length=20)
+    is_active: Optional[bool] = None
+
+
 # ---------------------------------------------------------------------------
 # Location (儲位)
 # ---------------------------------------------------------------------------

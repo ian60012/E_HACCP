@@ -33,6 +33,11 @@ export const invItemsApi = {
     return res.data;
   },
 
+  bulkUpdate: async (data: { ids: number[]; category?: string; base_unit?: string; is_active?: boolean }): Promise<{ updated: number }> => {
+    const res = await apiClient.patch<{ updated: number }>('/api/v1/inventory/items/bulk-update', data);
+    return res.data;
+  },
+
   setAllowedLocations: async (id: number, location_ids: number[]): Promise<InvItem> => {
     const res = await apiClient.put<InvItem>(`/api/v1/inventory/items/${id}/allowed-locations`, { location_ids });
     return res.data;

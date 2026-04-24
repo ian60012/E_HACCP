@@ -14,7 +14,7 @@ from app.models.inventory import InvItem, InvLocation
 from app.models.user import User
 from app.schemas.inventory import (
     InvItemCreate, InvItemUpdate, InvItemResponse,
-    InvAllowedLocationsUpdate,
+    InvAllowedLocationsUpdate, InvItemBulkUpdate,
 )
 from app.schemas.common import PaginatedResponse
 from app.dependencies.auth import get_current_active_user, require_role
@@ -311,6 +311,28 @@ async def update_item(
     await db.commit()
     result2 = await db.execute(_base_item_query().where(InvItem.id == item_id))
     return _to_response(result2.scalar_one())
+
+
+@router.patch("/bulk-update", status_code=status.HTTP_200_OK)
+async def bulk_update_items(
+    data: InvItemBulkUpdate,
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bulk update category / base_unit / is_active for multiple items."""
+    result = await db.execute(select(InvItem).where(InvItem.id.in_(data.ids)))
+    items = result.scalars().all()
+
+    for item in items:
+        if data.category is not None:
+            item.category = data.category or None
+        if data.base_unit is not None:
+            item.base_unit = data.base_unit
+        if data.is_active is not None:
+            item.is_active = data.is_active
+
+    await db.commit()
+    return {"updated": len(items)}
 
 
 @router.put("/{item_id}/allowed-locations", response_model=InvItemResponse)
