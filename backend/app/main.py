@@ -40,6 +40,7 @@ from app.routers.api.v1 import production_repack
 from app.routers.api.v1 import assembly_packing_logs
 from app.routers.api.v1 import inventory_stocktake
 from app.routers.api.v1 import batch_sheets
+from app.routers.api.v1 import admin
 
 
 @asynccontextmanager
@@ -560,6 +561,9 @@ app.include_router(inventory_stocktake.router, prefix="/api/v1")
 # Daily Batch Sheet (FSP-LOG-017)
 app.include_router(batch_sheets.router, prefix="/api/v1")
 app.include_router(batch_sheets.list_router, prefix="/api/v1")
+
+# Admin
+app.include_router(admin.router, prefix="/api/v1")
 
 
 @app.get("/")

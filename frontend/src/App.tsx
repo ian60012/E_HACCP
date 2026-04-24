@@ -54,6 +54,9 @@ import PPEComplianceLogsPage from '@/pages/ppe/PPEComplianceLogsPage';
 import PPEComplianceLogDetailPage from '@/pages/ppe/PPEComplianceLogDetailPage';
 import PPEComplianceLogFormPage from '@/pages/ppe/PPEComplianceLogFormPage';
 
+// Admin
+import ActivityLogPage from '@/pages/admin/ActivityLogPage';
+
 // Batch sheets (FSP-LOG-017)
 import BatchSheetListPage from '@/pages/batch-sheets/BatchSheetListPage';
 import BatchSheetDetailPage from '@/pages/batch-sheets/BatchSheetDetailPage';
@@ -167,6 +170,7 @@ export default function App() {
 
           {/* System management - Admin only */}
           <Route path="/users" element={<RoleGuard allowedRoles={['Admin']}><UsersPage /></RoleGuard>} />
+          <Route path="/admin/activity" element={<RoleGuard allowedRoles={['Admin']}><ActivityLogPage /></RoleGuard>} />
 
           {/* Inventory module - Admin, QA, Warehouse */}
           <Route path="/inventory/balance" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryBalancePage /></RoleGuard>} />

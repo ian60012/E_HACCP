@@ -73,6 +73,7 @@ const haccpSections: NavSection[] = [
     titleKey: 'nav.system',
     items: [
       { to: '/users', label: '帳號管理', labelKey: 'nav.users', icon: UserGroupIcon },
+      { to: '/admin/activity', label: '操作記錄', icon: DocumentTextIcon },
     ],
     roles: ['Admin'],
   },

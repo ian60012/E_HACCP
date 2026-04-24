@@ -8,6 +8,7 @@ import ErrorCard from '@/components/ErrorCard';
 import Bi, { bi } from '@/components/Bi';
 import DateTimeInput from '@/components/DateTimeInput';
 import { melbourneToUTC } from '@/utils/timezone';
+import { useAuth } from '@/hooks/useAuth';
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -16,6 +17,7 @@ function todayStr() {
 export default function ProdBatchFormPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const typeFilter = searchParams.get('type') as 'forming' | 'hot_process' | null;
   const backTo = typeFilter ? `/production/batches?type=${typeFilter}` : '/production/batches';
 
@@ -27,7 +29,7 @@ export default function ProdBatchFormPage() {
   const [shift, setShift] = useState<ProdShift>('Morning');
   const [specPieceWeightG, setSpecPieceWeightG] = useState('17.5');
   const [startTime, setStartTime] = useState('');
-  const [operator, setOperator] = useState('');
+  const [operator, setOperator] = useState(user?.full_name || '');
   const [supervisor, setSupervisor] = useState('');
 
   const [saving, setSaving] = useState(false);
@@ -84,13 +86,16 @@ export default function ProdBatchFormPage() {
         <button onClick={() => navigate(backTo)} className="p-2 rounded-lg hover:bg-gray-100">
           <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-800">
-          {typeFilter === 'forming'
-            ? <Bi k="page.forming.new" />
-            : typeFilter === 'hot_process'
-            ? <Bi k="page.hotProcess.new" />
-            : <Bi k="page.prodBatchNew.title" />}
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">
+            {typeFilter === 'forming'
+              ? <Bi k="page.forming.new" />
+              : typeFilter === 'hot_process'
+              ? <Bi k="page.hotProcess.new" />
+              : <Bi k="page.prodBatchNew.title" />}
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5">記錄人 Operator: <span className="font-medium text-gray-700">{user?.full_name}</span></p>
+        </div>
       </div>
 
       {error && <ErrorCard message={error} />}
