@@ -134,7 +134,7 @@ export default function BatchSheetDetailPage() {
     updateLine(key, {
       inv_item_id: itemId,
       ingredient_name: item?.name ?? '',
-      unit: item?.base_unit ?? 'KG',
+      unit: item?.usage_unit ?? item?.base_unit ?? 'KG',
       receiving_log_id: null,
       supplier: null,
     });

@@ -24,6 +24,7 @@ class InvItem(Base):
     name = Column(VARCHAR(200), nullable=False)
     category = Column(VARCHAR(100), nullable=True)
     base_unit = Column(VARCHAR(20), nullable=False, server_default="PCS")
+    usage_unit = Column(VARCHAR(20), nullable=True)  # Production unit for Batch Sheet; NULL = use base_unit
     description = Column(Text, nullable=True)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
     is_active = Column(Boolean, nullable=False, server_default="true")

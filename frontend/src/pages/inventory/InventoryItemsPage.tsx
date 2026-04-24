@@ -43,7 +43,7 @@ export default function InventoryItemsPage({ defaultCategory, basePath = '/inven
 
   // ── Bulk select ──────────────────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [bulkField, setBulkField] = useState<'category' | 'base_unit' | 'is_active'>('category');
+  const [bulkField, setBulkField] = useState<'category' | 'base_unit' | 'usage_unit' | 'is_active'>('category');
   const [bulkValue, setBulkValue] = useState('');
   const [bulkSaving, setBulkSaving] = useState(false);
 
@@ -67,6 +67,7 @@ export default function InventoryItemsPage({ defaultCategory, basePath = '/inven
       const payload: Record<string, any> = { ids: [...selectedIds] };
       if (bulkField === 'category') payload.category = bulkValue.trim();
       else if (bulkField === 'base_unit') payload.base_unit = bulkValue.trim();
+      else if (bulkField === 'usage_unit') payload.usage_unit = bulkValue.trim();
       else if (bulkField === 'is_active') payload.is_active = bulkValue === 'true';
       await invItemsApi.bulkUpdate(payload as any);
       setSelectedIds(new Set());
@@ -209,17 +210,21 @@ export default function InventoryItemsPage({ defaultCategory, basePath = '/inven
           <select
             value={bulkField}
             onChange={(e) => { setBulkField(e.target.value as any); setBulkValue(''); }}
-            className="input text-sm py-1 px-2 w-32"
+            className="input text-sm py-1 px-2 w-36"
           >
             <option value="category">修改分類</option>
-            <option value="base_unit">修改單位</option>
+            <option value="base_unit">修改收貨單位</option>
+            <option value="usage_unit">修改生產用量單位</option>
             <option value="is_active">修改狀態</option>
           </select>
 
-          {bulkField === 'base_unit' ? (
+          {(bulkField === 'base_unit' || bulkField === 'usage_unit') ? (
             <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="input text-sm py-1 px-2 w-28">
               <option value="">— 選擇 —</option>
-              {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+              {(bulkField === 'usage_unit'
+                ? ['KG', 'G', 'L', 'ML', 'PCS']
+                : UNITS
+              ).map((u) => <option key={u} value={u}>{u}</option>)}
             </select>
           ) : bulkField === 'is_active' ? (
             <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="input text-sm py-1 px-2 w-28">
@@ -329,7 +334,12 @@ export default function InventoryItemsPage({ defaultCategory, basePath = '/inven
 
                 {/* Right side */}
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <span className="text-sm text-gray-400">{item.base_unit}</span>
+                  <span className="text-sm text-gray-400">
+                    {item.base_unit}
+                    {item.usage_unit && item.usage_unit !== item.base_unit && (
+                      <span className="ml-1 text-blue-500">→ {item.usage_unit}</span>
+                    )}
+                  </span>
                   {categoryFilter === '原料' && item.is_active && (
                     <button
                       onClick={(e) => {

@@ -16,6 +16,7 @@ class InvItemCreate(BaseModel):
     name: str = Field(..., max_length=200)
     category: Optional[str] = Field(None, max_length=100)
     base_unit: str = Field(default="PCS", max_length=20)
+    usage_unit: Optional[str] = Field(None, max_length=20, description="Production recording unit for Batch Sheet; null = use base_unit")
     description: Optional[str] = None
     supplier_id: Optional[int] = None
     allowed_location_ids: Optional[List[int]] = None
@@ -25,6 +26,7 @@ class InvItemUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=200)
     category: Optional[str] = Field(None, max_length=100)
     base_unit: Optional[str] = Field(None, max_length=20)
+    usage_unit: Optional[str] = Field(None, max_length=20)
     description: Optional[str] = None
     supplier_id: Optional[int] = None
     is_active: Optional[bool] = None
@@ -39,6 +41,7 @@ class InvItemResponse(BaseModel):
     name: str
     category: Optional[str] = None
     base_unit: str
+    usage_unit: Optional[str] = None
     description: Optional[str] = None
     supplier_id: Optional[int] = None
     supplier_name: Optional[str] = None
@@ -55,6 +58,7 @@ class InvItemBulkUpdate(BaseModel):
     ids: List[int] = Field(..., min_length=1)
     category: Optional[str] = Field(None, max_length=100)
     base_unit: Optional[str] = Field(None, max_length=20)
+    usage_unit: Optional[str] = Field(None, max_length=20)
     is_active: Optional[bool] = None
 
 

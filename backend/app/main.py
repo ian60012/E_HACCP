@@ -464,6 +464,10 @@ async def lifespan(app: FastAPI):
                 created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         """))
+        # usage_unit for InvItem (production unit separate from receiving unit)
+        await conn.execute(text(
+            "ALTER TABLE inv_items ADD COLUMN IF NOT EXISTS usage_unit VARCHAR(20)"
+        ))
         # Daily Batch Sheet (FSP-LOG-017)
         await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS prod_daily_batch_sheets (

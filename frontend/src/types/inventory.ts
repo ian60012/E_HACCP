@@ -6,6 +6,7 @@ export interface InvItem {
   name: string;
   category: string | null;
   base_unit: string;
+  usage_unit: string | null; // Production unit for Batch Sheet; null = use base_unit
   description: string | null;
   supplier_id: number | null;
   supplier_name: string | null;
@@ -19,6 +20,7 @@ export interface InvItemCreate {
   name: string;
   category?: string;
   base_unit?: string;
+  usage_unit?: string;
   description?: string;
   supplier_id?: number;
   allowed_location_ids?: number[];
@@ -28,6 +30,7 @@ export interface InvItemUpdate {
   name?: string;
   category?: string;
   base_unit?: string;
+  usage_unit?: string;
   description?: string;
   supplier_id?: number;
   is_active?: boolean;

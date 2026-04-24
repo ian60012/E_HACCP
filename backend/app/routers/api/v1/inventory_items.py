@@ -146,6 +146,7 @@ async def download_template(
         ("基本單位", "必填：PCS/KG/G/L/ML/包/箱/袋/罐/卷/打"),
         ("描述", "選填"),
         ("允許儲位", "選填，多個儲位以逗號分隔（儲位代碼）"),
+        ("生產用量單位", "選填：KG/G/L/ML/PCS（Batch Sheet預設；空白=跟隨基本單位）"),
     ]
 
     header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
@@ -220,6 +221,7 @@ async def import_items(
         base_unit = row[3] if len(row) > 3 else "PCS"
         description = row[4] if len(row) > 4 else ""
         locations_raw = row[5] if len(row) > 5 else ""
+        usage_unit = row[6] if len(row) > 6 else ""
 
         if not code:
             skipped += 1
@@ -242,6 +244,7 @@ async def import_items(
             name=name,
             category=category or None,
             base_unit=base_unit,
+            usage_unit=usage_unit or None,
             description=description or None,
         )
         db.add(item)
@@ -328,6 +331,8 @@ async def bulk_update_items(
             item.category = data.category or None
         if data.base_unit is not None:
             item.base_unit = data.base_unit
+        if data.usage_unit is not None:
+            item.usage_unit = data.usage_unit or None
         if data.is_active is not None:
             item.is_active = data.is_active
 

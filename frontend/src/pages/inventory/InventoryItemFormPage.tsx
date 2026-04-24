@@ -9,6 +9,7 @@ import FormField from '@/components/FormField';
 import Bi, { bi } from '@/components/Bi';
 
 const UNITS = ['PCS', 'KG', 'G', 'L', 'ML', '包', '箱', '袋', '罐', '卷', '打'];
+const USAGE_UNITS = ['', 'KG', 'G', 'L', 'ML', 'PCS']; // Production-focused units for Batch Sheet
 
 export default function InventoryItemFormPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +22,7 @@ export default function InventoryItemFormPage() {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [baseUnit, setBaseUnit] = useState('PCS');
+  const [usageUnit, setUsageUnit] = useState('');
   const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [allowedLocationIds, setAllowedLocationIds] = useState<number[]>([]);
@@ -44,6 +46,7 @@ export default function InventoryItemFormPage() {
       setName(item.name);
       setCategory(item.category || '');
       setBaseUnit(item.base_unit);
+      setUsageUnit(item.usage_unit || '');
       setDescription(item.description || '');
       setIsActive(item.is_active);
       setAllowedLocationIds(item.allowed_location_ids ?? []);
@@ -70,6 +73,7 @@ export default function InventoryItemFormPage() {
         await invItemsApi.update(Number(id), {
           name, category: category || undefined,
           base_unit: baseUnit,
+          usage_unit: usageUnit || undefined,
           description: description || undefined,
           is_active: isActive,
           allowed_location_ids: allowedLocationIds,
@@ -78,6 +82,7 @@ export default function InventoryItemFormPage() {
         await invItemsApi.create({
           code, name, category: category || undefined,
           base_unit: baseUnit,
+          usage_unit: usageUnit || undefined,
           description: description || undefined,
           allowed_location_ids: allowedLocationIds,
         });
@@ -139,6 +144,13 @@ export default function InventoryItemFormPage() {
         <FormField label={<Bi k="field.baseUnit" />} required>
           <select value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} className="input">
             {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+          </select>
+        </FormField>
+        <FormField label="生產用量單位 Usage Unit" hint="Batch Sheet 預設單位；空白 = 跟隨收貨單位">
+          <select value={usageUnit} onChange={(e) => setUsageUnit(e.target.value)} className="input">
+            {USAGE_UNITS.map((u) => (
+              <option key={u} value={u}>{u || '— 跟隨收貨單位 —'}</option>
+            ))}
           </select>
         </FormField>
         <FormField label={<Bi k="field.description" />}>
