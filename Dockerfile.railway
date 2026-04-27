@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    gcc \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies (path relative to repo root build context)
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend application code
+COPY backend/ .
+
+# Copy init.sql from database/ so start.sh can initialize a fresh DB
+COPY database/init.sql .
+
+RUN chmod +x start.sh
+
+EXPOSE 8000
+
+CMD ["sh", "start.sh"]
