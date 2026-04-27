@@ -761,7 +761,8 @@ INSERT INTO users (username, password_hash, full_name, role, is_active) VALUES
     ('production1', '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'Alice Wong',   'Production', TRUE),
     ('warehouse1',  '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'Bob Chen',     'Warehouse',  TRUE),
     ('qa1',         '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'Claire Park',  'QA',         TRUE),
-    ('admin1',      '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'David Li',     'Admin',      TRUE)
+    ('admin1',      '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'David Li',     'Admin',      TRUE),
+    ('demo',        '$2b$12$5nKaD.Zd2qTk59YjACXQaOejzEfWxRWJ6DRMsSDmHZYxIZ6fy7Bym', 'Demo User',    'QA',         TRUE)
 ON CONFLICT (username) DO NOTHING;
 
 -- NOTE: 'products' table removed; products are now in prod_products (seeded below)
@@ -1160,6 +1161,78 @@ ALTER TABLE prod_packing_records
 ALTER TABLE prod_batches
     ADD CONSTRAINT fk_prod_batches_inv_stock_doc
         FOREIGN KEY (inv_stock_doc_id) REFERENCES inv_stock_docs(id) ON DELETE SET NULL;
+
+-- ============================================================================
+-- SECTION 11: DEMO SEED DATA (cooling logs for portfolio demo)
+-- ============================================================================
+
+INSERT INTO cooling_logs (batch_id, start_time, start_temp, stage1_time, stage1_temp, end_time, end_temp, ccp_status, operator_id)
+SELECT 'BATCH-20260427-001',
+       '2026-04-27 08:00:00+10'::timestamptz, 82.4,
+       '2026-04-27 09:35:00+10'::timestamptz, 20.8,
+       '2026-04-27 13:18:00+10'::timestamptz, 3.8,
+       'Pass'::ccp_status_enum, id
+FROM users WHERE username = 'production1';
+
+INSERT INTO cooling_logs (batch_id, start_time, start_temp, stage1_time, stage1_temp, end_time, end_temp, ccp_status, operator_id)
+SELECT 'BATCH-20260427-002',
+       '2026-04-27 09:30:00+10'::timestamptz, 78.2,
+       '2026-04-27 11:18:00+10'::timestamptz, 21.0,
+       '2026-04-27 15:12:00+10'::timestamptz, 4.1,
+       'Pass'::ccp_status_enum, id
+FROM users WHERE username = 'production1';
+
+INSERT INTO cooling_logs (batch_id, start_time, start_temp, stage1_time, stage1_temp, end_time, end_temp, ccp_status, corrective_action, operator_id)
+SELECT 'BATCH-20260426-003',
+       '2026-04-26 08:15:00+10'::timestamptz, 85.0,
+       '2026-04-26 10:22:00+10'::timestamptz, 20.5,
+       '2026-04-26 14:10:00+10'::timestamptz, 4.5,
+       'Deviation'::ccp_status_enum,
+       'Extended cooling time — blast chiller 2 called for service. QA notified. Product held pending review.',
+       id
+FROM users WHERE username = 'qa1';
+
+INSERT INTO cooling_logs (batch_id, start_time, start_temp, stage1_time, stage1_temp, end_time, end_temp, ccp_status, operator_id)
+SELECT 'BATCH-20260426-004',
+       '2026-04-26 10:00:00+10'::timestamptz, 79.6,
+       '2026-04-26 11:28:00+10'::timestamptz, 20.2,
+       '2026-04-26 14:50:00+10'::timestamptz, 3.2,
+       'Pass'::ccp_status_enum, id
+FROM users WHERE username = 'production1';
+
+INSERT INTO cooling_logs (batch_id, start_time, start_temp, stage1_time, stage1_temp, end_time, end_temp, ccp_status, operator_id)
+SELECT 'BATCH-20260425-005',
+       '2026-04-25 08:00:00+10'::timestamptz, 83.1,
+       '2026-04-25 09:42:00+10'::timestamptz, 20.9,
+       '2026-04-25 13:25:00+10'::timestamptz, 4.0,
+       'Pass'::ccp_status_enum, id
+FROM users WHERE username = 'production1';
+
+INSERT INTO cooling_logs (batch_id, start_time, start_temp, stage1_time, stage1_temp, end_time, end_temp, ccp_status, corrective_action, operator_id)
+SELECT 'BATCH-20260425-006',
+       '2026-04-25 12:00:00+10'::timestamptz, 81.8,
+       '2026-04-25 14:25:00+10'::timestamptz, 21.4,
+       '2026-04-25 19:00:00+10'::timestamptz, 6.2,
+       'Fail'::ccp_status_enum,
+       'Total cooling exceeded 360 min limit. Batch quarantined and disposed per SOP-COOL-003. CAPA logged.',
+       id
+FROM users WHERE username = 'qa1';
+
+INSERT INTO cooling_logs (batch_id, start_time, start_temp, stage1_time, stage1_temp, end_time, end_temp, ccp_status, operator_id)
+SELECT 'BATCH-20260424-007',
+       '2026-04-24 08:00:00+10'::timestamptz, 77.5,
+       '2026-04-24 09:31:00+10'::timestamptz, 20.3,
+       '2026-04-24 13:05:00+10'::timestamptz, 3.5,
+       'Pass'::ccp_status_enum, id
+FROM users WHERE username = 'production1';
+
+INSERT INTO cooling_logs (batch_id, start_time, start_temp, stage1_time, stage1_temp, end_time, end_temp, ccp_status, operator_id)
+SELECT 'BATCH-20260424-008',
+       '2026-04-24 10:00:00+10'::timestamptz, 80.3,
+       '2026-04-24 11:39:00+10'::timestamptz, 20.6,
+       '2026-04-24 15:12:00+10'::timestamptz, 3.9,
+       'Pass'::ccp_status_enum, id
+FROM users WHERE username = 'production1';
 
 -- ============================================================================
 -- INITIALIZATION COMPLETE

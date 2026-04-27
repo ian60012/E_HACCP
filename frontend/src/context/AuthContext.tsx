@@ -45,17 +45,37 @@ export interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const params = new URLSearchParams(window.location.search);
+  const isDemoMode = params.get('demo') === '1';
   const savedToken = localStorage.getItem('auth_token');
 
   const [state, dispatch] = useReducer(authReducer, {
     user: null,
     token: savedToken,
-    loading: !!savedToken, // loading if we have a token to validate
+    loading: !!savedToken || isDemoMode,
     error: null,
   });
 
-  // On mount, if token exists, fetch user profile
+  // On mount: demo auto-login or validate existing token
   useEffect(() => {
+    if (isDemoMode && !savedToken) {
+      const backend = import.meta.env.VITE_API_BASE_URL || '';
+      fetch(`${backend}/api/v1/auth/demo-token`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.access_token) {
+            localStorage.setItem('auth_token', data.access_token);
+            window.location.href = '/haccp';
+          } else {
+            dispatch({ type: 'AUTH_ERROR', error: 'Demo mode unavailable' });
+          }
+        })
+        .catch(() => {
+          dispatch({ type: 'AUTH_ERROR', error: 'Demo mode unavailable' });
+        });
+      return;
+    }
+
     if (!savedToken) return;
 
     authApi.getMe()
