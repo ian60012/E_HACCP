@@ -483,8 +483,8 @@ CREATE TABLE IF NOT EXISTS mixing_logs (
 
     -- Business fields
     batch_id                VARCHAR(50)     NOT NULL,
-    prod_batch_id           INT             REFERENCES prod_batches(id) ON DELETE SET NULL,
-    prod_product_id         INT             REFERENCES prod_products(id) ON DELETE RESTRICT,
+    prod_batch_id           INT,  -- FK added later: REFERENCES prod_batches(id) ON DELETE SET NULL
+    prod_product_id         INT,  -- FK added later: REFERENCES prod_products(id) ON DELETE RESTRICT
     weight_kg               NUMERIC(12, 3),
     initial_temp            NUMERIC(5, 2),
     final_temp              NUMERIC(5, 2),
@@ -1161,6 +1161,14 @@ ALTER TABLE prod_packing_records
 ALTER TABLE prod_batches
     ADD CONSTRAINT fk_prod_batches_inv_stock_doc
         FOREIGN KEY (inv_stock_doc_id) REFERENCES inv_stock_docs(id) ON DELETE SET NULL;
+
+ALTER TABLE mixing_logs
+    ADD CONSTRAINT fk_mixing_prod_batch
+        FOREIGN KEY (prod_batch_id) REFERENCES prod_batches(id) ON DELETE SET NULL;
+
+ALTER TABLE mixing_logs
+    ADD CONSTRAINT fk_mixing_prod_product
+        FOREIGN KEY (prod_product_id) REFERENCES prod_products(id) ON DELETE RESTRICT;
 
 -- ============================================================================
 -- SECTION 11: DEMO SEED DATA (cooling logs for portfolio demo)
