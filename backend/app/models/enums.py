@@ -21,6 +21,7 @@ class UserRole(str, enum.Enum):
     QA = "QA"
     PRODUCTION = "Production"
     WAREHOUSE = "Warehouse"
+    CAPTAIN = "Captain"
 
 
 class PassFail(str, enum.Enum):

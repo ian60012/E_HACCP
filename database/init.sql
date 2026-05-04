@@ -26,7 +26,7 @@
 -- ============================================================================
 
 DO $$ BEGIN
-    CREATE TYPE user_role_enum AS ENUM ('Admin', 'QA', 'Production', 'Warehouse');
+    CREATE TYPE user_role_enum AS ENUM ('Admin', 'QA', 'Production', 'Warehouse', 'Captain');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 

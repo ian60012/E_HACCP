@@ -109,8 +109,22 @@ const productionSections: NavSection[] = [
   },
 ];
 
+// Captain-only section: Production Helper (週生產計畫 / 配方庫 / 叫貨總覽)
+const captainSections: NavSection[] = [
+  {
+    title: '生產輔助',
+    titleKey: 'nav.productionHelper',
+    items: [
+      { to: '/production-helper', label: '週生產計畫', labelKey: 'nav.weeklyPlan', icon: ClipboardDocumentListIcon, roles: ['Captain'] },
+    ],
+    roles: ['Captain'],
+  },
+];
+
 function detectSystem(pathname: string): 'haccp' | 'inventory' | 'production' {
   if (pathname.startsWith('/inventory') || pathname.startsWith('/inventory/raw-materials')) return 'inventory';
+  // /production-helper is a Captain-only module; treat it as haccp/portal context so the sidebar doesn't show production-management items the Captain has no access to.
+  if (pathname.startsWith('/production-helper')) return 'haccp';
   if (pathname.startsWith('/production')) return 'production';
   return 'haccp';
 }
@@ -125,10 +139,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const { pathname } = useLocation();
 
   const system = detectSystem(pathname);
-  const rawSections =
+  const baseSections =
     system === 'inventory' ? inventorySections :
     system === 'production' ? productionSections :
     haccpSections;
+  // Always append captain sections — they're filtered by role in visibleSections below.
+  const rawSections = [...baseSections, ...captainSections];
 
   const visibleSections = rawSections
     .filter((section) => !section.roles || section.roles.includes(user?.role || ''))

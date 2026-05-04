@@ -74,6 +74,9 @@ import AreasPage from '@/pages/reference/AreasPage';
 // System management
 import UsersPage from '@/pages/users/UsersPage';
 
+// Production Helper (Captain only)
+import ProductionHelperPage from '@/pages/ProductionHelper/ProductionHelperPage';
+
 // Inventory module
 import InventoryItemsPage from '@/pages/inventory/InventoryItemsPage';
 import InventoryItemFormPage from '@/pages/inventory/InventoryItemFormPage';
@@ -186,6 +189,9 @@ export default function App() {
           <Route path="/inventory/stocktakes" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStocktakeListPage /></RoleGuard>} />
           <Route path="/inventory/stocktakes/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStocktakePage /></RoleGuard>} />
           <Route path="/inventory/stocktakes/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStocktakePage /></RoleGuard>} />
+
+          {/* Production Helper - Captain only */}
+          <Route path="/production-helper" element={<RoleGuard allowedRoles={['Captain']}><ProductionHelperPage /></RoleGuard>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />

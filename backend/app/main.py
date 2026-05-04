@@ -41,6 +41,7 @@ from app.routers.api.v1 import assembly_packing_logs
 from app.routers.api.v1 import inventory_stocktake
 from app.routers.api.v1 import batch_sheets
 from app.routers.api.v1 import admin
+from app.routers.api.v1 import production_helper
 
 
 @asynccontextmanager
@@ -497,6 +498,9 @@ async def lifespan(app: FastAPI):
                 seq               INTEGER NOT NULL DEFAULT 0
             )
         """))
+    # Production Helper data directory (plans/recipes/purchase_status JSON files)
+    production_helper.init_data_dir()
+
     yield
     # Shutdown: Close database connections
     await engine.dispose()
@@ -564,6 +568,9 @@ app.include_router(batch_sheets.list_router, prefix="/api/v1")
 
 # Admin
 app.include_router(admin.router, prefix="/api/v1")
+
+# Production Helper (Captain-only — 週生產計畫 / 配方庫 / 叫貨總覽)
+app.include_router(production_helper.router, prefix="/api/v1")
 
 
 @app.get("/")
