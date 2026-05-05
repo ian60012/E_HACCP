@@ -7,6 +7,7 @@ const roleBadgeColors: Record<string, string> = {
   QA: 'bg-green-100 text-green-700',
   Production: 'bg-blue-100 text-blue-700',
   Warehouse: 'bg-amber-100 text-amber-700',
+  Captain: 'bg-rose-100 text-rose-700',
 };
 
 const roleLabelKeys: Record<string, string> = {
@@ -14,6 +15,7 @@ const roleLabelKeys: Record<string, string> = {
   QA: 'role.qa',
   Production: 'role.production',
   Warehouse: 'role.warehouse',
+  Captain: 'role.captain',
 };
 
 interface NavBarProps {

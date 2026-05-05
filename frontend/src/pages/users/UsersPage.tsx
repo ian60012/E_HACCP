@@ -34,7 +34,7 @@ export default function UsersPage() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'Admin' | 'QA' | 'Production' | 'Warehouse'>('Production');
+  const [role, setRole] = useState<'Admin' | 'QA' | 'Production' | 'Warehouse' | 'Captain'>('Production');
   const [isActive, setIsActive] = useState(true);
 
   // Password reset modal state
@@ -290,11 +290,12 @@ export default function UsersPage() {
                 </FormField>
 
                 <FormField label={bi('field.role')} required>
-                  <select value={role} onChange={(e) => setRole(e.target.value as 'Admin' | 'QA' | 'Production' | 'Warehouse')} className="input">
+                  <select value={role} onChange={(e) => setRole(e.target.value as 'Admin' | 'QA' | 'Production' | 'Warehouse' | 'Captain')} className="input">
                     <option value="Admin">{bi('role.admin')}</option>
                     <option value="QA">{bi('role.qa')}</option>
                     <option value="Production">{bi('role.production')}</option>
                     <option value="Warehouse">{bi('role.warehouse')}</option>
+                    <option value="Captain">{bi('role.captain')}</option>
                   </select>
                 </FormField>
 

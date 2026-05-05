@@ -146,11 +146,15 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   // Always append captain sections — they're filtered by role in visibleSections below.
   const rawSections = [...baseSections, ...captainSections];
 
+  // Captain is a super-role — sees every section/item regardless of declared roles.
+  const isCaptain = user?.role === 'Captain';
   const visibleSections = rawSections
-    .filter((section) => !section.roles || section.roles.includes(user?.role || ''))
+    .filter((section) => isCaptain || !section.roles || section.roles.includes(user?.role || ''))
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => !item.roles || item.roles.includes(user?.role || '')),
+      items: section.items.filter(
+        (item) => isCaptain || !item.roles || item.roles.includes(user?.role || '')
+      ),
     }))
     .filter((section) => section.items.length > 0);
 

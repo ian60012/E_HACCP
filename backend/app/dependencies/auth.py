@@ -64,6 +64,10 @@ def require_role(*allowed_roles: str):
     """
     Factory returning a dependency that checks user role.
 
+    Captain is a super-role — it is implicitly allowed for every endpoint
+    regardless of `allowed_roles`. To restrict access to Captains only
+    (e.g. the production_helper module), pass exactly require_role("Captain").
+
     Usage:
         @router.post("/lock")
         async def lock_record(
@@ -75,6 +79,9 @@ def require_role(*allowed_roles: str):
         current_user: User = Depends(get_current_active_user),
     ) -> User:
         user_role = current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role)
+        # Captain is a super-role with full access to every protected resource.
+        if user_role == "Captain":
+            return current_user
         if user_role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

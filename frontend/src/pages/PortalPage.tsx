@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheckIcon, CogIcon, ArchiveBoxIcon } from '@heroicons/react/24/outline';
+import { ShieldCheckIcon, CogIcon, ArchiveBoxIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
 import Bi, { bi } from '@/components/Bi';
 
@@ -37,6 +37,14 @@ const systems: SystemCard[] = [
     color: 'text-emerald-600 bg-emerald-50 border-emerald-200 hover:border-emerald-400',
     roles: ['Admin', 'QA', 'Warehouse'],
   },
+  {
+    titleKey: 'page.portal.productionHelper',
+    descKey: 'page.portal.productionHelperDesc',
+    icon: ClipboardDocumentListIcon,
+    to: '/production-helper',
+    color: 'text-rose-600 bg-rose-50 border-rose-200 hover:border-rose-400',
+    roles: ['Captain'],
+  },
 ];
 
 export default function PortalPage() {
@@ -55,7 +63,9 @@ export default function PortalPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-3xl">
-        {systems.filter((sys) => !sys.roles || sys.roles.includes(user?.role || '')).map((sys) => (
+        {systems
+          .filter((sys) => user?.role === 'Captain' || !sys.roles || sys.roles.includes(user?.role || ''))
+          .map((sys) => (
           <button
             key={sys.to}
             onClick={() => !sys.disabled && navigate(sys.to)}
