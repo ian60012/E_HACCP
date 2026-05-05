@@ -192,6 +192,8 @@ export default function App() {
 
           {/* Production Helper - Captain only */}
           <Route path="/production-helper" element={<RoleGuard allowedRoles={['Captain']}><ProductionHelperPage /></RoleGuard>} />
+          <Route path="/production-helper/recipes" element={<RoleGuard allowedRoles={['Captain']}><ProductionHelperPage /></RoleGuard>} />
+          <Route path="/production-helper/requirements" element={<RoleGuard allowedRoles={['Captain']}><ProductionHelperPage /></RoleGuard>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />

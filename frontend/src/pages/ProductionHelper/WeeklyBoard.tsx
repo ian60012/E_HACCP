@@ -1,7 +1,8 @@
 import { PHPlanItem } from '@/api/productionHelper';
 import PlanCard from './PlanCard';
 import NoteCard from './NoteCard';
-import { DAYS, STATIONS, fmtDate, isoDate } from './utils';
+import { STATIONS, isoDate } from './utils';
+import Bi from '@/components/Bi';
 
 interface Props {
   week: string;
@@ -136,14 +137,14 @@ function Row({
                 className="flex-1 text-xs px-2 py-1 rounded-md border border-dashed border-slate-300 text-slate-500 hover:bg-slate-50 hover:border-blue-400 hover:text-blue-600 transition-colors"
                 onClick={() => onAddPlan(d.date, d.key, station)}
               >
-                + 計畫
+                <Bi k="ph.btn.addPlan" showEn={false} />
               </button>
               <button
                 type="button"
                 className="flex-1 text-xs px-2 py-1 rounded-md border border-dashed border-yellow-300 text-yellow-700 hover:bg-yellow-50 hover:border-yellow-500 transition-colors"
                 onClick={() => onAddNote(d.date, d.key, station)}
               >
-                + 便條
+                <Bi k="ph.btn.addNote" showEn={false} />
               </button>
             </div>
           </div>

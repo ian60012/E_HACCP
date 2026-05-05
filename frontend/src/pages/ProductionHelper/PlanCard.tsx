@@ -1,4 +1,5 @@
 import { PHPlanItem, PHRecipe } from '@/api/productionHelper';
+import Bi from '@/components/Bi';
 
 interface Props {
   item: PHPlanItem;
@@ -17,7 +18,7 @@ export default function PlanCard({ item, recipe, recentBatchDate, onClick }: Pro
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="font-bold text-sm text-slate-900 truncate">
-            {item.product_name || '未選產品'}
+            {item.product_name || '—'}
           </div>
           <div className="text-xs text-slate-500 truncate">{item.product_code || ''}</div>
         </div>
@@ -26,7 +27,7 @@ export default function PlanCard({ item, recipe, recentBatchDate, onClick }: Pro
         </div>
       </div>
       <div className="text-xs text-slate-600 mt-1">
-        {item.main_material_name || '主材料未填'}
+        {item.main_material_name || '—'}
         {item.notes ? <span className="text-slate-400"> · {item.notes}</span> : null}
       </div>
       <div className="flex flex-wrap gap-1 mt-2">
@@ -35,11 +36,11 @@ export default function PlanCard({ item, recipe, recentBatchDate, onClick }: Pro
             recipe ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
           }`}
         >
-          {recipe ? '有配方' : '缺配方'}
+          {recipe ? <Bi k="ph.label.hasRecipe" showEn={false} /> : <Bi k="ph.label.noRecipe" showEn={false} />}
         </span>
         {recentBatchDate ? (
           <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-600">
-            最近 {recentBatchDate}
+            <Bi k="ph.label.recent" showEn={false} /> {recentBatchDate}
           </span>
         ) : null}
       </div>

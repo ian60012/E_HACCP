@@ -1,4 +1,5 @@
 import { PHPlanItem } from '@/api/productionHelper';
+import Bi, { bi } from '@/components/Bi';
 
 interface Props {
   item: PHPlanItem;
@@ -12,7 +13,7 @@ export default function NoteCard({ item, onClick }: Props) {
       onClick={onClick}
     >
       <div className="font-extrabold text-sm text-yellow-900">
-        {item.title || '（無標題）'}
+        {item.title || bi('ph.label.untitled')}
       </div>
       {item.content ? (
         <div className="text-xs text-yellow-800 mt-1 whitespace-pre-wrap break-words">
@@ -20,7 +21,7 @@ export default function NoteCard({ item, onClick }: Props) {
         </div>
       ) : null}
       <span className="inline-block mt-1.5 px-1.5 py-0 text-[10px] font-bold tracking-wider rounded-full text-yellow-700 bg-yellow-100 border border-yellow-200">
-        便條
+        <Bi k="ph.label.note" showEn={false} />
       </span>
     </article>
   );

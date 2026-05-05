@@ -1,11 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowPathIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ClipboardDocumentListIcon,
-  BookOpenIcon,
-  ShoppingCartIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline';
 import { useProductionHelper } from './useProductionHelper';
@@ -15,9 +13,12 @@ import NoteDrawer from './NoteDrawer';
 import RecipeDrawer from './RecipeDrawer';
 import RequirementsDrawer from './RequirementsDrawer';
 import { PHPlanItem } from '@/api/productionHelper';
-import { fmtDate } from './utils';
+import Bi, { bi } from '@/components/Bi';
 
 export default function ProductionHelperPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const {
     state,
     week,
@@ -38,7 +39,7 @@ export default function ProductionHelperPage() {
     recentBatchesFor,
   } = useProductionHelper();
 
-  // Drawer state
+  // Drawer state for plan/note (data-driven, controlled by user clicks)
   const [planDrawer, setPlanDrawer] = useState<{
     open: boolean;
     item: PHPlanItem | null;
@@ -49,10 +50,20 @@ export default function ProductionHelperPage() {
     item: PHPlanItem | null;
     defaults: { date?: string; day?: string; station?: string };
   }>({ open: false, item: null, defaults: {} });
-  const [recipeDrawerOpen, setRecipeDrawerOpen] = useState(false);
-  const [requirementsDrawerOpen, setRequirementsDrawerOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
 
+  // Recipe / Requirements drawers are URL-driven (sidebar links open them)
+  const recipeDrawerOpen = location.pathname === '/production-helper/recipes';
+  const requirementsDrawerOpen = location.pathname === '/production-helper/requirements';
+
+  // When ESC / close clicked, navigate back to base route
+  function closeRecipes() {
+    navigate('/production-helper');
+  }
+  function closeRequirements() {
+    navigate('/production-helper');
+  }
+
+  const [toast, setToast] = useState<string | null>(null);
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 2600);
@@ -78,22 +89,21 @@ export default function ProductionHelperPage() {
     try {
       if (id) {
         await updatePlan(id, payload);
-        showToast('計畫已更新');
       } else {
         await createPlan(payload);
-        showToast('計畫已新增');
       }
+      showToast(bi('ph.toast.savedPlan'));
     } catch (err: any) {
-      showToast(`保存失敗：${err?.message || '未知錯誤'}`);
+      showToast(`${bi('ph.toast.saveFailed')}：${err?.message || ''}`);
       throw err;
     }
   }
   async function handleDeletePlan(id: string) {
     try {
       await deletePlan(id);
-      showToast('計畫已刪除');
+      showToast(bi('ph.toast.deletedPlan'));
     } catch (err: any) {
-      showToast(`刪除失敗：${err?.message || '未知錯誤'}`);
+      showToast(`${bi('ph.toast.deleteFailed')}：${err?.message || ''}`);
       throw err;
     }
   }
@@ -113,22 +123,21 @@ export default function ProductionHelperPage() {
     try {
       if (id) {
         await updatePlan(id, payload);
-        showToast('便條已更新');
       } else {
         await createPlan(payload);
-        showToast('便條已新增');
       }
+      showToast(bi('ph.toast.savedNote'));
     } catch (err: any) {
-      showToast(`保存失敗：${err?.message || '未知錯誤'}`);
+      showToast(`${bi('ph.toast.saveFailed')}：${err?.message || ''}`);
       throw err;
     }
   }
   async function handleDeleteNote(id: string) {
     try {
       await deletePlan(id);
-      showToast('便條已刪除');
+      showToast(bi('ph.toast.deletedNote'));
     } catch (err: any) {
-      showToast(`刪除失敗：${err?.message || '未知錯誤'}`);
+      showToast(`${bi('ph.toast.deleteFailed')}：${err?.message || ''}`);
       throw err;
     }
   }
@@ -136,11 +145,13 @@ export default function ProductionHelperPage() {
   return (
     <div className="p-4 max-w-[1400px] mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+      <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">週生產計畫</h1>
+          <h1 className="text-2xl font-bold text-slate-900">
+            <Bi k="ph.page.title" />
+          </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            以產品和主材料量安排生產，配方會自動匯總輔料叫貨量。
+            <Bi k="ph.page.subtitle" />
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -148,19 +159,21 @@ export default function ProductionHelperPage() {
             type="button"
             onClick={prevWeek}
             className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
+            title={bi('ph.btn.prevWeek')}
           >
             <ChevronLeftIcon className="h-4 w-4" />
-            上一週
+            <Bi k="ph.btn.prevWeek" showEn={false} />
           </button>
           <div className="text-sm font-bold px-3 py-1.5 rounded-md bg-slate-100 text-slate-700">
-            {dates[0]?.date} 至 {dates[dates.length - 1]?.date}
+            {dates[0]?.date} ~ {dates[dates.length - 1]?.date}
           </div>
           <button
             type="button"
             onClick={nextWeek}
             className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
+            title={bi('ph.btn.nextWeek')}
           >
-            下一週
+            <Bi k="ph.btn.nextWeek" showEn={false} />
             <ChevronRightIcon className="h-4 w-4" />
           </button>
           <button
@@ -168,60 +181,48 @@ export default function ProductionHelperPage() {
             onClick={todayWeek}
             className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50"
           >
-            本週
-          </button>
-          <button
-            type="button"
-            onClick={() => setRecipeDrawerOpen(true)}
-            className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
-          >
-            <BookOpenIcon className="h-4 w-4" />
-            配方庫
-          </button>
-          <button
-            type="button"
-            onClick={() => setRequirementsDrawerOpen(true)}
-            className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
-          >
-            <ShoppingCartIcon className="h-4 w-4" />
-            叫貨總覽
+            <Bi k="ph.btn.thisWeek" showEn={false} />
           </button>
           <button
             type="button"
             onClick={loadBootstrap}
-            className="text-sm px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center gap-1"
+            className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
+            title={bi('ph.btn.refresh')}
           >
             <ArrowPathIcon className="h-4 w-4" />
-            重新整理
+            <Bi k="ph.btn.refresh" showEn={false} />
           </button>
           <button
             type="button"
             onClick={() => setPlanDrawer({ open: true, item: null, defaults: { date: dates[0]?.date, station: '面点' } })}
-            className="text-sm px-3 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 inline-flex items-center gap-1"
+            className="text-sm px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center gap-1"
           >
             <PlusIcon className="h-4 w-4" />
-            新增計畫
+            <Bi k="ph.btn.newPlan" showEn={false} />
           </button>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <Stat label="本週計畫項" value={planItemsThisWeek.length} />
-        <Stat label="本週主材料 kg" value={totalKg.toLocaleString(undefined, { maximumFractionDigits: 1 })} />
-        <Stat label="需叫貨材料" value={requirements.length} />
-        <Stat label="產品總數" value={state.products.length} />
+        <Stat labelKey="ph.stat.planCount" value={planItemsThisWeek.length} />
+        <Stat
+          labelKey="ph.stat.mainKg"
+          value={totalKg.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+        />
+        <Stat labelKey="ph.stat.auxCount" value={requirements.length} />
+        <Stat labelKey="ph.stat.productCount" value={state.products.length} />
       </div>
 
       {state.error ? (
         <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 mb-3">
-          載入失敗：{state.error}
+          {state.error}
         </div>
       ) : null}
 
       {/* Board */}
       {state.loading ? (
-        <div className="text-center text-slate-500 py-12">讀取中…</div>
+        <div className="text-center text-slate-500 py-12">…</div>
       ) : (
         <WeeklyBoard
           week={week}
@@ -245,6 +246,7 @@ export default function ProductionHelperPage() {
         weekDates={dates as any}
         products={state.products}
         recipes={state.recipes}
+        inventoryItems={state.inventoryItems}
         batches={state.batches as any}
         weekKey={week}
         onSave={handleSavePlan}
@@ -262,43 +264,43 @@ export default function ProductionHelperPage() {
       />
       <RecipeDrawer
         open={recipeDrawerOpen}
-        onClose={() => setRecipeDrawerOpen(false)}
+        onClose={closeRecipes}
         recipes={state.recipes}
         products={state.products}
         inventoryItems={state.inventoryItems}
         onCreate={async (b) => {
           try {
             const r = await createRecipe(b);
-            showToast('配方已新增');
+            showToast(bi('ph.toast.savedRecipe'));
             return r;
           } catch (err: any) {
-            showToast(`保存失敗：${err?.message || '未知錯誤'}`);
+            showToast(`${bi('ph.toast.saveFailed')}：${err?.message || ''}`);
             throw err;
           }
         }}
         onUpdate={async (id, b) => {
           try {
             const r = await updateRecipe(id, b);
-            showToast('配方已更新');
+            showToast(bi('ph.toast.savedRecipe'));
             return r;
           } catch (err: any) {
-            showToast(`保存失敗：${err?.message || '未知錯誤'}`);
+            showToast(`${bi('ph.toast.saveFailed')}：${err?.message || ''}`);
             throw err;
           }
         }}
         onDelete={async (id) => {
           try {
             await deleteRecipe(id);
-            showToast('配方已刪除');
+            showToast(bi('ph.toast.deletedRecipe'));
           } catch (err: any) {
-            showToast(`刪除失敗：${err?.message || '未知錯誤'}`);
+            showToast(`${bi('ph.toast.deleteFailed')}：${err?.message || ''}`);
             throw err;
           }
         }}
       />
       <RequirementsDrawer
         open={requirementsDrawerOpen}
-        onClose={() => setRequirementsDrawerOpen(false)}
+        onClose={closeRequirements}
         requirements={requirements}
         weekKey={week}
         orderedKeys={state.orderedKeys}
@@ -315,10 +317,12 @@ export default function ProductionHelperPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
+function Stat({ labelKey, value }: { labelKey: string; value: string | number }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-xs text-slate-500">
+        <Bi k={labelKey} />
+      </div>
       <div className="text-2xl font-bold text-slate-900 mt-0.5">{value}</div>
     </div>
   );

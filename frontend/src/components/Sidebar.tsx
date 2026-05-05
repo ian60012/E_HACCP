@@ -23,6 +23,8 @@ import {
   TagIcon,
   ShieldCheckIcon,
   AdjustmentsHorizontalIcon,
+  BookOpenIcon,
+  ShoppingCartIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
 import Bi from '@/components/Bi';
@@ -109,22 +111,23 @@ const productionSections: NavSection[] = [
   },
 ];
 
-// Captain-only section: Production Helper (週生產計畫 / 配方庫 / 叫貨總覽)
-const captainSections: NavSection[] = [
+// Production Helper system sidebar (Captain only). Separate from HACCP/Inventory/Production.
+const productionHelperSections: NavSection[] = [
   {
     title: '生產輔助',
     titleKey: 'nav.productionHelper',
     items: [
       { to: '/production-helper', label: '週生產計畫', labelKey: 'nav.weeklyPlan', icon: ClipboardDocumentListIcon, roles: ['Captain'] },
+      { to: '/production-helper/recipes', label: '配方庫', labelKey: 'nav.recipes', icon: BookOpenIcon, roles: ['Captain'] },
+      { to: '/production-helper/requirements', label: '叫貨總覽', labelKey: 'nav.purchaseRequirements', icon: ShoppingCartIcon, roles: ['Captain'] },
     ],
     roles: ['Captain'],
   },
 ];
 
-function detectSystem(pathname: string): 'haccp' | 'inventory' | 'production' {
+function detectSystem(pathname: string): 'haccp' | 'inventory' | 'production' | 'production-helper' {
   if (pathname.startsWith('/inventory') || pathname.startsWith('/inventory/raw-materials')) return 'inventory';
-  // /production-helper is a Captain-only module; treat it as haccp/portal context so the sidebar doesn't show production-management items the Captain has no access to.
-  if (pathname.startsWith('/production-helper')) return 'haccp';
+  if (pathname.startsWith('/production-helper')) return 'production-helper';
   if (pathname.startsWith('/production')) return 'production';
   return 'haccp';
 }
@@ -139,12 +142,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const { pathname } = useLocation();
 
   const system = detectSystem(pathname);
-  const baseSections =
+  // /production-helper has its own dedicated sidebar (Captain only) — no other sections shown.
+  const rawSections =
+    system === 'production-helper' ? productionHelperSections :
     system === 'inventory' ? inventorySections :
     system === 'production' ? productionSections :
     haccpSections;
-  // Always append captain sections — they're filtered by role in visibleSections below.
-  const rawSections = [...baseSections, ...captainSections];
 
   // Captain is a super-role — sees every section/item regardless of declared roles.
   const isCaptain = user?.role === 'Captain';

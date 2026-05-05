@@ -1,17 +1,18 @@
 import { useEffect, useState, useMemo } from 'react';
 import Drawer from './Drawer';
-import { PHPlanItem, PHProduct, PHRecipe } from '@/api/productionHelper';
+import { PHPlanItem, PHProduct, PHRecipe, PHInventoryItem } from '@/api/productionHelper';
 import { fmtDate } from './utils';
+import Bi, { bi } from '@/components/Bi';
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  // null = create new; PHPlanItem = edit
   item: PHPlanItem | null;
   defaults: { date?: string; station?: string };
   weekDates: { key: string; date: string }[];
   products: PHProduct[];
   recipes: PHRecipe[];
+  inventoryItems: PHInventoryItem[];
   batches: { product_id: number | string; product_code: string; product_name: string; production_date: string | null }[];
   weekKey: string;
   onSave: (payload: Partial<PHPlanItem>, id?: string) => Promise<void>;
@@ -19,7 +20,20 @@ interface Props {
 }
 
 export default function PlanDrawer(props: Props) {
-  const { open, onClose, item, defaults, weekDates, products, recipes, batches, weekKey, onSave, onDelete } = props;
+  const {
+    open,
+    onClose,
+    item,
+    defaults,
+    weekDates,
+    products,
+    recipes,
+    inventoryItems,
+    batches,
+    weekKey,
+    onSave,
+    onDelete,
+  } = props;
 
   const [form, setForm] = useState({
     date: defaults.date || weekDates[0]?.date || '',
@@ -98,7 +112,7 @@ export default function PlanDrawer(props: Props) {
 
   async function handleDelete() {
     if (!item?.id) return;
-    if (!window.confirm('確定刪除此計畫項？')) return;
+    if (!window.confirm(bi('ph.confirm.deletePlan'))) return;
     await onDelete(item.id);
     onClose();
   }
@@ -106,13 +120,13 @@ export default function PlanDrawer(props: Props) {
   return (
     <Drawer
       open={open}
-      title={item ? '編輯計畫' : '新增計畫'}
-      subtitle="選擇產品並填入主材料量。"
+      title={bi(item ? 'ph.drawer.editPlan' : 'ph.drawer.newPlan')}
+      subtitle={bi('ph.page.subtitle')}
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-3">
         <label className="text-sm">
-          <span className="text-slate-700">日期</span>
+          <span className="text-slate-700"><Bi k="ph.field.date" /></span>
           <select
             value={form.date}
             onChange={(e) => setForm({ ...form, date: e.target.value })}
@@ -126,7 +140,7 @@ export default function PlanDrawer(props: Props) {
           </select>
         </label>
         <label className="text-sm">
-          <span className="text-slate-700">岗位</span>
+          <span className="text-slate-700"><Bi k="ph.field.station" /></span>
           <select
             value={form.station}
             onChange={(e) => setForm({ ...form, station: e.target.value })}
@@ -137,22 +151,21 @@ export default function PlanDrawer(props: Props) {
           </select>
         </label>
         <label className="text-sm col-span-2">
-          <span className="text-slate-700">產品</span>
+          <span className="text-slate-700"><Bi k="ph.field.product" /></span>
           <select
             value={String(form.product_id)}
             onChange={(e) => {
               const newProductId = e.target.value;
-              const newProduct = products.find((p) => String(p.id) === newProductId);
               const newRecipe = recipes.find((r) => String(r.product_id) === newProductId);
               setForm({
                 ...form,
                 product_id: newProductId,
-                main_material_name: newRecipe?.main_material_name || form.main_material_name || (newProduct?.name ? '' : form.main_material_name),
+                main_material_name: newRecipe?.main_material_name || form.main_material_name,
               });
             }}
             className="mt-1 w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
           >
-            <option value="">请选择产品</option>
+            <option value="">—</option>
             {products.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.code} · {p.name}
@@ -161,34 +174,42 @@ export default function PlanDrawer(props: Props) {
           </select>
         </label>
         <label className="text-sm">
-          <span className="text-slate-700">主材料</span>
+          <span className="text-slate-700"><Bi k="ph.field.mainMaterial" /></span>
           <input
+            list="ph-material-list"
             type="text"
             value={form.main_material_name}
             onChange={(e) => setForm({ ...form, main_material_name: e.target.value })}
-            placeholder="例如 猪肉、鸡胸肉、牛肉粒"
+            placeholder={bi('ph.placeholder.material')}
             className="mt-1 w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
           />
+          <datalist id="ph-material-list">
+            {inventoryItems.map((i) => (
+              <option key={i.id} value={i.name}>
+                {i.code} · {i.name} ({i.base_unit || ''})
+              </option>
+            ))}
+          </datalist>
         </label>
         <label className="text-sm">
-          <span className="text-slate-700">主材料 kg</span>
+          <span className="text-slate-700"><Bi k="ph.field.mainQty" /></span>
           <input
             type="number"
             step="0.001"
             min="0"
             value={form.main_material_qty_kg}
             onChange={(e) => setForm({ ...form, main_material_qty_kg: e.target.value })}
-            placeholder="0"
+            placeholder={bi('ph.placeholder.qty')}
             className="mt-1 w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
           />
         </label>
         <label className="text-sm col-span-2">
-          <span className="text-slate-700">備註</span>
+          <span className="text-slate-700"><Bi k="ph.field.notes" /></span>
           <textarea
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
             rows={3}
-            placeholder="例如 包裝規格、實驗、清潔、Council 檢查"
+            placeholder={bi('ph.placeholder.notes')}
             className="mt-1 w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
           />
         </label>
@@ -201,12 +222,12 @@ export default function PlanDrawer(props: Props) {
                   {product.code} · {product.name}
                 </strong>
                 <div className="mt-0.5">
-                  類型：{product.product_type || '-'} · CCP：{product.ccp_limit_temp ?? '-'}°C ·{' '}
-                  {recipe ? '已有配方' : '尚未建立配方'}
+                  {product.product_type || '-'} · CCP: {product.ccp_limit_temp ?? '-'}°C ·{' '}
+                  {recipe ? <Bi k="ph.label.hasRecipe" /> : <Bi k="ph.label.noRecipe" />}
                 </div>
                 {recent.length ? (
                   <div className="mt-1 text-slate-500">
-                    近期批次：
+                    <Bi k="ph.label.recent" />:
                     {recent.map((b, i) => (
                       <span key={i} className="ml-1">
                         {b.production_date}
@@ -217,11 +238,7 @@ export default function PlanDrawer(props: Props) {
               </>
             ) : null}
           </div>
-        ) : (
-          <div className="col-span-2 rounded-md bg-slate-50 p-2.5 text-xs text-slate-500">
-            選擇產品後會顯示產品類型、CCP 溫度和近期批次。
-          </div>
-        )}
+        ) : null}
 
         <div className="col-span-2 flex items-center gap-2 pt-2 border-t border-slate-200 mt-2">
           {item ? (
@@ -230,7 +247,7 @@ export default function PlanDrawer(props: Props) {
               className="text-sm px-3 py-1.5 rounded-md border border-rose-300 text-rose-600 hover:bg-rose-50"
               onClick={handleDelete}
             >
-              刪除
+              <Bi k="ph.btn.delete" showEn={false} />
             </button>
           ) : null}
           <div className="flex-1" />
@@ -239,13 +256,13 @@ export default function PlanDrawer(props: Props) {
             className="text-sm px-3 py-1.5 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50"
             onClick={onClose}
           >
-            取消
+            <Bi k="ph.btn.cancel" showEn={false} />
           </button>
           <button
             type="submit"
             className="text-sm px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
           >
-            保存
+            <Bi k="ph.btn.save" showEn={false} />
           </button>
         </div>
       </form>

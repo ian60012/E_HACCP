@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Drawer from './Drawer';
 import { PHRecipe, PHRecipeAux, PHProduct, PHInventoryItem } from '@/api/productionHelper';
 import { TrashIcon, PlusIcon } from '@heroicons/react/24/outline';
+import Bi, { bi } from '@/components/Bi';
 
 interface Props {
   open: boolean;
@@ -100,23 +101,31 @@ export default function RecipeDrawer(props: Props) {
 
   async function handleDelete() {
     if (!selectedId) return;
-    if (!window.confirm('確定刪除此配方？')) return;
+    if (!window.confirm(bi('ph.confirm.deleteRecipe'))) return;
     await onDelete(selectedId);
     setSelectedId(null);
   }
 
   return (
-    <Drawer open={open} title="配方庫" subtitle="定義每 1kg 主材料需要多少輔料。" onClose={onClose} wide>
+    <Drawer
+      open={open}
+      title={bi('ph.recipes.title')}
+      subtitle={bi('ph.recipes.subtitle')}
+      onClose={onClose}
+      wide
+    >
       <div className="grid grid-cols-[260px_1fr] gap-4">
         <div className="border border-slate-200 rounded-md overflow-hidden flex flex-col">
           <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700">配方列表</span>
+            <span className="text-xs font-bold text-slate-700">
+              <Bi k="ph.recipes.title" />
+            </span>
             <button
               type="button"
               className="text-xs px-2 py-0.5 rounded border border-slate-300 hover:bg-white"
               onClick={() => setSelectedId(null)}
             >
-              新增
+              + <Bi k="ph.btn.newPlan" showEn={false} />
             </button>
           </div>
           <div className="overflow-y-auto max-h-[60vh]">
@@ -129,28 +138,30 @@ export default function RecipeDrawer(props: Props) {
                 }`}
                 onClick={() => setSelectedId(r.id)}
               >
-                <div className="font-bold">{r.product_name || '（無產品）'}</div>
+                <div className="font-bold">{r.product_name || '—'}</div>
                 <div className="text-xs text-slate-500">
-                  {r.product_code} · {r.auxiliaries.length} 項輔料
+                  {r.product_code} · {r.auxiliaries.length} {bi('ph.field.auxItem')}
                 </div>
               </button>
             ))}
             {recipes.length === 0 ? (
-              <div className="p-3 text-xs text-slate-500">尚無配方</div>
+              <div className="p-3 text-xs text-slate-500">
+                <Bi k="ph.empty.recipes" />
+              </div>
             ) : null}
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-3">
           <label className="text-sm col-span-2">
-            <span className="text-slate-700">產品</span>
+            <span className="text-slate-700"><Bi k="ph.field.product" /></span>
             <select
               value={form.product_id}
               onChange={(e) => setForm({ ...form, product_id: e.target.value })}
               className="mt-1 w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
               required
             >
-              <option value="">请选择产品</option>
+              <option value="">—</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.code} · {p.name}
@@ -159,24 +170,34 @@ export default function RecipeDrawer(props: Props) {
             </select>
           </label>
           <label className="text-sm col-span-2">
-            <span className="text-slate-700">主材料</span>
+            <span className="text-slate-700"><Bi k="ph.field.mainMaterial" /></span>
             <input
+              list="ph-recipe-material-list"
               type="text"
               value={form.main_material_name}
               onChange={(e) => setForm({ ...form, main_material_name: e.target.value })}
-              placeholder="例如 猪肉、鸡胸肉"
+              placeholder={bi('ph.placeholder.material')}
               className="mt-1 w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
             />
+            <datalist id="ph-recipe-material-list">
+              {inventoryItems.map((i) => (
+                <option key={i.id} value={i.name}>
+                  {i.code} · {i.name} ({i.base_unit || ''})
+                </option>
+              ))}
+            </datalist>
           </label>
           <div className="col-span-2">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-bold text-slate-700">輔料係數</span>
+              <span className="text-sm font-bold text-slate-700">
+                <Bi k="ph.field.auxList" />
+              </span>
               <button
                 type="button"
                 className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
                 onClick={addAux}
               >
-                <PlusIcon className="h-3 w-3" /> 新增輔料
+                <PlusIcon className="h-3 w-3" /> <Bi k="ph.btn.addAux" showEn={false} />
               </button>
             </div>
             <div className="space-y-2">
@@ -187,7 +208,7 @@ export default function RecipeDrawer(props: Props) {
                     onChange={(e) => updateAux(idx, { item_id: e.target.value })}
                     className="border border-slate-300 rounded-md px-2 py-1.5 text-sm"
                   >
-                    <option value="">選擇輔料</option>
+                    <option value="">— {bi('ph.field.auxItem')}</option>
                     {inventoryItems.map((i) => (
                       <option key={i.id} value={i.id}>
                         {i.code} · {i.name}
@@ -198,7 +219,7 @@ export default function RecipeDrawer(props: Props) {
                     type="number"
                     step="0.0001"
                     min="0"
-                    placeholder="每kg用量"
+                    placeholder={bi('ph.field.qtyPerKg')}
                     value={String(aux.qty_per_kg_main_material || '')}
                     onChange={(e) => updateAux(idx, { qty_per_kg_main_material: e.target.value })}
                     className="border border-slate-300 rounded-md px-2 py-1.5 text-sm"
@@ -207,14 +228,16 @@ export default function RecipeDrawer(props: Props) {
                     type="button"
                     className="text-rose-500 hover:text-rose-700 p-1"
                     onClick={() => removeAux(idx)}
-                    aria-label="刪除"
+                    aria-label={bi('ph.btn.delete')}
                   >
                     <TrashIcon className="h-4 w-4" />
                   </button>
                 </div>
               ))}
               {form.auxiliaries.length === 0 ? (
-                <div className="text-xs text-slate-500 italic">尚未新增輔料</div>
+                <div className="text-xs text-slate-500 italic">
+                  <Bi k="ph.empty.aux" />
+                </div>
               ) : null}
             </div>
           </div>
@@ -225,7 +248,7 @@ export default function RecipeDrawer(props: Props) {
                 className="text-sm px-3 py-1.5 rounded-md border border-rose-300 text-rose-600 hover:bg-rose-50"
                 onClick={handleDelete}
               >
-                刪除配方
+                <Bi k="ph.btn.delete" showEn={false} />
               </button>
             ) : null}
             <div className="flex-1" />
@@ -233,7 +256,7 @@ export default function RecipeDrawer(props: Props) {
               type="submit"
               className="text-sm px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
             >
-              保存配方
+              <Bi k="ph.btn.save" showEn={false} />
             </button>
           </div>
         </form>
