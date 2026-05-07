@@ -74,6 +74,9 @@ import AreasPage from '@/pages/reference/AreasPage';
 // System management
 import UsersPage from '@/pages/users/UsersPage';
 
+// Production Helper (Captain only)
+import ProductionHelperPage from '@/pages/ProductionHelper/ProductionHelperPage';
+
 // Inventory module
 import InventoryItemsPage from '@/pages/inventory/InventoryItemsPage';
 import InventoryItemFormPage from '@/pages/inventory/InventoryItemFormPage';
@@ -181,11 +184,19 @@ export default function App() {
           <Route path="/inventory/items" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemsPage /></RoleGuard>} />
           <Route path="/inventory/items/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemFormPage /></RoleGuard>} />
           <Route path="/inventory/items/:id/edit" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemFormPage /></RoleGuard>} />
-          <Route path="/inventory/raw-materials" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemsPage defaultCategory="原料" basePath="/inventory/raw-materials" /></RoleGuard>} />
+          <Route path="/inventory/raw-materials" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemsPage defaultItemType="raw" basePath="/inventory/raw-materials" /></RoleGuard>} />
+          <Route path="/inventory/intermediates" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemsPage defaultItemType="intermediate" basePath="/inventory/intermediates" /></RoleGuard>} />
+          <Route path="/inventory/finished-goods" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemsPage defaultItemType="finished" basePath="/inventory/finished-goods" /></RoleGuard>} />
+          <Route path="/inventory/packaging-materials" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryItemsPage defaultItemType="packaging" basePath="/inventory/packaging-materials" /></RoleGuard>} />
           <Route path="/inventory/locations" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryLocationsPage /></RoleGuard>} />
           <Route path="/inventory/stocktakes" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStocktakeListPage /></RoleGuard>} />
           <Route path="/inventory/stocktakes/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStocktakePage /></RoleGuard>} />
           <Route path="/inventory/stocktakes/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryStocktakePage /></RoleGuard>} />
+
+          {/* Production Helper - Captain only */}
+          <Route path="/production-helper" element={<RoleGuard allowedRoles={['Captain']}><ProductionHelperPage /></RoleGuard>} />
+          <Route path="/production-helper/recipes" element={<RoleGuard allowedRoles={['Captain']}><ProductionHelperPage /></RoleGuard>} />
+          <Route path="/production-helper/requirements" element={<RoleGuard allowedRoles={['Captain']}><ProductionHelperPage /></RoleGuard>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />

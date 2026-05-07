@@ -13,7 +13,11 @@ interface RoleGateProps {
 export default function RoleGate({ roles, children, fallback = null }: RoleGateProps) {
   const { user } = useAuth();
 
-  if (!user || !roles.includes(user.role)) {
+  // Captain is a super-role — implicitly allowed for every gated UI element.
+  if (!user) {
+    return <>{fallback}</>;
+  }
+  if (user.role !== 'Captain' && !roles.includes(user.role)) {
     return <>{fallback}</>;
   }
 

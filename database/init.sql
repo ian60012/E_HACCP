@@ -26,7 +26,7 @@
 -- ============================================================================
 
 DO $$ BEGIN
-    CREATE TYPE user_role_enum AS ENUM ('Admin', 'QA', 'Production', 'Warehouse');
+    CREATE TYPE user_role_enum AS ENUM ('Admin', 'QA', 'Production', 'Warehouse', 'Captain');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -994,13 +994,20 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$ BEGIN
+    CREATE TYPE item_type_enum AS ENUM ('raw', 'intermediate', 'finished', 'packaging');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- Item master (品項)
 CREATE TABLE IF NOT EXISTS inv_items (
     id            SERIAL PRIMARY KEY,
     code          VARCHAR(50)  UNIQUE NOT NULL,
     name          VARCHAR(200) NOT NULL,
+    item_type     item_type_enum NOT NULL DEFAULT 'raw',
     category      VARCHAR(100),
     base_unit     VARCHAR(20)  NOT NULL DEFAULT 'PCS',
+    usage_unit    VARCHAR(20),
     description   TEXT,
     supplier_id   INTEGER REFERENCES suppliers(id),
     is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
@@ -1093,6 +1100,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_stock_lines_item     ON inv_stock_lines(item_
 CREATE INDEX IF NOT EXISTS idx_inv_stock_movements_doc  ON inv_stock_movements(doc_id);
 CREATE INDEX IF NOT EXISTS idx_inv_stock_movements_item ON inv_stock_movements(item_id, location_id);
 CREATE INDEX IF NOT EXISTS idx_inv_items_supplier       ON inv_items(supplier_id) WHERE supplier_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_inv_items_item_type       ON inv_items(item_type);
 
 
 -- ============================================================================

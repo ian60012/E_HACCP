@@ -33,10 +33,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-haccp_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-haccp_password}
       POSTGRES_DB: ${POSTGRES_DB:-haccp_db}
+      PRODUCTION_HELPER_DATA_DIR: /app/app/data/production_helper
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - production_helper_data:/app/app/data/production_helper
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,3 +73,4 @@ services:
 
 volumes:
   postgres_data:
+  production_helper_data:

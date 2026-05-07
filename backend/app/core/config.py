@@ -20,7 +20,10 @@ class Settings(BaseSettings):
     
     # Environment
     ENVIRONMENT: str = "development"
-    
+
+    # Production Helper module
+    PRODUCTION_HELPER_DATA_DIR: str = "/app/app/data/production_helper"
+
     class Config:
         env_file = ".env"
         case_sensitive = True

@@ -23,6 +23,8 @@ import {
   TagIcon,
   ShieldCheckIcon,
   AdjustmentsHorizontalIcon,
+  BookOpenIcon,
+  ShoppingCartIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
 import Bi from '@/components/Bi';
@@ -87,8 +89,11 @@ const inventorySections: NavSection[] = [
       { to: '/inventory/balance', label: '庫存查詢', labelKey: 'nav.invBalance', icon: ChartBarIcon },
       { to: '/inventory/docs', label: '入出庫單', labelKey: 'nav.invDocs', icon: DocumentTextIcon },
       { to: '/inventory/stocktakes', label: '盤點', icon: ClipboardDocumentCheckIcon },
-      { to: '/inventory/raw-materials', label: '原料管理', icon: BeakerIcon },
-      { to: '/inventory/items', label: '品項管理', labelKey: 'nav.invItems', icon: ArchiveBoxIcon },
+      { to: '/inventory/raw-materials', label: '原料管理', labelKey: 'nav.invRawMaterials', icon: BeakerIcon },
+      { to: '/inventory/intermediates', label: '半成品管理', labelKey: 'nav.invIntermediates', icon: FireIcon },
+      { to: '/inventory/finished-goods', label: '成品管理', labelKey: 'nav.invFinishedGoods', icon: CubeIcon },
+      { to: '/inventory/packaging-materials', label: '包材管理', labelKey: 'nav.invPackaging', icon: ArchiveBoxIcon },
+      { to: '/inventory/items', label: '全部品項', labelKey: 'nav.invItemsAll', icon: Squares2X2Icon },
       { to: '/inventory/locations', label: '儲位管理', labelKey: 'nav.invLocations', icon: MapPinIcon },
     ],
   },
@@ -109,8 +114,23 @@ const productionSections: NavSection[] = [
   },
 ];
 
-function detectSystem(pathname: string): 'haccp' | 'inventory' | 'production' {
+// Production Helper system sidebar (Captain only). Separate from HACCP/Inventory/Production.
+const productionHelperSections: NavSection[] = [
+  {
+    title: '生產輔助',
+    titleKey: 'nav.productionHelper',
+    items: [
+      { to: '/production-helper', label: '週生產計畫', labelKey: 'nav.weeklyPlan', icon: ClipboardDocumentListIcon, roles: ['Captain'] },
+      { to: '/production-helper/recipes', label: '配方庫', labelKey: 'nav.recipes', icon: BookOpenIcon, roles: ['Captain'] },
+      { to: '/production-helper/requirements', label: '叫貨總覽', labelKey: 'nav.purchaseRequirements', icon: ShoppingCartIcon, roles: ['Captain'] },
+    ],
+    roles: ['Captain'],
+  },
+];
+
+function detectSystem(pathname: string): 'haccp' | 'inventory' | 'production' | 'production-helper' {
   if (pathname.startsWith('/inventory') || pathname.startsWith('/inventory/raw-materials')) return 'inventory';
+  if (pathname.startsWith('/production-helper')) return 'production-helper';
   if (pathname.startsWith('/production')) return 'production';
   return 'haccp';
 }
@@ -125,16 +145,22 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const { pathname } = useLocation();
 
   const system = detectSystem(pathname);
+  // /production-helper has its own dedicated sidebar (Captain only) — no other sections shown.
   const rawSections =
+    system === 'production-helper' ? productionHelperSections :
     system === 'inventory' ? inventorySections :
     system === 'production' ? productionSections :
     haccpSections;
 
+  // Captain is a super-role — sees every section/item regardless of declared roles.
+  const isCaptain = user?.role === 'Captain';
   const visibleSections = rawSections
-    .filter((section) => !section.roles || section.roles.includes(user?.role || ''))
+    .filter((section) => isCaptain || !section.roles || section.roles.includes(user?.role || ''))
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => !item.roles || item.roles.includes(user?.role || '')),
+      items: section.items.filter(
+        (item) => isCaptain || !item.roles || item.roles.includes(user?.role || '')
+      ),
     }))
     .filter((section) => section.items.length > 0);
 

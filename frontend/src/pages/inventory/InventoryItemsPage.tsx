@@ -5,7 +5,7 @@ import {
 } from '@heroicons/react/24/solid';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { invItemsApi } from '@/api/inventory';
-import { InvItem } from '@/types/inventory';
+import { InvItem, ItemType, ITEM_TYPES } from '@/types/inventory';
 import { usePagination } from '@/hooks/usePagination';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
@@ -13,20 +13,21 @@ import EmptyState from '@/components/EmptyState';
 import Pagination from '@/components/Pagination';
 import Bi, { bi } from '@/components/Bi';
 import RoleGate from '@/components/RoleGate';
+import { t } from '@/i18n/labels';
 
 const UNITS = ['PCS', 'KG', 'G', 'L', 'ML', '包', '箱', '袋', '罐', '卷', '打'];
 
 interface Props {
-  /** If set, always filter by this category and show category-specific title */
-  defaultCategory?: string;
+  /** If set, always filter by this item_type and show type-specific title */
+  defaultItemType?: ItemType;
   /** Base path used for navigation (edit/new links). Defaults to /inventory/items */
   basePath?: string;
 }
 
-export default function InventoryItemsPage({ defaultCategory, basePath = '/inventory/items' }: Props) {
+export default function InventoryItemsPage({ defaultItemType, basePath = '/inventory/items' }: Props) {
   const [searchParams] = useSearchParams();
-  // category can come from props or URL param (URL takes precedence for flexibility)
-  const categoryFilter = defaultCategory ?? (searchParams.get('category') || undefined);
+  // item_type can come from props or URL param (URL takes precedence for flexibility)
+  const itemTypeFilter = (defaultItemType ?? (searchParams.get('item_type') as ItemType | null)) || undefined;
 
   const [items, setItems] = useState<InvItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +44,7 @@ export default function InventoryItemsPage({ defaultCategory, basePath = '/inven
 
   // ── Bulk select ──────────────────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [bulkField, setBulkField] = useState<'category' | 'base_unit' | 'usage_unit' | 'is_active'>('category');
+  const [bulkField, setBulkField] = useState<'item_type' | 'category' | 'base_unit' | 'usage_unit' | 'is_active'>('item_type');
   const [bulkValue, setBulkValue] = useState('');
   const [bulkSaving, setBulkSaving] = useState(false);
 
@@ -65,7 +66,8 @@ export default function InventoryItemsPage({ defaultCategory, basePath = '/inven
     setBulkSaving(true);
     try {
       const payload: Record<string, any> = { ids: [...selectedIds] };
-      if (bulkField === 'category') payload.category = bulkValue.trim();
+      if (bulkField === 'item_type') payload.item_type = bulkValue as ItemType;
+      else if (bulkField === 'category') payload.category = bulkValue.trim();
       else if (bulkField === 'base_unit') payload.base_unit = bulkValue.trim();
       else if (bulkField === 'usage_unit') payload.usage_unit = bulkValue.trim();
       else if (bulkField === 'is_active') payload.is_active = bulkValue === 'true';
@@ -90,7 +92,7 @@ export default function InventoryItemsPage({ defaultCategory, basePath = '/inven
         limit: pagination.limit,
         search: search || undefined,
         is_active: showInactive ? undefined : true,
-        category: categoryFilter,
+        item_type: itemTypeFilter,
       });
       setItems(res.items);
       pagination.setTotal(res.total);
@@ -99,7 +101,7 @@ export default function InventoryItemsPage({ defaultCategory, basePath = '/inven
     } finally {
       setLoading(false);
     }
-  }, [pagination.skip, pagination.limit, search, showInactive, categoryFilter]);
+  }, [pagination.skip, pagination.limit, search, showInactive, itemTypeFilter]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
@@ -150,7 +152,13 @@ export default function InventoryItemsPage({ defaultCategory, basePath = '/inven
     return `/inventory/items/new${returnTo}`;
   };
 
-  const pageTitle = defaultCategory ? `${defaultCategory}管理` : <Bi k="nav.invItems" />;
+  const titleKey: Record<ItemType, string> = {
+    raw: 'nav.invRawMaterials',
+    intermediate: 'nav.invIntermediates',
+    finished: 'nav.invFinishedGoods',
+    packaging: 'nav.invPackaging',
+  };
+  const pageTitle = defaultItemType ? <Bi k={titleKey[defaultItemType]} /> : <Bi k="nav.invItems" />;
 
   return (
     <div className="space-y-4">
@@ -210,15 +218,23 @@ export default function InventoryItemsPage({ defaultCategory, basePath = '/inven
           <select
             value={bulkField}
             onChange={(e) => { setBulkField(e.target.value as any); setBulkValue(''); }}
-            className="input text-sm py-1 px-2 w-36"
+            className="input text-sm py-1 px-2 w-40"
           >
-            <option value="category">修改分類</option>
+            <option value="item_type">修改主類型</option>
+            <option value="category">修改子分類</option>
             <option value="base_unit">修改收貨單位</option>
             <option value="usage_unit">修改生產用量單位</option>
             <option value="is_active">修改狀態</option>
           </select>
 
-          {(bulkField === 'base_unit' || bulkField === 'usage_unit') ? (
+          {bulkField === 'item_type' ? (
+            <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="input text-sm py-1 px-2 w-36">
+              <option value="">— 選擇 —</option>
+              {ITEM_TYPES.map((it) => (
+                <option key={it} value={it}>{t(`inv.itemType.${it}`).zh}</option>
+              ))}
+            </select>
+          ) : (bulkField === 'base_unit' || bulkField === 'usage_unit') ? (
             <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="input text-sm py-1 px-2 w-28">
               <option value="">— 選擇 —</option>
               {(bulkField === 'usage_unit'
@@ -237,8 +253,8 @@ export default function InventoryItemsPage({ defaultCategory, basePath = '/inven
               type="text"
               value={bulkValue}
               onChange={(e) => setBulkValue(e.target.value)}
-              placeholder="輸入分類名稱…"
-              className="input text-sm py-1 px-2 w-40"
+              placeholder="子分類名稱（例：肉類）"
+              className="input text-sm py-1 px-2 w-44"
             />
           )}
 
@@ -323,7 +339,12 @@ export default function InventoryItemsPage({ defaultCategory, basePath = '/inven
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-gray-800">{item.name}</span>
                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{item.code}</span>
-                    {item.category && !defaultCategory && (
+                    {!defaultItemType && (
+                      <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded">
+                        {t(`inv.itemType.${item.item_type}`).zh}
+                      </span>
+                    )}
+                    {item.category && (
                       <span className="text-xs text-gray-500">{item.category}</span>
                     )}
                   </div>
@@ -340,7 +361,7 @@ export default function InventoryItemsPage({ defaultCategory, basePath = '/inven
                       <span className="ml-1 text-blue-500">→ {item.usage_unit}</span>
                     )}
                   </span>
-                  {categoryFilter === '原料' && item.is_active && (
+                  {defaultItemType === 'raw' && item.is_active && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

@@ -1,12 +1,14 @@
 import { useAuth } from '@/hooks/useAuth';
 
-export type UserRole = 'Admin' | 'QA' | 'Production' | 'Warehouse';
+export type UserRole = 'Admin' | 'QA' | 'Production' | 'Warehouse' | 'Captain';
 
 export function usePermissions() {
   const { user } = useAuth();
   const role = (user?.role as UserRole) ?? null;
 
-  const hasRole = (...roles: UserRole[]) => role !== null && roles.includes(role);
+  // Captain is a super-role — passes every permission check below.
+  const hasRole = (...roles: UserRole[]) =>
+    role !== null && (role === 'Captain' || roles.includes(role));
 
   return {
     role,

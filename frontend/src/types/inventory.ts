@@ -1,10 +1,15 @@
 // ─── Item master ───────────────────────────────────────────────────────────
 
+export type ItemType = 'raw' | 'intermediate' | 'finished' | 'packaging';
+
+export const ITEM_TYPES: ItemType[] = ['raw', 'intermediate', 'finished', 'packaging'];
+
 export interface InvItem {
   id: number;
   code: string;
   name: string;
-  category: string | null;
+  item_type: ItemType;
+  category: string | null; // Free-text sub-classification (e.g. 肉類, 調味料)
   base_unit: string;
   usage_unit: string | null; // Production unit for Batch Sheet; null = use base_unit
   description: string | null;
@@ -18,6 +23,7 @@ export interface InvItem {
 export interface InvItemCreate {
   code: string;
   name: string;
+  item_type: ItemType;
   category?: string;
   base_unit?: string;
   usage_unit?: string;
@@ -28,6 +34,7 @@ export interface InvItemCreate {
 
 export interface InvItemUpdate {
   name?: string;
+  item_type?: ItemType;
   category?: string;
   base_unit?: string;
   usage_unit?: string;

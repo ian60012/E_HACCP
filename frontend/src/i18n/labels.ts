@@ -419,7 +419,21 @@ const labels: Record<string, BiLabelType> = {
   'nav.invBalance': { zh: '庫存查詢', en: 'Stock Balance' },
   'nav.invDocs': { zh: '入出庫單', en: 'Stock Documents' },
   'nav.invItems': { zh: '品項管理', en: 'Items' },
+  'nav.invItemsAll': { zh: '全部品項', en: 'All Items' },
+  'nav.invRawMaterials': { zh: '原料管理', en: 'Raw Materials' },
+  'nav.invIntermediates': { zh: '半成品管理', en: 'Intermediates' },
+  'nav.invFinishedGoods': { zh: '成品管理', en: 'Finished Goods' },
+  'nav.invPackaging': { zh: '包材管理', en: 'Packaging' },
   'nav.invLocations': { zh: '儲位管理', en: 'Locations' },
+
+  // Item type labels (single source of truth for the 4-way classification)
+  'inv.itemType.raw': { zh: '原料', en: 'Raw Material' },
+  'inv.itemType.intermediate': { zh: '半成品', en: 'Intermediate' },
+  'inv.itemType.finished': { zh: '成品', en: 'Finished Good' },
+  'inv.itemType.packaging': { zh: '包材', en: 'Packaging' },
+
+  'field.itemType': { zh: '主類型', en: 'Item Type' },
+  'field.subCategory': { zh: '子分類', en: 'Sub-category' },
 
   'page.invItems.subtitle': { zh: '管理庫存品項', en: 'Manage inventory items' },
   'page.invItemNew.title': { zh: '新增品項', en: 'New Item' },
@@ -729,6 +743,129 @@ const labels: Record<string, BiLabelType> = {
   'confirm.enterStock': { zh: '確認入庫？入庫後無法撤銷', en: 'Confirm entry? Cannot undo.' },
   'msg.stockEntered': { zh: '已入庫', en: 'Stock Entered' },
   'field.packTypeBulk': { zh: '散裝 (KG)', en: 'Bulk KG' },
+
+  // ── Roles ─────────────────────────────────────
+  'role.captain': { zh: '船長', en: 'Captain' },
+
+  // ── Production Helper module (Captain only) ────
+  'nav.productionHelper': { zh: '生產輔助', en: 'Production Helper' },
+  'nav.weeklyPlan': { zh: '週生產計畫', en: 'Weekly Plan' },
+  'nav.recipes': { zh: '配方庫', en: 'Recipes' },
+  'nav.purchaseRequirements': { zh: '叫貨總覽', en: 'Purchase Overview' },
+  'page.portal.productionHelper': { zh: '生產輔助', en: 'Production Helper' },
+  'page.portal.productionHelperDesc': {
+    zh: '週生產計畫、配方庫與叫貨總覽',
+    en: 'Weekly plan, recipes & purchase overview',
+  },
+
+  // Page titles
+  'ph.page.title': { zh: '週生產計畫', en: 'Weekly Production Plan' },
+  'ph.page.subtitle': {
+    zh: '以產品和主材料量安排生產，配方會自動匯總輔料叫貨量',
+    en: 'Schedule production by product and main material; recipes auto-aggregate auxiliary material orders',
+  },
+  'ph.recipes.title': { zh: '配方庫', en: 'Recipe Library' },
+  'ph.recipes.subtitle': {
+    zh: '定義每 1kg 主材料需要多少輔料',
+    en: 'Define auxiliary materials required per 1 kg of main material',
+  },
+  'ph.requirements.title': { zh: '叫貨總覽', en: 'Purchase Overview' },
+  'ph.requirements.subtitle': {
+    zh: '按應到貨日期合併本週輔料需求',
+    en: 'Aggregated weekly material orders grouped by required delivery date',
+  },
+
+  // Buttons / actions
+  'ph.btn.prevWeek': { zh: '上一週', en: 'Previous' },
+  'ph.btn.nextWeek': { zh: '下一週', en: 'Next' },
+  'ph.btn.thisWeek': { zh: '本週', en: 'This Week' },
+  'ph.btn.refresh': { zh: '重新整理', en: 'Refresh' },
+  'ph.btn.newPlan': { zh: '新增計畫', en: 'New Plan' },
+  'ph.btn.addPlan': { zh: '+ 計畫', en: '+ Plan' },
+  'ph.btn.addNote': { zh: '+ 便條', en: '+ Note' },
+  'ph.btn.exportCsv': { zh: '匯出 CSV', en: 'Export CSV' },
+  'ph.btn.exportImage': { zh: '匯出圖片', en: 'Export Image' },
+  'ph.btn.save': { zh: '保存', en: 'Save' },
+  'ph.btn.cancel': { zh: '取消', en: 'Cancel' },
+  'ph.btn.delete': { zh: '刪除', en: 'Delete' },
+  'ph.btn.addAux': { zh: '新增輔料', en: 'Add Auxiliary' },
+
+  // Stat cards
+  'ph.stat.planCount': { zh: '本週計畫項', en: 'Plans This Week' },
+  'ph.stat.mainKg': { zh: '本週主材料 kg', en: 'Main Material kg' },
+  'ph.stat.auxCount': { zh: '需叫貨材料', en: 'Materials to Order' },
+  'ph.stat.productCount': { zh: '產品總數', en: 'Total Products' },
+
+  // Form fields
+  'ph.field.date': { zh: '日期', en: 'Date' },
+  'ph.field.station': { zh: '岗位', en: 'Station' },
+  'ph.field.product': { zh: '產品', en: 'Product' },
+  'ph.field.mainMaterial': { zh: '主材料', en: 'Main Material' },
+  'ph.field.mainQty': { zh: '主材料 kg', en: 'Main Qty (kg)' },
+  'ph.field.notes': { zh: '備註', en: 'Notes' },
+  'ph.field.title': { zh: '標題', en: 'Title' },
+  'ph.field.content': { zh: '內容', en: 'Content' },
+  'ph.field.auxList': { zh: '輔料係數', en: 'Auxiliary Ratios' },
+  'ph.field.auxItem': { zh: '輔料', en: 'Auxiliary' },
+  'ph.field.qtyPerKg': { zh: '每 kg 用量', en: 'Per kg' },
+
+  // Drawer titles
+  'ph.drawer.newPlan': { zh: '新增計畫', en: 'New Plan' },
+  'ph.drawer.editPlan': { zh: '編輯計畫', en: 'Edit Plan' },
+  'ph.drawer.newNote': { zh: '新增便條', en: 'New Note' },
+  'ph.drawer.editNote': { zh: '編輯便條', en: 'Edit Note' },
+  'ph.drawer.recipeForm': { zh: '配方設定', en: 'Recipe Form' },
+
+  // Misc
+  'ph.label.note': { zh: '便條', en: 'Note' },
+  'ph.label.untitled': { zh: '（無標題）', en: '(Untitled)' },
+  'ph.label.hasRecipe': { zh: '有配方', en: 'Has Recipe' },
+  'ph.label.noRecipe': { zh: '缺配方', en: 'No Recipe' },
+  'ph.label.recent': { zh: '最近', en: 'Recent' },
+  'ph.label.mainType': { zh: '主料', en: 'Main' },
+  'ph.label.auxType': { zh: '輔料', en: 'Aux' },
+  'ph.label.ordered': { zh: '已下單', en: 'Ordered' },
+  'ph.label.notOrdered': { zh: '未下單', en: 'Pending' },
+  'ph.empty.requirements': {
+    zh: '本週沒有可計算的叫貨需求。請先建立計畫和配方。',
+    en: 'No purchase requirements yet. Add plans and recipes first.',
+  },
+  'ph.empty.recipes': { zh: '尚無配方', en: 'No recipes yet' },
+  'ph.empty.aux': { zh: '尚未新增輔料', en: 'No auxiliaries added' },
+  'ph.placeholder.material': { zh: '選擇或輸入材料', en: 'Pick or type a material' },
+  'ph.placeholder.qty': { zh: '0', en: '0' },
+  'ph.placeholder.notes': {
+    zh: '例如 包裝規格、實驗、清潔、Council 檢查',
+    en: 'e.g. packaging spec, experiment, cleaning, Council check',
+  },
+  'ph.placeholder.noteTitle': {
+    zh: '例如 設備清洗、臨時調整',
+    en: 'e.g. equipment cleaning, ad-hoc change',
+  },
+  'ph.placeholder.noteContent': { zh: '詳細說明...', en: 'Detailed description...' },
+  'ph.confirm.deletePlan': {
+    zh: '確定刪除此計畫項？',
+    en: 'Delete this plan item?',
+  },
+  'ph.confirm.deleteNote': { zh: '確定刪除此便條？', en: 'Delete this note?' },
+  'ph.confirm.deleteRecipe': { zh: '確定刪除此配方？', en: 'Delete this recipe?' },
+  'ph.toast.savedPlan': { zh: '計畫已保存', en: 'Plan saved' },
+  'ph.toast.savedNote': { zh: '便條已保存', en: 'Note saved' },
+  'ph.toast.savedRecipe': { zh: '配方已保存', en: 'Recipe saved' },
+  'ph.toast.deletedPlan': { zh: '計畫已刪除', en: 'Plan deleted' },
+  'ph.toast.deletedNote': { zh: '便條已刪除', en: 'Note deleted' },
+  'ph.toast.deletedRecipe': { zh: '配方已刪除', en: 'Recipe deleted' },
+  'ph.toast.saveFailed': { zh: '保存失敗', en: 'Save failed' },
+  'ph.toast.deleteFailed': { zh: '刪除失敗', en: 'Delete failed' },
+  'ph.toast.imageExported': { zh: '本週計畫圖片已匯出', en: 'Weekly plan image exported' },
+
+  // Image export internals
+  'ph.export.title': { zh: '生產計畫', en: 'Production Plan' },
+  'ph.export.planCountSuffix': { zh: '項計畫', en: 'plans' },
+  'ph.export.exportedAt': { zh: '匯出時間', en: 'Exported at' },
+  'ph.export.noProduct': { zh: '未選產品', en: 'No product' },
+  'ph.export.noMainMaterial': { zh: '主材料未填', en: 'Main material empty' },
+  'ph.export.dateRangeJoin': { zh: '至', en: 'to' },
 };
 
 /** Get a bilingual label by key */

@@ -12,7 +12,7 @@ export default function InventoryStocktakePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canEdit = user && ['Admin', 'Warehouse'].includes(user.role);
+  const canEdit = user && (['Admin', 'Warehouse', 'Captain'].includes(user.role));
   const isNew = !id;
 
   // ── New form state ─────────────────────────────────────────────────────
