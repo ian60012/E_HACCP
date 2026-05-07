@@ -86,6 +86,13 @@ async def _set_allowed_locations(db: AsyncSession, item: InvItem, location_ids: 
         item.allowed_locations = []
 
 
+_INV_SORT_MAP = {
+    "code": InvItem.code,
+    "name": InvItem.name,
+    "item_type": InvItem.item_type,
+}
+
+
 @router.get("", response_model=PaginatedResponse[InvItemResponse])
 async def list_items(
     skip: int = Query(0, ge=0),
@@ -94,6 +101,8 @@ async def list_items(
     is_active: Optional[bool] = True,
     item_type: Optional[ItemType] = Query(None, description="Filter by primary classification"),
     category: Optional[str] = Query(None, description="Filter by free-text sub-category"),
+    sort_by: str = Query("code", description="code | name | item_type"),
+    sort_order: str = Query("asc", description="asc | desc"),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -112,7 +121,9 @@ async def list_items(
     total_result = await db.execute(select(func.count()).select_from(q.subquery()))
     total = total_result.scalar()
 
-    items_result = await db.execute(q.order_by(InvItem.code).offset(skip).limit(limit))
+    sort_col = _INV_SORT_MAP.get(sort_by, InvItem.code)
+    order_expr = sort_col.desc() if sort_order == "desc" else sort_col.asc()
+    items_result = await db.execute(q.order_by(order_expr).offset(skip).limit(limit))
     items = items_result.scalars().all()
 
     return PaginatedResponse(

@@ -20,6 +20,7 @@ import { PaginatedResponse } from '@/types/common';
 export const prodProductsApi = {
   list: async (params?: {
     skip?: number; limit?: number; search?: string; show_inactive?: boolean;
+    sort_by?: string; sort_order?: string;
   }): Promise<PaginatedResponse<ProdProduct>> => {
     const res = await apiClient.get<PaginatedResponse<ProdProduct>>('/api/v1/production/products', { params });
     return res.data;

@@ -41,12 +41,21 @@ def _to_response(product: ProdProduct) -> ProdProductResponse:
     )
 
 
+_PROD_SORT_MAP = {
+    "code": ProdProduct.code,
+    "name": ProdProduct.name,
+    "product_type": ProdProduct.product_type,
+}
+
+
 @router.get("", response_model=PaginatedResponse[ProdProductResponse])
 async def list_products(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     search: Optional[str] = None,
     show_inactive: bool = False,
+    sort_by: str = Query("code", description="code | name | product_type"),
+    sort_order: str = Query("asc", description="asc | desc"),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -64,8 +73,10 @@ async def list_products(
     )
     total = total_result.scalar()
 
+    sort_col = _PROD_SORT_MAP.get(sort_by, ProdProduct.code)
+    order_expr = sort_col.desc() if sort_order == "desc" else sort_col.asc()
     items_result = await db.execute(
-        q.order_by(ProdProduct.code).offset(skip).limit(limit)
+        q.order_by(order_expr).offset(skip).limit(limit)
     )
     items = items_result.scalars().all()
 

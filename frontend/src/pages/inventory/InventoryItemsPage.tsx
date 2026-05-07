@@ -42,6 +42,21 @@ export default function InventoryItemsPage({ defaultItemType, basePath = '/inven
     created: number; skipped: number; errors: { row: number; code: string; message: string }[];
   } | null>(null);
 
+  // ── Sort state ───────────────────────────────────────────────────────────
+  const [sortBy, setSortBy] = useState<'code' | 'name' | 'item_type'>('code');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const handleSortByChange = (col: 'code' | 'name' | 'item_type') => {
+    setSortBy(col);
+    setSortOrder('asc');
+    pagination.goToPage(1);
+  };
+
+  const toggleSortOrder = () => {
+    setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
+    pagination.goToPage(1);
+  };
+
   // ── Bulk select ──────────────────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkField, setBulkField] = useState<'item_type' | 'category' | 'base_unit' | 'usage_unit' | 'is_active'>('item_type');
@@ -93,6 +108,8 @@ export default function InventoryItemsPage({ defaultItemType, basePath = '/inven
         search: search || undefined,
         is_active: showInactive ? undefined : true,
         item_type: itemTypeFilter,
+        sort_by: sortBy,
+        sort_order: sortOrder,
       });
       setItems(res.items);
       pagination.setTotal(res.total);
@@ -101,7 +118,7 @@ export default function InventoryItemsPage({ defaultItemType, basePath = '/inven
     } finally {
       setLoading(false);
     }
-  }, [pagination.skip, pagination.limit, search, showInactive, itemTypeFilter]);
+  }, [pagination.skip, pagination.limit, search, showInactive, itemTypeFilter, sortBy, sortOrder]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
@@ -209,6 +226,25 @@ export default function InventoryItemsPage({ defaultItemType, basePath = '/inven
           />
           <Bi k="btn.showInactive" />
         </label>
+        <div className="flex items-center gap-1">
+          <select
+            value={sortBy}
+            onChange={(e) => handleSortByChange(e.target.value as 'code' | 'name' | 'item_type')}
+            className="input text-sm py-1 px-2 w-32"
+          >
+            <option value="code">代碼 Code</option>
+            <option value="name">名稱 Name</option>
+            <option value="item_type">類型 Type</option>
+          </select>
+          <button
+            type="button"
+            onClick={toggleSortOrder}
+            className="input text-sm py-1 px-2 w-10 text-center font-bold"
+            title={sortOrder === 'asc' ? '升序（點擊切換降序）' : '降序（點擊切換升序）'}
+          >
+            {sortOrder === 'asc' ? '↑' : '↓'}
+          </button>
+        </div>
       </div>
 
       {/* Bulk action toolbar */}

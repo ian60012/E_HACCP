@@ -14,6 +14,7 @@ export const invItemsApi = {
   list: async (params?: {
     skip?: number; limit?: number; search?: string; is_active?: boolean;
     item_type?: ItemType; category?: string;
+    sort_by?: string; sort_order?: string;
   }): Promise<PaginatedResponse<InvItem>> => {
     const res = await apiClient.get<PaginatedResponse<InvItem>>('/api/v1/inventory/items', { params });
     return res.data;

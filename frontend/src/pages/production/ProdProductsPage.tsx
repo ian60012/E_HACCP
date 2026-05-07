@@ -42,6 +42,20 @@ export default function ProdProductsPage() {
   const [packConfigSaving, setPackConfigSaving] = useState(false);
   const [packConfigMsg, setPackConfigMsg] = useState('');
 
+  // Sort state
+  const [sortBy, setSortBy] = useState<'code' | 'name' | 'product_type'>('code');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (col: 'code' | 'name' | 'product_type') => {
+    if (col === sortBy) {
+      setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(col);
+      setSortOrder('asc');
+      pagination.goToPage(1);
+    }
+  };
+
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -50,6 +64,8 @@ export default function ProdProductsPage() {
         skip: pagination.skip,
         limit: pagination.limit,
         show_inactive: showInactive || undefined,
+        sort_by: sortBy,
+        sort_order: sortOrder,
       });
       setProducts(res.items);
       pagination.setTotal(res.total);
@@ -58,7 +74,7 @@ export default function ProdProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.skip, pagination.limit, showInactive]);
+  }, [pagination.skip, pagination.limit, showInactive, sortBy, sortOrder]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
@@ -446,9 +462,24 @@ export default function ProdProductsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
-                  <th className="pb-2 pr-4"><Bi k="field.code" /></th>
-                  <th className="pb-2 pr-4"><Bi k="field.name" /></th>
-                  <th className="pb-2 pr-4">類型 Type</th>
+                  {(['code', 'name', 'product_type'] as const).map((col) => {
+                    const labels: Record<string, string> = { code: '代碼 Code', name: '名稱 Name', product_type: '類型 Type' };
+                    const isActive = sortBy === col;
+                    return (
+                      <th key={col} className="pb-2 pr-4">
+                        <button
+                          type="button"
+                          onClick={() => handleSort(col)}
+                          className={`flex items-center gap-1 hover:text-gray-700 ${isActive ? 'text-gray-700 font-semibold' : ''}`}
+                        >
+                          {labels[col]}
+                          <span className="text-xs">
+                            {isActive ? (sortOrder === 'asc' ? '▲' : '▼') : '⇅'}
+                          </span>
+                        </button>
+                      </th>
+                    );
+                  })}
                   <th className="pb-2 pr-4"><Bi k="th.ccpLimit" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.packSizeKg" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.lossRateWarnPct" /></th>
