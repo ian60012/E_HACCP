@@ -840,6 +840,17 @@ CREATE TABLE IF NOT EXISTS prod_pack_types (
     created_at          TIMESTAMPTZ             NOT NULL DEFAULT NOW()
 );
 
+-- Product × pack-type → inventory-item config (裝袋庫存配置)
+CREATE TABLE IF NOT EXISTS prod_product_pack_config (
+    id              SERIAL PRIMARY KEY,
+    product_id      INTEGER NOT NULL REFERENCES prod_products(id) ON DELETE CASCADE,
+    pack_type_code  VARCHAR(30) NOT NULL,
+    inv_item_id     INTEGER REFERENCES inv_items(id) ON DELETE SET NULL,
+    UNIQUE (product_id, pack_type_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_prod_pack_config_product ON prod_product_pack_config(product_id);
+
 -- Production batches (生產批次)
 CREATE TABLE IF NOT EXISTS prod_batches (
     id                              SERIAL PRIMARY KEY,

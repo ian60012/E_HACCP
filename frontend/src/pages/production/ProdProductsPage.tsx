@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { PlusIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { PencilIcon, ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
-import { prodProductsApi } from '@/api/production';
+import { prodProductsApi, packTypesApi } from '@/api/production';
 import { invItemsApi } from '@/api/inventory';
-import { ProdProduct, ProdProductCreate, ProdProductType } from '@/types/production';
+import { ProdProduct, ProdProductCreate, ProdProductType, ProdProductPackConfigUpsert, PackTypeConfig } from '@/types/production';
 import { InvItem } from '@/types/inventory';
 import { usePagination } from '@/hooks/usePagination';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -36,6 +36,12 @@ export default function ProdProductsPage() {
   const [formInvItemId, setFormInvItemId] = useState<number | ''>('');
   const [formSaving, setFormSaving] = useState(false);
 
+  // Pack-config state (裝袋庫存配置)
+  const [packTypeOptions, setPackTypeOptions] = useState<PackTypeConfig[]>([]);
+  const [packConfigs, setPackConfigs] = useState<ProdProductPackConfigUpsert[]>([]);
+  const [packConfigSaving, setPackConfigSaving] = useState(false);
+  const [packConfigMsg, setPackConfigMsg] = useState('');
+
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -57,7 +63,8 @@ export default function ProdProductsPage() {
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
   useEffect(() => {
-    invItemsApi.list({ limit: 500 }).then(r => setInvItems(r.items));
+    // Only finished goods are valid inventory items for products
+    invItemsApi.list({ item_type: 'finished', is_active: true, limit: 500 }).then(r => setInvItems(r.items));
   }, []);
 
   const resetForm = () => {
@@ -70,6 +77,9 @@ export default function ProdProductsPage() {
     setFormLossRateWarn('');
     setFormProductType('forming');
     setFormInvItemId('');
+    setPackConfigs([]);
+    setPackTypeOptions([]);
+    setPackConfigMsg('');
   };
 
   const startCreate = () => {
@@ -78,7 +88,7 @@ export default function ProdProductsPage() {
     setEditingId(null);
   };
 
-  const startEdit = (product: ProdProduct) => {
+  const startEdit = async (product: ProdProduct) => {
     setShowForm(true);
     setEditingId(product.id);
     setFormCode(product.code);
@@ -88,6 +98,22 @@ export default function ProdProductsPage() {
     setFormLossRateWarn(product.loss_rate_warn_pct != null ? String(product.loss_rate_warn_pct) : '');
     setFormProductType(product.product_type || 'forming');
     setFormInvItemId(product.inv_item_id ?? '');
+    setPackConfigMsg('');
+
+    // Load applicable pack types + existing configs
+    const ptype = product.product_type || 'forming';
+    const [ptRes, cfgRes] = await Promise.all([
+      packTypesApi.list({ applicable_type: ptype as any }),
+      prodProductsApi.getPackConfigs(product.id),
+    ]);
+    setPackTypeOptions(ptRes);
+    // Merge: init all pack types from server, overlay existing configs
+    setPackConfigs(
+      ptRes.map((pt) => {
+        const existing = cfgRes.find((c) => c.pack_type_code === pt.code);
+        return { pack_type_code: pt.code, inv_item_id: existing?.inv_item_id ?? null };
+      })
+    );
   };
 
   const handleSubmit = async () => {
@@ -125,6 +151,20 @@ export default function ProdProductsPage() {
       setError(err?.response?.data?.detail || bi('error.saveFailed'));
     } finally {
       setFormSaving(false);
+    }
+  };
+
+  const handleSavePackConfigs = async () => {
+    if (!editingId) return;
+    setPackConfigSaving(true);
+    setPackConfigMsg('');
+    try {
+      await prodProductsApi.savePackConfigs(editingId, packConfigs);
+      setPackConfigMsg('✓ 裝袋配置已儲存');
+    } catch (err: any) {
+      setPackConfigMsg(`✗ ${err?.response?.data?.detail || '儲存失敗'}`);
+    } finally {
+      setPackConfigSaving(false);
     }
   };
 
@@ -322,7 +362,7 @@ export default function ProdProductsPage() {
               />
             </div>
             <div>
-              <label className="label text-xs">庫存品項 Inv Item</label>
+              <label className="label text-xs">庫存品項 Inv Item（單一對應用）</label>
               <select value={formInvItemId} onChange={(e) => setFormInvItemId(Number(e.target.value) || '')} className="input">
                 <option value="">— 未連結 —</option>
                 {invItems.map(i => <option key={i.id} value={i.id}>{i.code} {i.name}</option>)}
@@ -337,6 +377,58 @@ export default function ProdProductsPage() {
               {formSaving ? <Bi k="btn.saving" /> : <Bi k="btn.save" />}
             </button>
           </div>
+
+          {/* Pack-config section (only shown when editing an existing product with pack types) */}
+          {editingId && packTypeOptions.length > 0 && (
+            <div className="border-t pt-3 mt-1 space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold text-gray-600">
+                  裝袋庫存配置 Pack → Inventory Item
+                </h4>
+                <button
+                  type="button"
+                  onClick={handleSavePackConfigs}
+                  disabled={packConfigSaving}
+                  className="btn btn-secondary text-xs py-1 px-2"
+                >
+                  {packConfigSaving ? '儲存中…' : '儲存配置'}
+                </button>
+              </div>
+              {packConfigMsg && (
+                <p className={`text-xs ${packConfigMsg.startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>
+                  {packConfigMsg}
+                </p>
+              )}
+              <div className="space-y-1.5">
+                {packConfigs.map((cfg, idx) => {
+                  const pt = packTypeOptions.find((p) => p.code === cfg.pack_type_code);
+                  return (
+                    <div key={cfg.pack_type_code} className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-36 shrink-0">
+                        {pt?.name ?? cfg.pack_type_code}
+                      </span>
+                      <select
+                        value={cfg.inv_item_id ?? ''}
+                        onChange={(e) => {
+                          const v = Number(e.target.value) || null;
+                          setPackConfigs((prev) => prev.map((c, i) => i === idx ? { ...c, inv_item_id: v } : c));
+                        }}
+                        className="input text-xs py-1 flex-1"
+                      >
+                        <option value="">— 未設定 —</option>
+                        {invItems.map((i) => (
+                          <option key={i.id} value={i.id}>{i.code} {i.name}</option>
+                        ))}
+                      </select>
+                      {!cfg.inv_item_id && (
+                        <span className="text-xs text-amber-500 shrink-0">⚠ 未設定</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -11,6 +11,7 @@ import {
   ProdRepackTrim, ProdRepackTrimCreate,
   FormingOption, FormingTotals, PackingTotals, RepackTotals, HotProcessBalance,
   PackTypeConfig, PackTypeConfigCreate, PackTypeConfigUpdate,
+  ProdProductPackConfig, ProdProductPackConfigUpsert,
 } from '@/types/production';
 import { PaginatedResponse } from '@/types/common';
 
@@ -49,6 +50,14 @@ export const prodProductsApi = {
     const res = await apiClient.post('/api/v1/production/products/import', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    return res.data;
+  },
+  getPackConfigs: async (productId: number): Promise<ProdProductPackConfig[]> => {
+    const res = await apiClient.get<ProdProductPackConfig[]>(`/api/v1/production/products/${productId}/pack-configs`);
+    return res.data;
+  },
+  savePackConfigs: async (productId: number, configs: ProdProductPackConfigUpsert[]): Promise<ProdProductPackConfig[]> => {
+    const res = await apiClient.put<ProdProductPackConfig[]>(`/api/v1/production/products/${productId}/pack-configs`, configs);
     return res.data;
   },
 };

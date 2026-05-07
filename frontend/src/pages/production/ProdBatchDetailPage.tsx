@@ -127,6 +127,8 @@ export default function ProdBatchDetailPage() {
   const [locations, setLocations] = useState<InvLocation[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
   const [enteringStock, setEnteringStock] = useState(false);
+  const [stockPreflightResolved, setStockPreflightResolved] = useState<{ packType: string; itemName: string; bags: number }[]>([]);
+  const [stockPreflightMissing, setStockPreflightMissing] = useState<{ packType: string; bags: number }[]>([]);
 
   // Void modal
   const [showVoidModal, setShowVoidModal] = useState(false);
@@ -412,6 +414,29 @@ export default function ProdBatchDetailPage() {
 
       setLocations(filteredLocs);
       setSelectedLocationId(filteredLocs[0]?.id ?? null);
+
+      // Pre-flight: classify each packing record as resolved / missing
+      const loadedItemMap = new Map<number, string>(
+        await Promise.all([...itemIds].map(async (iid) => {
+          try {
+            const item = await invItemsApi.get(iid);
+            return [iid, `${item.code} ${item.name}`] as [number, string];
+          } catch {
+            return [iid, `#${iid}`] as [number, string];
+          }
+        }))
+      );
+      const resolved: { packType: string; itemName: string; bags: number }[] = [];
+      const missing: { packType: string; bags: number }[] = [];
+      for (const rec of batch?.packing_records ?? []) {
+        if (rec.inv_item_id) {
+          resolved.push({ packType: rec.pack_type, itemName: loadedItemMap.get(rec.inv_item_id) ?? `#${rec.inv_item_id}`, bags: rec.bag_count });
+        } else {
+          missing.push({ packType: rec.pack_type, bags: rec.bag_count });
+        }
+      }
+      setStockPreflightResolved(resolved);
+      setStockPreflightMissing(missing);
       setShowEnterStockModal(true);
     } catch {
       setError(bi('error.loadFailed'));
@@ -1389,8 +1414,37 @@ export default function ProdBatchDetailPage() {
       {/* Enter stock modal */}
       {showEnterStockModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
             <h3 className="text-lg font-semibold text-gray-800"><Bi k="btn.enterStock" /></h3>
+
+            {/* Pre-flight summary */}
+            {(stockPreflightResolved.length > 0 || stockPreflightMissing.length > 0) && (
+              <div className="space-y-1.5 text-xs">
+                {stockPreflightResolved.map((r, i) => (
+                  <div key={i} className="flex items-center gap-2 text-green-700">
+                    <span>✅</span>
+                    <span className="font-medium">{r.packType}</span>
+                    <span className="text-gray-500">→ {r.itemName}</span>
+                    <span className="ml-auto text-gray-600">{r.bags} 袋</span>
+                  </div>
+                ))}
+                {stockPreflightMissing.map((r, i) => (
+                  <div key={i} className="flex items-center gap-2 text-amber-700">
+                    <span>⚠</span>
+                    <span className="font-medium">{r.packType}</span>
+                    <span className="text-gray-500">— 嘗試用 pack-config 或產品預設解析</span>
+                    <span className="ml-auto text-gray-600">{r.bags} 袋</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {stockPreflightResolved.length === 0 && stockPreflightMissing.length > 0 && (
+              <p className="text-xs text-red-600">
+                ⚠ 所有裝袋行均未直接設定庫存品項。後端將嘗試從 pack-config 或產品預設解析。若解析失敗，入庫會被拒絕。
+              </p>
+            )}
+
             <div>
               <label className="label text-xs"><Bi k="placeholder.selectLocation" /></label>
               <select

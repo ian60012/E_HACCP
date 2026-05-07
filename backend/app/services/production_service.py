@@ -318,10 +318,10 @@ async def enter_batch_to_inventory(
             detail="No packing records recorded for this batch"
         )
 
-    # Resolve inv_item_id for each packing record:
-    # Primary: rec.inv_item_id (set at packing time)
-    # Fallback: product.inv_item_id (from ProdProduct linked to the record or batch main product)
-    # Collect all product_ids that need fallback resolution
+    # Resolve inv_item_id for each packing record.
+    # Priority: (1) rec.inv_item_id  (2) prod_product_pack_config  (3) product.inv_item_id
+    from app.models.production import ProdProductPackConfig
+
     fallback_product_ids: set[int] = set()
     for rec in batch.packing_records:
         if rec.inv_item_id is None:
@@ -334,6 +334,17 @@ async def enter_batch_to_inventory(
         )
         products_by_id = {p.id: p for p in prods_result.scalars().all()}
 
+    # Pre-load pack configs for all relevant product_ids
+    pack_cfg_result = await session.execute(
+        select(ProdProductPackConfig).where(
+            ProdProductPackConfig.product_id.in_(list(fallback_product_ids))
+        )
+    )
+    pack_cfg_by_key: dict[tuple, int | None] = {
+        (c.product_id, c.pack_type_code): c.inv_item_id
+        for c in pack_cfg_result.scalars().all()
+    }
+
     # Build bags_by_inv_item, collecting any records that can't be resolved
     bags_by_inv_item: dict[int, int] = defaultdict(int)
     unresolvable: list[str] = []
@@ -341,13 +352,19 @@ async def enter_batch_to_inventory(
         iid = rec.inv_item_id
         if iid is None:
             pid = rec.product_id if rec.product_id is not None else main_product.id
-            product = products_by_id.get(pid)
-            if product and product.inv_item_id:
-                iid = product.inv_item_id
+            # (2) pack-config lookup
+            cfg_iid = pack_cfg_by_key.get((pid, rec.pack_type))
+            if cfg_iid:
+                iid = cfg_iid
             else:
-                label = f"包裝類型 {rec.pack_type}（袋數: {rec.bag_count}）"
-                unresolvable.append(label)
-                continue
+                # (3) product-level fallback
+                product = products_by_id.get(pid)
+                if product and product.inv_item_id:
+                    iid = product.inv_item_id
+                else:
+                    label = f"包裝類型 {rec.pack_type}（袋數: {rec.bag_count}）"
+                    unresolvable.append(label)
+                    continue
         bags_by_inv_item[iid] += int(rec.bag_count)
 
     if unresolvable:

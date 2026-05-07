@@ -10,13 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.core.database import get_db
-from app.models.production import ProdProduct
+from app.models.production import ProdProduct, ProdProductPackConfig
 from app.models.user import User
 from app.schemas.production import (
     ProdProductCreate,
     ProdProductUpdate,
     ProdProductResponse,
     FormingOption,
+    ProdProductPackConfigUpsert,
+    ProdProductPackConfigRead,
 )
 from app.schemas.common import PaginatedResponse
 from app.dependencies.auth import get_current_active_user, require_role
@@ -299,3 +301,88 @@ async def update_product(
     await db.commit()
     await db.refresh(product)
     return _to_response(product)
+
+
+# ---------------------------------------------------------------------------
+# Pack-config endpoints  GET / PUT  /production/products/{id}/pack-configs
+# ---------------------------------------------------------------------------
+
+@router.get("/{product_id}/pack-configs", response_model=List[ProdProductPackConfigRead])
+async def get_pack_configs(
+    product_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all pack-type → inv-item mappings for a product."""
+    from sqlalchemy.orm import selectinload as _sil
+    result = await db.execute(
+        select(ProdProductPackConfig)
+        .options(_sil(ProdProductPackConfig.inv_item))
+        .where(ProdProductPackConfig.product_id == product_id)
+        .order_by(ProdProductPackConfig.pack_type_code)
+    )
+    rows = result.scalars().all()
+    return [
+        ProdProductPackConfigRead(
+            id=r.id,
+            product_id=r.product_id,
+            pack_type_code=r.pack_type_code,
+            inv_item_id=r.inv_item_id,
+            inv_item_code=r.inv_item.code if r.inv_item else None,
+            inv_item_name=r.inv_item.name if r.inv_item else None,
+        )
+        for r in rows
+    ]
+
+
+@router.put("/{product_id}/pack-configs", response_model=List[ProdProductPackConfigRead])
+async def save_pack_configs(
+    product_id: int,
+    configs: List[ProdProductPackConfigUpsert],
+    current_user: User = Depends(require_role("Admin", "Warehouse", "Production")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upsert the full list of pack-type configs for a product (merge, don't wipe)."""
+    from sqlalchemy.orm import selectinload as _sil
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+    product = (await db.execute(select(ProdProduct).where(ProdProduct.id == product_id))).scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+
+    for cfg in configs:
+        existing = (await db.execute(
+            select(ProdProductPackConfig)
+            .where(ProdProductPackConfig.product_id == product_id)
+            .where(ProdProductPackConfig.pack_type_code == cfg.pack_type_code)
+        )).scalar_one_or_none()
+
+        if existing:
+            existing.inv_item_id = cfg.inv_item_id
+        else:
+            db.add(ProdProductPackConfig(
+                product_id=product_id,
+                pack_type_code=cfg.pack_type_code,
+                inv_item_id=cfg.inv_item_id,
+            ))
+
+    await db.commit()
+
+    result = await db.execute(
+        select(ProdProductPackConfig)
+        .options(_sil(ProdProductPackConfig.inv_item))
+        .where(ProdProductPackConfig.product_id == product_id)
+        .order_by(ProdProductPackConfig.pack_type_code)
+    )
+    rows = result.scalars().all()
+    return [
+        ProdProductPackConfigRead(
+            id=r.id,
+            product_id=r.product_id,
+            pack_type_code=r.pack_type_code,
+            inv_item_id=r.inv_item_id,
+            inv_item_code=r.inv_item.code if r.inv_item else None,
+            inv_item_name=r.inv_item.name if r.inv_item else None,
+        )
+        for r in rows
+    ]

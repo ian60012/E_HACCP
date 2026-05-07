@@ -146,6 +146,21 @@ export interface ProdPackingSaveRequest {
   trims: ProdPackingTrimCreate[];
 }
 
+// ----- Pack-config (裝袋庫存配置) -----
+export interface ProdProductPackConfig {
+  id: number;
+  product_id: number;
+  pack_type_code: string;
+  inv_item_id: number | null;
+  inv_item_code: string | null;
+  inv_item_name: string | null;
+}
+
+export interface ProdProductPackConfigUpsert {
+  pack_type_code: string;
+  inv_item_id: number | null;
+}
+
 // ----- Hot Inputs (熱加工投料) -----
 export interface ProdHotInput {
   id: number;

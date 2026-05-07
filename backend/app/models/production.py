@@ -35,6 +35,21 @@ class ProdProduct(Base):
     is_active = Column(Boolean, nullable=False, server_default="true")
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
 
+    pack_configs = relationship("ProdProductPackConfig", back_populates="product", lazy="raise", cascade="all, delete-orphan")
+
+
+class ProdProductPackConfig(Base):
+    """Maps (product_id, pack_type_code) → inv_item_id for auto-populating packing records."""
+    __tablename__ = "prod_product_pack_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("prod_products.id", ondelete="CASCADE"), nullable=False)
+    pack_type_code = Column(VARCHAR(30), nullable=False)
+    inv_item_id = Column(Integer, ForeignKey("inv_items.id", ondelete="SET NULL"), nullable=True)
+
+    product = relationship("ProdProduct", back_populates="pack_configs", lazy="raise")
+    inv_item = relationship("InvItem", lazy="raise")
+
 
 class ProdBatch(Base):
     __tablename__ = "prod_batches"

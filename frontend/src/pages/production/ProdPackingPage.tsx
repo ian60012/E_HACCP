@@ -6,6 +6,7 @@ import { invItemsApi } from '@/api/inventory';
 import {
   ProdBatch, ProdProduct, ProdPackType,
   ProdPackingRecordCreate, ProdPackingTrimCreate, PackTypeConfig,
+  ProdProductPackConfig,
 } from '@/types/production';
 import { InvItem } from '@/types/inventory';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -45,6 +46,9 @@ export default function ProdPackingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Pack-config for auto-fill
+  const [packConfigs, setPackConfigs] = useState<ProdProductPackConfig[]>([]);
 
   // Local editable state
   const [records, setRecords] = useState<LocalPackRecord[]>([]);
@@ -89,7 +93,8 @@ export default function ProdPackingPage() {
   useEffect(() => { fetchBatch(); }, [fetchBatch]);
   useEffect(() => {
     prodProductsApi.list({ limit: 500 }).then((r) => setProducts(r.items)).catch(() => {});
-    invItemsApi.list({ is_active: true, limit: 500 }).then((r) => setInvItems(r.items)).catch(() => {});
+    // Only finished goods are valid inventory items for packing records
+    invItemsApi.list({ item_type: 'finished', is_active: true, limit: 500 }).then((r) => setInvItems(r.items)).catch(() => {});
   }, []);
 
   // Determine product type from the matched product
@@ -104,6 +109,12 @@ export default function ProdPackingPage() {
     const applicableType = isHotProcess ? 'hot_process' : 'forming';
     packTypesApi.list({ applicable_type: applicableType }).then(setPackTypeConfigs).catch(() => {});
   }, [isHotProcess, batch?.id, products.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load pack-configs when matched product is known
+  useEffect(() => {
+    if (!matchedProduct) return;
+    prodProductsApi.getPackConfigs(matchedProduct.id).then(setPackConfigs).catch(() => {});
+  }, [matchedProduct?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-add initial row for hot_process when products load and no records exist
   useEffect(() => {
@@ -122,18 +133,24 @@ export default function ProdPackingPage() {
 
   // Record helpers
   const defaultProductId = matchedProduct?.id || '';
+
+  const cfgInvItemId = (packTypeCode: string): number | '' => {
+    const cfg = packConfigs.find((c) => c.pack_type_code === packTypeCode);
+    return cfg?.inv_item_id ?? '';
+  };
+
   const addRecord = () => {
     if (isHotProcess) {
       const defaultPackType = (packTypeConfigs[0]?.code || 'BULK_KG') as ProdPackType;
       setRecords((prev) => [
         ...prev,
-        { pack_type: defaultPackType, product_id: defaultProductId, inv_item_id: '', bag_count: '', nominal_weight_kg: packSizeKg != null ? String(packSizeKg) : '', remark: '' },
+        { pack_type: defaultPackType, product_id: defaultProductId, inv_item_id: cfgInvItemId(defaultPackType), bag_count: '', nominal_weight_kg: packSizeKg != null ? String(packSizeKg) : '', remark: '' },
       ]);
     } else {
       const defaultPackType = (packTypeConfigs[0]?.code || '4KG_SEMI') as ProdPackType;
       setRecords((prev) => [
         ...prev,
-        { pack_type: defaultPackType, product_id: defaultProductId, inv_item_id: '', bag_count: '', nominal_weight_kg: '', remark: '' },
+        { pack_type: defaultPackType, product_id: defaultProductId, inv_item_id: cfgInvItemId(defaultPackType), bag_count: '', nominal_weight_kg: '', remark: '' },
       ]);
     }
   };
@@ -142,6 +159,13 @@ export default function ProdPackingPage() {
   };
   const updateRecord = (index: number, field: keyof LocalPackRecord, value: string | number) => {
     setRecords((prev) => prev.map((r, i) => i === index ? { ...r, [field]: value } : r));
+  };
+
+  const handlePackTypeChange = (index: number, newPackType: string) => {
+    const autoInvItemId = cfgInvItemId(newPackType);
+    setRecords((prev) => prev.map((r, i) =>
+      i === index ? { ...r, pack_type: newPackType as ProdPackType, inv_item_id: autoInvItemId } : r
+    ));
   };
 
   // Trim helpers (forming only)
@@ -288,7 +312,7 @@ export default function ProdPackingPage() {
                         ) : (
                           <select
                             value={rec.pack_type}
-                            onChange={(e) => updateRecord(index, 'pack_type', e.target.value)}
+                            onChange={(e) => handlePackTypeChange(index, e.target.value)}
                             className="input w-auto"
                           >
                             {packTypeConfigs.map((pt) => (
@@ -402,6 +426,13 @@ export default function ProdPackingPage() {
             </div>
           </div>
         </div>
+
+        {/* Inv-item validation warning (hot_process) */}
+        {!isReadOnly && records.some((r) => !r.inv_item_id) && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+            ⚠ 部分裝袋行未設定庫存品項，儲存後將無法入庫。請選擇庫存品項。
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex items-center gap-2">
@@ -686,6 +717,18 @@ export default function ProdPackingPage() {
           </div>
         </div>
       </div>
+
+      {/* Inv-item validation warning (forming) */}
+      {!isReadOnly && records.some((r) => !r.inv_item_id) && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+          ⚠ 以下裝袋行未設定庫存品項，儲存後將無法入庫：
+          {' '}{records.filter((r) => !r.inv_item_id).map((r) => {
+            const pt = packTypeConfigs.find((p) => p.code === r.pack_type);
+            return pt?.name ?? r.pack_type;
+          }).join('、')}。
+          請在「產品管理」設定裝袋庫存配置，或直接在上方選擇庫存品項。
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex items-center gap-2">

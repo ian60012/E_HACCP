@@ -87,6 +87,26 @@ class FormingOption(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Product × pack-type → inventory-item config (裝袋庫存配置)
+# ---------------------------------------------------------------------------
+
+class ProdProductPackConfigUpsert(BaseModel):
+    pack_type_code: str = Field(..., max_length=30)
+    inv_item_id: Optional[int] = None
+
+
+class ProdProductPackConfigRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    product_id: int
+    pack_type_code: str
+    inv_item_id: Optional[int] = None
+    inv_item_code: Optional[str] = None
+    inv_item_name: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
 # Forming trolley (成型台車)
 # ---------------------------------------------------------------------------
 
