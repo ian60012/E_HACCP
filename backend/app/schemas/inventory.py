@@ -6,6 +6,8 @@ from typing import Optional, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.enums import ItemType
+
 
 # ---------------------------------------------------------------------------
 # Item master (品項)
@@ -14,7 +16,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class InvItemCreate(BaseModel):
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=200)
-    category: Optional[str] = Field(None, max_length=100)
+    item_type: ItemType = Field(..., description="Primary classification: raw / intermediate / finished / packaging")
+    category: Optional[str] = Field(None, max_length=100, description="Free-text sub-classification (e.g. 肉類, 調味料)")
     base_unit: str = Field(default="PCS", max_length=20)
     usage_unit: Optional[str] = Field(None, max_length=20, description="Production recording unit for Batch Sheet; null = use base_unit")
     description: Optional[str] = None
@@ -24,6 +27,7 @@ class InvItemCreate(BaseModel):
 
 class InvItemUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=200)
+    item_type: Optional[ItemType] = None
     category: Optional[str] = Field(None, max_length=100)
     base_unit: Optional[str] = Field(None, max_length=20)
     usage_unit: Optional[str] = Field(None, max_length=20)
@@ -39,6 +43,7 @@ class InvItemResponse(BaseModel):
     id: int
     code: str
     name: str
+    item_type: ItemType
     category: Optional[str] = None
     base_unit: str
     usage_unit: Optional[str] = None
@@ -56,6 +61,7 @@ class InvAllowedLocationsUpdate(BaseModel):
 
 class InvItemBulkUpdate(BaseModel):
     ids: List[int] = Field(..., min_length=1)
+    item_type: Optional[ItemType] = None
     category: Optional[str] = Field(None, max_length=100)
     base_unit: Optional[str] = Field(None, max_length=20)
     usage_unit: Optional[str] = Field(None, max_length=20)

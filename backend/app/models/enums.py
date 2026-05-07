@@ -101,8 +101,16 @@ class InvDocStatus(str, enum.Enum):
     VOIDED = "Voided"
 
 
+class ItemType(str, enum.Enum):
+    RAW = "raw"
+    INTERMEDIATE = "intermediate"
+    FINISHED = "finished"
+    PACKAGING = "packaging"
+
+
 InvDocTypeType = SAEnum(InvDocType, name="inv_doc_type_enum", create_type=False, values_callable=_vals)
 InvDocStatusType = SAEnum(InvDocStatus, name="inv_doc_status_enum", create_type=False, values_callable=_vals)
+ItemTypeType = SAEnum(ItemType, name="item_type_enum", create_type=False, values_callable=_vals)
 
 
 # ---------------------------------------------------------------------------

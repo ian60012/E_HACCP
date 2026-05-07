@@ -73,7 +73,7 @@ export default function BatchSheetDetailPage() {
         const [batchData, sheetData, itemsData] = await Promise.all([
           prodBatchesApi.get(id),
           batchSheetApi.get(id),
-          invItemsApi.list({ category: '原料', is_active: true, limit: 500 }),
+          invItemsApi.list({ item_type: 'raw', is_active: true, limit: 500 }),
         ]);
         setBatch(batchData);
         setIngredients(itemsData.items);

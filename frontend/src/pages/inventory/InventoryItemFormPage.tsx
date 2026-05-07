@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { invItemsApi, invLocationsApi } from '@/api/inventory';
-import { InvLocation } from '@/types/inventory';
+import { InvLocation, ItemType, ITEM_TYPES } from '@/types/inventory';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import FormField from '@/components/FormField';
 import Bi, { bi } from '@/components/Bi';
+import { t } from '@/i18n/labels';
 
 const UNITS = ['PCS', 'KG', 'G', 'L', 'ML', '包', '箱', '袋', '罐', '卷', '打'];
 const USAGE_UNITS = ['', 'KG', 'G', 'L', 'ML', 'PCS']; // Production-focused units for Batch Sheet
@@ -20,6 +21,7 @@ export default function InventoryItemFormPage() {
 
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  const [itemType, setItemType] = useState<ItemType>('raw');
   const [category, setCategory] = useState('');
   const [baseUnit, setBaseUnit] = useState('PCS');
   const [usageUnit, setUsageUnit] = useState('');
@@ -44,6 +46,7 @@ export default function InventoryItemFormPage() {
     invItemsApi.get(Number(id)).then((item) => {
       setCode(item.code);
       setName(item.name);
+      setItemType(item.item_type);
       setCategory(item.category || '');
       setBaseUnit(item.base_unit);
       setUsageUnit(item.usage_unit || '');
@@ -71,7 +74,9 @@ export default function InventoryItemFormPage() {
     try {
       if (isEdit && id) {
         await invItemsApi.update(Number(id), {
-          name, category: category || undefined,
+          name,
+          item_type: itemType,
+          category: category || undefined,
           base_unit: baseUnit,
           usage_unit: usageUnit || undefined,
           description: description || undefined,
@@ -80,7 +85,9 @@ export default function InventoryItemFormPage() {
         });
       } else {
         await invItemsApi.create({
-          code, name, category: category || undefined,
+          code, name,
+          item_type: itemType,
+          category: category || undefined,
           base_unit: baseUnit,
           usage_unit: usageUnit || undefined,
           description: description || undefined,
@@ -132,13 +139,27 @@ export default function InventoryItemFormPage() {
             required
           />
         </FormField>
-        <FormField label={<Bi k="field.category" />}>
+        <FormField label={<Bi k="field.itemType" />} required>
+          <select
+            value={itemType}
+            onChange={(e) => setItemType(e.target.value as ItemType)}
+            className="input"
+            required
+          >
+            {ITEM_TYPES.map((it) => (
+              <option key={it} value={it}>
+                {t(`inv.itemType.${it}`).zh} {t(`inv.itemType.${it}`).en}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label={<Bi k="field.subCategory" />} hint="自由文字，例如 肉類 / 調味料 / 蔬菜">
           <input
             type="text"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className="input"
-            placeholder={bi('placeholder.category')}
+            placeholder="肉類 / 調味料 / 蔬菜（選填）"
           />
         </FormField>
         <FormField label={<Bi k="field.baseUnit" />} required>

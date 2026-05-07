@@ -38,8 +38,11 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-haccp_db}
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production-use-a-long-random-string}
       ENVIRONMENT: production
+      PRODUCTION_HELPER_DATA_DIR: /app/app/data/production_helper
     ports:
       - "8001:8000"
+    volumes:
+      - production_helper_data_prod:/app/app/data/production_helper
 
   frontend:
     build:
@@ -54,3 +57,4 @@ services:
 
 volumes:
   pgdata_prod:
+  production_helper_data_prod:

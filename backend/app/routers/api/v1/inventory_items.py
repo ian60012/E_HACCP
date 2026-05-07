@@ -10,6 +10,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.models.enums import ItemType
 from app.models.inventory import InvItem, InvLocation
 from app.models.user import User
 from app.schemas.inventory import (
@@ -22,13 +23,36 @@ from app.dependencies.auth import get_current_active_user, require_role
 router = APIRouter(prefix="/inventory/items", tags=["inventory-items"])
 
 
+# Maps user-facing zh/en strings (Excel imports) to ItemType enum values.
+_ITEM_TYPE_ALIASES = {
+    # canonical
+    "raw": ItemType.RAW,
+    "intermediate": ItemType.INTERMEDIATE,
+    "finished": ItemType.FINISHED,
+    "packaging": ItemType.PACKAGING,
+    # zh
+    "原料": ItemType.RAW,
+    "半成品": ItemType.INTERMEDIATE,
+    "成品": ItemType.FINISHED,
+    "包材": ItemType.PACKAGING,
+}
+
+
+def _parse_item_type(value: str) -> Optional[ItemType]:
+    if not value:
+        return None
+    return _ITEM_TYPE_ALIASES.get(value.strip().lower(), _ITEM_TYPE_ALIASES.get(value.strip()))
+
+
 def _to_response(item: InvItem) -> InvItemResponse:
     return InvItemResponse(
         id=item.id,
         code=item.code,
         name=item.name,
+        item_type=item.item_type,
         category=item.category,
         base_unit=item.base_unit,
+        usage_unit=item.usage_unit,
         description=item.description,
         supplier_id=item.supplier_id,
         supplier_name=item.supplier.name if item.supplier else None,
@@ -68,7 +92,8 @@ async def list_items(
     limit: int = Query(100, ge=1, le=1000),
     search: Optional[str] = None,
     is_active: Optional[bool] = True,
-    category: Optional[str] = Query(None, description="Filter by category (e.g. '原料')"),
+    item_type: Optional[ItemType] = Query(None, description="Filter by primary classification"),
+    category: Optional[str] = Query(None, description="Filter by free-text sub-category"),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -79,6 +104,8 @@ async def list_items(
         q = q.where(
             InvItem.name.ilike(f"%{search}%") | InvItem.code.ilike(f"%{search}%")
         )
+    if item_type is not None:
+        q = q.where(InvItem.item_type == item_type)
     if category:
         q = q.where(InvItem.category == category)
 
@@ -142,7 +169,8 @@ async def download_template(
     headers = [
         ("品項代碼", "必填，不可重複"),
         ("品項名稱", "必填"),
-        ("分類", "選填"),
+        ("主類型", "必填：原料/半成品/成品/包材 或 raw/intermediate/finished/packaging"),
+        ("子分類", "選填，自由文字（例：肉類、調味料、蔬菜）"),
         ("基本單位", "必填：PCS/KG/G/L/ML/包/箱/袋/罐/卷/打"),
         ("描述", "選填"),
         ("允許儲位", "選填，多個儲位以逗號分隔（儲位代碼）"),
@@ -165,12 +193,12 @@ async def download_template(
         cell.fill = note_fill
         cell.font = Font(italic=True, size=9, color="555555")
 
-    examples = ["RM-PORK-001", "豬前腿肉", "原料肉", "KG", "冷凍豬前腿肉", "FZ-A,FZ-B"]
+    examples = ["RM-PORK-001", "豬前腿肉", "原料", "肉類", "KG", "冷凍豬前腿肉", "FZ-A,FZ-B", "KG"]
     for col, val in enumerate(examples, 1):
         cell = ws.cell(row=3, column=col, value=val)
         cell.fill = example_fill
 
-    widths = [18, 25, 15, 20, 25, 25]
+    widths = [18, 25, 14, 18, 14, 25, 25, 18]
     for col, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = w
 
@@ -217,11 +245,12 @@ async def import_items(
         row = [str(v).strip() if v is not None else "" for v in row]
         code = row[0] if len(row) > 0 else ""
         name = row[1] if len(row) > 1 else ""
-        category = row[2] if len(row) > 2 else ""
-        base_unit = row[3] if len(row) > 3 else "PCS"
-        description = row[4] if len(row) > 4 else ""
-        locations_raw = row[5] if len(row) > 5 else ""
-        usage_unit = row[6] if len(row) > 6 else ""
+        item_type_raw = row[2] if len(row) > 2 else ""
+        category = row[3] if len(row) > 3 else ""
+        base_unit = row[4] if len(row) > 4 else "PCS"
+        description = row[5] if len(row) > 5 else ""
+        locations_raw = row[6] if len(row) > 6 else ""
+        usage_unit = row[7] if len(row) > 7 else ""
 
         if not code:
             skipped += 1
@@ -230,6 +259,16 @@ async def import_items(
             errors.append({"row": i, "code": code, "message": "品項名稱不可為空"})
             skipped += 1
             continue
+
+        item_type_value = _parse_item_type(item_type_raw)
+        if item_type_value is None:
+            errors.append({
+                "row": i, "code": code,
+                "message": f"主類型 '{item_type_raw}' 無法辨識（請填 原料/半成品/成品/包材）"
+            })
+            skipped += 1
+            continue
+
         if not base_unit or base_unit not in VALID_UNITS:
             base_unit = "PCS"
 
@@ -242,6 +281,7 @@ async def import_items(
         item = InvItem(
             code=code,
             name=name,
+            item_type=item_type_value,
             category=category or None,
             base_unit=base_unit,
             usage_unit=usage_unit or None,
@@ -322,11 +362,13 @@ async def bulk_update_items(
     current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Bulk update category / base_unit / is_active for multiple items."""
+    """Bulk update item_type / category / base_unit / usage_unit / is_active for multiple items."""
     result = await db.execute(select(InvItem).where(InvItem.id.in_(data.ids)))
     items = result.scalars().all()
 
     for item in items:
+        if data.item_type is not None:
+            item.item_type = data.item_type
         if data.category is not None:
             item.category = data.category or None
         if data.base_unit is not None:

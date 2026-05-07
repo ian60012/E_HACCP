@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  ArrowDownTrayIcon,
   ArrowPathIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -12,6 +13,7 @@ import PlanDrawer from './PlanDrawer';
 import NoteDrawer from './NoteDrawer';
 import RecipeDrawer from './RecipeDrawer';
 import RequirementsDrawer from './RequirementsDrawer';
+import { exportWeeklyPlanImage } from './exportImage';
 import { PHPlanItem } from '@/api/productionHelper';
 import Bi, { bi } from '@/components/Bi';
 
@@ -142,6 +144,15 @@ export default function ProductionHelperPage() {
     }
   }
 
+  function handleExportImage() {
+    try {
+      exportWeeklyPlanImage({ plans: state.plans, dates: dates as any, weekKey: week });
+      showToast(bi('ph.toast.imageExported'));
+    } catch (err: any) {
+      showToast(`${bi('ph.toast.saveFailed')}：${err?.message || ''}`);
+    }
+  }
+
   return (
     <div className="p-4 max-w-[1400px] mx-auto">
       {/* Header */}
@@ -191,6 +202,15 @@ export default function ProductionHelperPage() {
           >
             <ArrowPathIcon className="h-4 w-4" />
             <Bi k="ph.btn.refresh" showEn={false} />
+          </button>
+          <button
+            type="button"
+            onClick={handleExportImage}
+            className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
+            title={bi('ph.btn.exportImage')}
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" />
+            <Bi k="ph.btn.exportImage" showEn={false} />
           </button>
           <button
             type="button"

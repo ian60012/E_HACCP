@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
-from app.models.enums import InvDocTypeType, InvDocStatusType, InvStocktakeStatusType
+from app.models.enums import InvDocTypeType, InvDocStatusType, InvStocktakeStatusType, ItemTypeType
 
 
 class InvItemAllowedLocation(Base):
@@ -22,7 +22,8 @@ class InvItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     code = Column(VARCHAR(50), unique=True, nullable=False)
     name = Column(VARCHAR(200), nullable=False)
-    category = Column(VARCHAR(100), nullable=True)
+    item_type = Column(ItemTypeType, nullable=False, server_default="raw")  # raw / intermediate / finished / packaging
+    category = Column(VARCHAR(100), nullable=True)  # Free-text sub-classification (e.g. 肉類, 調味料)
     base_unit = Column(VARCHAR(20), nullable=False, server_default="PCS")
     usage_unit = Column(VARCHAR(20), nullable=True)  # Production unit for Batch Sheet; NULL = use base_unit
     description = Column(Text, nullable=True)

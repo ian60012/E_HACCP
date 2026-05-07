@@ -1,6 +1,6 @@
 import apiClient from './client';
 import {
-  InvItem, InvItemCreate, InvItemUpdate,
+  InvItem, InvItemCreate, InvItemUpdate, ItemType,
   InvLocation, InvLocationCreate, InvLocationUpdate,
   InvStockDoc, InvStockDocCreate,
   InvStockBalance, InvStockMovement,
@@ -12,7 +12,8 @@ import { PaginatedResponse } from '@/types/common';
 
 export const invItemsApi = {
   list: async (params?: {
-    skip?: number; limit?: number; search?: string; is_active?: boolean; category?: string;
+    skip?: number; limit?: number; search?: string; is_active?: boolean;
+    item_type?: ItemType; category?: string;
   }): Promise<PaginatedResponse<InvItem>> => {
     const res = await apiClient.get<PaginatedResponse<InvItem>>('/api/v1/inventory/items', { params });
     return res.data;
@@ -33,7 +34,14 @@ export const invItemsApi = {
     return res.data;
   },
 
-  bulkUpdate: async (data: { ids: number[]; category?: string; base_unit?: string; is_active?: boolean }): Promise<{ updated: number }> => {
+  bulkUpdate: async (data: {
+    ids: number[];
+    item_type?: ItemType;
+    category?: string;
+    base_unit?: string;
+    usage_unit?: string;
+    is_active?: boolean;
+  }): Promise<{ updated: number }> => {
     const res = await apiClient.patch<{ updated: number }>('/api/v1/inventory/items/bulk-update', data);
     return res.data;
   },

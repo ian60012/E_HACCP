@@ -419,7 +419,21 @@ const labels: Record<string, BiLabelType> = {
   'nav.invBalance': { zh: '庫存查詢', en: 'Stock Balance' },
   'nav.invDocs': { zh: '入出庫單', en: 'Stock Documents' },
   'nav.invItems': { zh: '品項管理', en: 'Items' },
+  'nav.invItemsAll': { zh: '全部品項', en: 'All Items' },
+  'nav.invRawMaterials': { zh: '原料管理', en: 'Raw Materials' },
+  'nav.invIntermediates': { zh: '半成品管理', en: 'Intermediates' },
+  'nav.invFinishedGoods': { zh: '成品管理', en: 'Finished Goods' },
+  'nav.invPackaging': { zh: '包材管理', en: 'Packaging' },
   'nav.invLocations': { zh: '儲位管理', en: 'Locations' },
+
+  // Item type labels (single source of truth for the 4-way classification)
+  'inv.itemType.raw': { zh: '原料', en: 'Raw Material' },
+  'inv.itemType.intermediate': { zh: '半成品', en: 'Intermediate' },
+  'inv.itemType.finished': { zh: '成品', en: 'Finished Good' },
+  'inv.itemType.packaging': { zh: '包材', en: 'Packaging' },
+
+  'field.itemType': { zh: '主類型', en: 'Item Type' },
+  'field.subCategory': { zh: '子分類', en: 'Sub-category' },
 
   'page.invItems.subtitle': { zh: '管理庫存品項', en: 'Manage inventory items' },
   'page.invItemNew.title': { zh: '新增品項', en: 'New Item' },
@@ -843,6 +857,15 @@ const labels: Record<string, BiLabelType> = {
   'ph.toast.deletedRecipe': { zh: '配方已刪除', en: 'Recipe deleted' },
   'ph.toast.saveFailed': { zh: '保存失敗', en: 'Save failed' },
   'ph.toast.deleteFailed': { zh: '刪除失敗', en: 'Delete failed' },
+  'ph.toast.imageExported': { zh: '本週計畫圖片已匯出', en: 'Weekly plan image exported' },
+
+  // Image export internals
+  'ph.export.title': { zh: '生產計畫', en: 'Production Plan' },
+  'ph.export.planCountSuffix': { zh: '項計畫', en: 'plans' },
+  'ph.export.exportedAt': { zh: '匯出時間', en: 'Exported at' },
+  'ph.export.noProduct': { zh: '未選產品', en: 'No product' },
+  'ph.export.noMainMaterial': { zh: '主材料未填', en: 'Main material empty' },
+  'ph.export.dateRangeJoin': { zh: '至', en: 'to' },
 };
 
 /** Get a bilingual label by key */
