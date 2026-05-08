@@ -12,7 +12,7 @@ import { buildLabelHtml, makePdfFileName } from '@/features/labelmaker/domain/la
 import { formatEnergy, formatGrams, formatMilligrams, perServing } from '@/features/labelmaker/domain/nutrition';
 import { createClientId } from '@/features/labelmaker/domain/clientId';
 import { defaultFactoryInformation, validateProduct } from '@/features/labelmaker/domain/product';
-import { createEmptyRecipe, recipeIngredientNames } from '@/features/labelmaker/domain/recipeNutrition';
+import { createEmptyRecipe, hasCjkText, recipeIngredientNames } from '@/features/labelmaker/domain/recipeNutrition';
 
 const nutritionFields: Array<{ key: keyof NutritionValues; label: string; unit: string }> = [
   { key: 'energyKj', label: 'Energy', unit: 'kJ' },
@@ -466,10 +466,15 @@ function createDefaultTemplate(product: ProdProduct, packType: PackTypeConfig | 
 }
 
 function fromTemplate(template: LabelTemplate): ProductTemplate {
+  const productionName = template.product_name?.trim() ?? '';
+  const storedZh = template.product_name_zh.trim();
+  const storedEn = template.product_name_en.trim();
+  const shouldUseProductionNameAsZh = !storedZh && productionName && hasCjkText(productionName);
+
   return {
     id: String(template.id),
-    productNameZh: template.product_name_zh,
-    productNameEn: template.product_name_en,
+    productNameZh: shouldUseProductionNameAsZh ? productionName : template.product_name_zh,
+    productNameEn: shouldUseProductionNameAsZh && storedEn === productionName ? '' : template.product_name_en,
     netWeightG: Number(template.net_weight_g),
     servingSizeG: Number(template.serving_size_g),
     servingsPerPackage: Number(template.servings_per_package),
