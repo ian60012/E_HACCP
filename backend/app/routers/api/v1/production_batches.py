@@ -134,6 +134,7 @@ async def _render_pdf(html_content: str, width: str = "100mm", height: str = "75
             return await page.pdf(
                 print_background=True,
                 prefer_css_page_size=True,
+                page_ranges="1",
                 width=width,
                 height=height,
                 margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
