@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { prodBatchesApi, prodProductsApi } from '@/api/production';
 import { cookingLogsApi } from '@/api/cooking-logs';
 import { coolingLogsApi } from '@/api/cooling-logs';
@@ -25,6 +25,31 @@ import DateTimeInput from '@/components/DateTimeInput';
 import { toMelbourneInput, nowMelbourne, melbourneToUTC, formatMelbourne } from '@/utils/timezone';
 
 const num = (v: any): number => (v == null ? 0 : Number(v));
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function readErrorDetail(error: any, fallback: string): Promise<string> {
+  const data = error?.response?.data;
+  if (data instanceof Blob) {
+    const text = await data.text();
+    try {
+      const parsed = JSON.parse(text);
+      return parsed?.detail || text || fallback;
+    } catch {
+      return text || fallback;
+    }
+  }
+  return data?.detail || fallback;
+}
 
 const statusColors: Record<string, string> = {
   open: 'bg-blue-100 text-blue-800',
@@ -129,6 +154,13 @@ export default function ProdBatchDetailPage() {
   const [enteringStock, setEnteringStock] = useState(false);
   const [stockPreflightResolved, setStockPreflightResolved] = useState<{ packType: string; itemName: string; bags: number }[]>([]);
   const [stockPreflightMissing, setStockPreflightMissing] = useState<{ packType: string; bags: number }[]>([]);
+
+  // Carton label modal
+  const [showCartonLabelModal, setShowCartonLabelModal] = useState(false);
+  const [cartonPackingRecordId, setCartonPackingRecordId] = useState<number | ''>('');
+  const [cartonBagsPerCarton, setCartonBagsPerCarton] = useState('');
+  const [cartonPackingDate, setCartonPackingDate] = useState('');
+  const [cartonLabelBusy, setCartonLabelBusy] = useState(false);
 
   // Void modal
   const [showVoidModal, setShowVoidModal] = useState(false);
@@ -366,6 +398,46 @@ export default function ProdBatchDetailPage() {
       setError(err?.response?.data?.detail || bi('error.saveFailed'));
     } finally {
       setAssemblySaving(false);
+    }
+  };
+
+  const openCartonLabelModal = () => {
+    if (!batch || batch.packing_records.length === 0) return;
+    const firstRecord = batch.packing_records[0];
+    setCartonPackingRecordId(firstRecord.id);
+    setCartonBagsPerCarton(String(firstRecord.bag_count || 1));
+    setCartonPackingDate(nowMelbourne().slice(0, 10));
+    setShowCartonLabelModal(true);
+  };
+
+  const handleCartonRecordChange = (recordId: number) => {
+    const record = batch?.packing_records.find((item) => item.id === recordId);
+    setCartonPackingRecordId(recordId);
+    if (record) setCartonBagsPerCarton(String(record.bag_count || 1));
+  };
+
+  const handleDownloadCartonLabel = async () => {
+    if (!batch || !cartonPackingRecordId) return;
+    const bagsPerCarton = Number(cartonBagsPerCarton);
+    if (!Number.isFinite(bagsPerCarton) || bagsPerCarton < 1) {
+      setError('每箱袋數必須大於 0');
+      return;
+    }
+    setCartonLabelBusy(true);
+    setError('');
+    try {
+      const blob = await prodBatchesApi.downloadCartonLabel(batch.id, {
+        packing_record_id: Number(cartonPackingRecordId),
+        bags_per_carton: Math.floor(bagsPerCarton),
+        packing_date: cartonPackingDate,
+      });
+      const record = batch.packing_records.find((item) => item.id === Number(cartonPackingRecordId));
+      downloadBlob(blob, `${batch.batch_code}-${record?.pack_type || 'carton'}-carton-label.pdf`);
+      setShowCartonLabelModal(false);
+    } catch (err: any) {
+      setError(await readErrorDetail(err, 'Carton label PDF export failed.'));
+    } finally {
+      setCartonLabelBusy(false);
     }
   };
 
@@ -1394,6 +1466,14 @@ export default function ProdBatchDetailPage() {
             <Bi k="btn.viewPacking" />
           </button>
         </RoleGate>
+        {batch.packing_records.length > 0 && (
+          <button
+            onClick={openCartonLabelModal}
+            className="btn btn-secondary flex items-center gap-1.5"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" /> 箱貼 PDF
+          </button>
+        )}
         {canEnterStock && (
           <RoleGate roles={['Admin', 'Production', 'Warehouse']}>
             <button onClick={openEnterStockModal} className="btn bg-orange-500 text-white hover:bg-orange-600">
@@ -1410,6 +1490,76 @@ export default function ProdBatchDetailPage() {
           </button>
         )}
       </div>
+
+      {/* Carton label modal */}
+      {showCartonLabelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800">箱貼 PDF</h3>
+              <p className="text-xs text-gray-500 mt-1">{batch.batch_code} · {batch.product_name}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              <label className="block">
+                <span className="label text-xs">Packing record</span>
+                <select
+                  value={cartonPackingRecordId}
+                  onChange={(e) => handleCartonRecordChange(Number(e.target.value))}
+                  className="input"
+                >
+                  {batch.packing_records.map((record) => (
+                    <option key={record.id} value={record.id}>
+                      {record.pack_type} · {record.product_name || batch.product_name} · {record.bag_count} bags · {record.nominal_weight_kg} kg/bag
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="label text-xs">每箱袋數 Bags / carton</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={cartonBagsPerCarton}
+                    onChange={(e) => setCartonBagsPerCarton(e.target.value)}
+                    className="input"
+                  />
+                </label>
+                <label className="block">
+                  <span className="label text-xs">包裝日期 Packing date</span>
+                  <input
+                    type="date"
+                    value={cartonPackingDate}
+                    onChange={(e) => setCartonPackingDate(e.target.value)}
+                    className="input"
+                  />
+                </label>
+              </div>
+              <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                公司名稱固定為 FD CATERING SERVICE PTY LTD，barcode 會自動使用生產批次 {batch.batch_code} 產生。
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowCartonLabelModal(false)}
+                className="btn btn-secondary"
+                disabled={cartonLabelBusy}
+              >
+                <Bi k="btn.cancel" />
+              </button>
+              <button
+                onClick={handleDownloadCartonLabel}
+                disabled={cartonLabelBusy || !cartonPackingRecordId || !cartonPackingDate || Number(cartonBagsPerCarton) < 1}
+                className="btn btn-primary flex items-center gap-1.5"
+              >
+                <ArrowDownTrayIcon className="h-4 w-4" />
+                {cartonLabelBusy ? 'Generating...' : 'Download PDF'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Enter stock modal */}
       {showEnterStockModal && (

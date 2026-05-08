@@ -1,9 +1,11 @@
 """Production batches router (生產批次)."""
 
+import html
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
@@ -28,6 +30,7 @@ from app.schemas.production import (
     ProdPackingSaveRequest,
     ProdPackingRecordResponse,
     ProdPackingTrimResponse,
+    CartonLabelRequest,
     FormingTotalsResponse,
     PackingTotalsResponse,
     HotProcessBalanceResponse,
@@ -48,6 +51,92 @@ from app.services.production_service import (
 from app.services.production_void_service import void_batch as void_batch_service
 
 router = APIRouter(prefix="/production/batches", tags=["Production Batches"])
+
+CODE128_PATTERNS = [
+    "212222", "222122", "222221", "121223", "121322", "131222", "122213", "122312", "132212", "221213",
+    "221312", "231212", "112232", "122132", "122231", "113222", "123122", "123221", "223211", "221132",
+    "221231", "213212", "223112", "312131", "311222", "321122", "321221", "312212", "322112", "322211",
+    "212123", "212321", "232121", "111323", "131123", "131321", "112313", "132113", "132311", "211313",
+    "231113", "231311", "112133", "112331", "132131", "113123", "113321", "133121", "313121", "211331",
+    "231131", "213113", "213311", "213131", "311123", "311321", "331121", "312113", "312311", "332111",
+    "314111", "221411", "431111", "111224", "111422", "121124", "121421", "141122", "141221", "112214",
+    "112412", "122114", "122411", "142112", "142211", "241211", "221114", "413111", "241112", "134111",
+    "111242", "121142", "121241", "114212", "124112", "124211", "411212", "421112", "421211", "212141",
+    "214121", "412121", "111143", "111341", "131141", "114113", "114311", "411113", "411311", "113141",
+    "114131", "311141", "411131", "211412", "211214", "211232", "2331112",
+]
+
+
+def _safe_filename(value: str) -> str:
+    return "".join(ch if ch.isalnum() or ch in ("-", "_", ".") else "_" for ch in value).strip("_") or "carton-label"
+
+
+def _trim_decimal(value: object, decimals: int = 3) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        number = 0.0
+    text = f"{number:.{decimals}f}".rstrip("0").rstrip(".")
+    return text or "0"
+
+
+def _code128_svg(value: str) -> str:
+    if not value or any(ord(ch) < 32 or ord(ch) > 126 for ch in value):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Batch code must contain printable ASCII characters for barcode generation",
+        )
+    codes = [104, *[ord(ch) - 32 for ch in value]]
+    checksum = codes[0] + sum(code * index for index, code in enumerate(codes[1:], start=1))
+    codes.extend([checksum % 103, 106])
+
+    module = 2
+    height = 58
+    quiet = 16
+    x = quiet
+    rects: list[str] = []
+    for code in codes:
+        pattern = CODE128_PATTERNS[code]
+        for index, width_char in enumerate(pattern):
+            width = int(width_char) * module
+            if index % 2 == 0:
+                rects.append(f'<rect x="{x}" y="0" width="{width}" height="{height}" />')
+            x += width
+    width = x + quiet
+    escaped_value = html.escape(value)
+    return (
+        f'<svg class="barcode" viewBox="0 0 {width} 78" xmlns="http://www.w3.org/2000/svg" role="img" '
+        f'aria-label="Batch barcode {escaped_value}">'
+        f'<rect width="{width}" height="78" fill="#fff" />'
+        f'<g fill="#111">{"".join(rects)}</g>'
+        f'<text x="{width / 2}" y="75" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">{escaped_value}</text>'
+        f'</svg>'
+    )
+
+
+async def _render_pdf(html_content: str, width: str = "100mm", height: str = "75mm") -> bytes:
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="PDF renderer is not installed. Install Playwright Chromium in the backend image.",
+        ) from exc
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"])
+        try:
+            page = await browser.new_page()
+            await page.set_content(html_content, wait_until="load")
+            return await page.pdf(
+                print_background=True,
+                prefer_css_page_size=True,
+                width=width,
+                height=height,
+                margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
+            )
+        finally:
+            await browser.close()
 
 
 def _trolley_response(t: ProdFormingTrolley) -> ProdFormingTrolleyResponse:
@@ -512,6 +601,87 @@ async def get_packing_totals(
             status_code=status.HTTP_404_NOT_FOUND, detail="Batch not found"
         )
     return PackingTotalsResponse(**totals)
+
+
+@router.post("/{batch_id}/carton-label-pdf")
+async def carton_label_pdf(
+    batch_id: int,
+    data: CartonLabelRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(_base_query().where(ProdBatch.id == batch_id))
+    batch = result.scalar_one_or_none()
+    if not batch:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Batch not found")
+
+    packing_record = next(
+        (record for record in (batch.packing_records or []) if record.id == data.packing_record_id),
+        None,
+    )
+    if not packing_record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Packing record not found")
+
+    pdf = await _render_pdf(_build_carton_label_html(batch, packing_record, data))
+    product_name = packing_record.product.name if packing_record.product else batch.product_name
+    filename = _safe_filename(f"{batch.batch_code}-{product_name}-carton-label.pdf")
+    return StreamingResponse(
+        iter([pdf]),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+def _build_carton_label_html(batch: ProdBatch, record: ProdPackingRecord, data: CartonLabelRequest) -> str:
+    product_name = record.product.name if record.product else batch.product_name
+    pack_type = record.pack_type.value if hasattr(record.pack_type, "value") else record.pack_type
+    barcode_svg = _code128_svg(batch.batch_code)
+    weight_text = f"{_trim_decimal(record.nominal_weight_kg)} kg"
+    total_weight = int(data.bags_per_carton) * float(record.nominal_weight_kg or 0)
+    return f"""<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    @page {{ size: 100mm 75mm; margin: 0; }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin: 0; width: 100mm; height: 75mm; font-family: Arial, "Microsoft YaHei", sans-serif; color: #111; background: #fff; }}
+    .label {{ width: 100mm; height: 75mm; padding: 5mm; display: grid; grid-template-rows: auto 1fr auto; gap: 3mm; }}
+    .header {{ border-bottom: 0.45mm solid #111; padding-bottom: 2mm; }}
+    .company {{ font-size: 12pt; font-weight: 800; letter-spacing: 0; }}
+    .title {{ font-size: 9pt; font-weight: 700; margin-top: 1mm; text-transform: uppercase; }}
+    .grid {{ display: grid; grid-template-columns: 29mm 1fr; gap: 1.7mm 3mm; align-content: start; }}
+    .key {{ font-size: 7pt; color: #555; font-weight: 700; text-transform: uppercase; }}
+    .value {{ font-size: 10pt; font-weight: 800; line-height: 1.12; }}
+    .value.large {{ font-size: 13pt; }}
+    .barcode-wrap {{ border-top: 0.35mm solid #111; padding-top: 2mm; text-align: center; }}
+    .barcode {{ width: 88mm; height: 18mm; display: block; margin: 0 auto; }}
+  </style>
+</head>
+<body>
+  <main class="label">
+    <section class="header">
+      <div class="company">FD CATERING SERVICE PTY LTD</div>
+      <div class="title">Carton Label</div>
+    </section>
+    <section class="grid">
+      <div class="key">Batch</div><div class="value large">{html.escape(batch.batch_code)}</div>
+      <div class="key">Product</div><div class="value">{html.escape(product_name)}</div>
+      <div class="key">Pack Type</div><div class="value">{html.escape(str(pack_type))}</div>
+      <div class="key">Bags / Carton</div><div class="value">{data.bags_per_carton}</div>
+      <div class="key">Bag Weight</div><div class="value">{html.escape(weight_text)}</div>
+      <div class="key">Carton Net</div><div class="value">{_trim_decimal(total_weight)} kg</div>
+      <div class="key">Packing Date</div><div class="value">{data.packing_date.isoformat()}</div>
+    </section>
+    <section class="barcode-wrap">
+      {barcode_svg}
+    </section>
+  </main>
+</body>
+</html>"""
 
 
 # ---------------------------------------------------------------------------

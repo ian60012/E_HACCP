@@ -198,6 +198,12 @@ class ProdPackingSaveRequest(BaseModel):
     trims: List[ProdPackingTrimCreate]
 
 
+class CartonLabelRequest(BaseModel):
+    packing_record_id: int
+    bags_per_carton: int = Field(..., ge=1)
+    packing_date: date
+
+
 # ---------------------------------------------------------------------------
 # Batch (批次)
 # ---------------------------------------------------------------------------

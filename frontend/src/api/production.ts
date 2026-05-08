@@ -122,6 +122,17 @@ export const prodBatchesApi = {
     const res = await apiClient.post<ProdBatch>(`/api/v1/production/batches/${batchId}/void`, { void_reason: voidReason });
     return res.data;
   },
+  downloadCartonLabel: async (batchId: number, data: {
+    packing_record_id: number;
+    bags_per_carton: number;
+    packing_date: string;
+  }): Promise<Blob> => {
+    const res = await apiClient.post(`/api/v1/production/batches/${batchId}/carton-label-pdf`, data, {
+      responseType: 'blob',
+      timeout: 60000,
+    });
+    return res.data;
+  },
 };
 
 // ─── Pack Types ─────────────────────────────────────────────────────────────
