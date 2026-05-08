@@ -15,7 +15,8 @@ import RoleGate from '@/components/RoleGate';
 
 export default function ProdProductsPage() {
   const [products, setProducts] = useState<ProdProduct[]>([]);
-  const [invItems, setInvItems] = useState<InvItem[]>([]);
+  const [invItems, setInvItems] = useState<InvItem[]>([]); // finished only — for product-level inv_item_id
+  const [packConfigInvItems, setPackConfigInvItems] = useState<InvItem[]>([]); // finished + intermediate — for pack-config
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showInactive, setShowInactive] = useState(false);
@@ -79,8 +80,13 @@ export default function ProdProductsPage() {
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
   useEffect(() => {
-    // Only finished goods are valid inventory items for products
+    // Product-level inv_item_id: finished only
     invItemsApi.list({ item_type: 'finished', is_active: true, limit: 500 }).then(r => setInvItems(r.items));
+    // Pack-config: finished + intermediate (散裝 pack types can link to intermediate items)
+    Promise.all([
+      invItemsApi.list({ item_type: 'finished', is_active: true, limit: 500 }),
+      invItemsApi.list({ item_type: 'intermediate', is_active: true, limit: 500 }),
+    ]).then(([fin, inter]) => setPackConfigInvItems([...fin.items, ...inter.items]));
   }, []);
 
   const resetForm = () => {
@@ -432,9 +438,20 @@ export default function ProdProductsPage() {
                         className="input text-xs py-1 flex-1"
                       >
                         <option value="">— 未設定 —</option>
-                        {invItems.map((i) => (
-                          <option key={i.id} value={i.id}>{i.code} {i.name}</option>
-                        ))}
+                        {packConfigInvItems.filter(i => i.item_type === 'finished').length > 0 && (
+                          <optgroup label="成品 Finished">
+                            {packConfigInvItems.filter(i => i.item_type === 'finished').map((i) => (
+                              <option key={i.id} value={i.id}>{i.code} {i.name}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {packConfigInvItems.filter(i => i.item_type === 'intermediate').length > 0 && (
+                          <optgroup label="半成品 Intermediate">
+                            {packConfigInvItems.filter(i => i.item_type === 'intermediate').map((i) => (
+                              <option key={i.id} value={i.id}>{i.code} {i.name}</option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                       {!cfg.inv_item_id && (
                         <span className="text-xs text-amber-500 shrink-0">⚠ 未設定</span>
