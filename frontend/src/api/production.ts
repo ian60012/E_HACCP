@@ -123,9 +123,11 @@ export const prodBatchesApi = {
     return res.data;
   },
   downloadCartonLabel: async (batchId: number, data: {
-    packing_record_id: number;
+    packing_record_id?: number;
     bags_per_carton: number;
     packing_date: string;
+    pack_type?: string;
+    bag_weight_kg?: number;
   }): Promise<Blob> => {
     const res = await apiClient.post(`/api/v1/production/batches/${batchId}/carton-label-pdf`, data, {
       responseType: 'blob',

@@ -199,9 +199,11 @@ class ProdPackingSaveRequest(BaseModel):
 
 
 class CartonLabelRequest(BaseModel):
-    packing_record_id: int
+    packing_record_id: Optional[int] = None
     bags_per_carton: int = Field(..., ge=1)
     packing_date: date
+    pack_type: Optional[str] = Field(None, max_length=50)
+    bag_weight_kg: Optional[Decimal] = Field(None, ge=0)
 
 
 # ---------------------------------------------------------------------------

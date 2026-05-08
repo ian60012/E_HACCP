@@ -618,15 +618,22 @@ async def carton_label_pdf(
     if not batch:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Batch not found")
 
-    packing_record = next(
-        (record for record in (batch.packing_records or []) if record.id == data.packing_record_id),
-        None,
-    )
-    if not packing_record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Packing record not found")
+    packing_record: Optional[ProdPackingRecord] = None
+    if data.packing_record_id is not None:
+        packing_record = next(
+            (record for record in (batch.packing_records or []) if record.id == data.packing_record_id),
+            None,
+        )
+        if not packing_record:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Packing record not found")
+    elif data.bag_weight_kg is None or float(data.bag_weight_kg) <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Bag weight must be greater than 0 when no packing record is selected",
+        )
 
     pdf = await _render_pdf(_build_carton_label_html(batch, packing_record, data))
-    product_name = packing_record.product.name if packing_record.product else batch.product_name
+    product_name = packing_record.product.name if packing_record and packing_record.product else batch.product_name
     filename = _safe_filename(f"{batch.batch_code}-{product_name}-carton-label.pdf")
     return StreamingResponse(
         iter([pdf]),
@@ -638,12 +645,17 @@ async def carton_label_pdf(
     )
 
 
-def _build_carton_label_html(batch: ProdBatch, record: ProdPackingRecord, data: CartonLabelRequest) -> str:
-    product_name = record.product.name if record.product else batch.product_name
-    pack_type = record.pack_type.value if hasattr(record.pack_type, "value") else record.pack_type
+def _build_carton_label_html(batch: ProdBatch, record: Optional[ProdPackingRecord], data: CartonLabelRequest) -> str:
+    product_name = record.product.name if record and record.product else batch.product_name
+    pack_type = (
+        record.pack_type.value if record and hasattr(record.pack_type, "value")
+        else record.pack_type if record
+        else data.pack_type or "Carton"
+    )
     barcode_svg = _code128_svg(batch.batch_code)
-    weight_text = f"{_trim_decimal(record.nominal_weight_kg)} kg"
-    total_weight = int(data.bags_per_carton) * float(record.nominal_weight_kg or 0)
+    bag_weight = record.nominal_weight_kg if record else data.bag_weight_kg
+    weight_text = f"{_trim_decimal(bag_weight)} kg"
+    total_weight = int(data.bags_per_carton) * float(bag_weight or 0)
     return f"""<!doctype html>
 <html>
 <head>

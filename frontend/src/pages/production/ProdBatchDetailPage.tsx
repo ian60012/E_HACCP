@@ -154,12 +154,15 @@ export default function ProdBatchDetailPage() {
   const [enteringStock, setEnteringStock] = useState(false);
   const [stockPreflightResolved, setStockPreflightResolved] = useState<{ packType: string; itemName: string; bags: number }[]>([]);
   const [stockPreflightMissing, setStockPreflightMissing] = useState<{ packType: string; bags: number }[]>([]);
+  const [batchProductPackSizeKg, setBatchProductPackSizeKg] = useState<number | null>(null);
 
   // Carton label modal
   const [showCartonLabelModal, setShowCartonLabelModal] = useState(false);
   const [cartonPackingRecordId, setCartonPackingRecordId] = useState<number | ''>('');
   const [cartonBagsPerCarton, setCartonBagsPerCarton] = useState('');
   const [cartonPackingDate, setCartonPackingDate] = useState('');
+  const [cartonPackType, setCartonPackType] = useState('Carton');
+  const [cartonBagWeightKg, setCartonBagWeightKg] = useState('');
   const [cartonLabelBusy, setCartonLabelBusy] = useState(false);
 
   // Void modal
@@ -189,6 +192,7 @@ export default function ProdBatchDetailPage() {
       setEditChangeOver(data.change_over ?? false);
       const matched = options.find((o) => o.code === data.product_code);
       setProductType((matched?.product_type as 'forming' | 'hot_process') ?? 'forming');
+      setBatchProductPackSizeKg(matched?.pack_size_kg ?? null);
     } catch {
       setError(bi('error.loadFailed'));
     } finally {
@@ -402,10 +406,12 @@ export default function ProdBatchDetailPage() {
   };
 
   const openCartonLabelModal = () => {
-    if (!batch || batch.packing_records.length === 0) return;
+    if (!batch) return;
     const firstRecord = batch.packing_records[0];
-    setCartonPackingRecordId(firstRecord.id);
-    setCartonBagsPerCarton(String(firstRecord.bag_count || 1));
+    setCartonPackingRecordId(firstRecord?.id ?? '');
+    setCartonBagsPerCarton(String(firstRecord?.bag_count || 1));
+    setCartonPackType(firstRecord?.pack_type || 'Carton');
+    setCartonBagWeightKg(String(firstRecord?.nominal_weight_kg ?? batchProductPackSizeKg ?? ''));
     setCartonPackingDate(nowMelbourne().slice(0, 10));
     setShowCartonLabelModal(true);
   };
@@ -413,26 +419,37 @@ export default function ProdBatchDetailPage() {
   const handleCartonRecordChange = (recordId: number) => {
     const record = batch?.packing_records.find((item) => item.id === recordId);
     setCartonPackingRecordId(recordId);
-    if (record) setCartonBagsPerCarton(String(record.bag_count || 1));
+    if (record) {
+      setCartonBagsPerCarton(String(record.bag_count || 1));
+      setCartonPackType(record.pack_type || 'Carton');
+      setCartonBagWeightKg(String(record.nominal_weight_kg ?? ''));
+    }
   };
 
   const handleDownloadCartonLabel = async () => {
-    if (!batch || !cartonPackingRecordId) return;
+    if (!batch) return;
     const bagsPerCarton = Number(cartonBagsPerCarton);
+    const bagWeightKg = Number(cartonBagWeightKg);
     if (!Number.isFinite(bagsPerCarton) || bagsPerCarton < 1) {
       setError('每箱袋數必須大於 0');
+      return;
+    }
+    if (!cartonPackingRecordId && (!Number.isFinite(bagWeightKg) || bagWeightKg <= 0)) {
+      setError('Bag weight must be greater than 0');
       return;
     }
     setCartonLabelBusy(true);
     setError('');
     try {
       const blob = await prodBatchesApi.downloadCartonLabel(batch.id, {
-        packing_record_id: Number(cartonPackingRecordId),
+        packing_record_id: cartonPackingRecordId ? Number(cartonPackingRecordId) : undefined,
         bags_per_carton: Math.floor(bagsPerCarton),
         packing_date: cartonPackingDate,
+        pack_type: cartonPackingRecordId ? undefined : cartonPackType,
+        bag_weight_kg: cartonPackingRecordId ? undefined : bagWeightKg,
       });
       const record = batch.packing_records.find((item) => item.id === Number(cartonPackingRecordId));
-      downloadBlob(blob, `${batch.batch_code}-${record?.pack_type || 'carton'}-carton-label.pdf`);
+      downloadBlob(blob, `${batch.batch_code}-${record?.pack_type || cartonPackType || 'carton'}-carton-label.pdf`);
       setShowCartonLabelModal(false);
     } catch (err: any) {
       setError(await readErrorDetail(err, 'Carton label PDF export failed.'));
@@ -1466,14 +1483,12 @@ export default function ProdBatchDetailPage() {
             <Bi k="btn.viewPacking" />
           </button>
         </RoleGate>
-        {batch.packing_records.length > 0 && (
-          <button
-            onClick={openCartonLabelModal}
-            className="btn btn-secondary flex items-center gap-1.5"
-          >
-            <ArrowDownTrayIcon className="h-4 w-4" /> 箱貼 PDF
-          </button>
-        )}
+        <button
+          onClick={openCartonLabelModal}
+          className="btn btn-secondary flex items-center gap-1.5"
+        >
+          <ArrowDownTrayIcon className="h-4 w-4" /> 箱貼 PDF
+        </button>
         {canEnterStock && (
           <RoleGate roles={['Admin', 'Production', 'Warehouse']}>
             <button onClick={openEnterStockModal} className="btn bg-orange-500 text-white hover:bg-orange-600">
@@ -1500,7 +1515,8 @@ export default function ProdBatchDetailPage() {
               <p className="text-xs text-gray-500 mt-1">{batch.batch_code} · {batch.product_name}</p>
             </div>
             <div className="grid grid-cols-1 gap-3">
-              <label className="block">
+              {batch.packing_records.length > 0 && (
+                <label className="block">
                 <span className="label text-xs">Packing record</span>
                 <select
                   value={cartonPackingRecordId}
@@ -1513,7 +1529,32 @@ export default function ProdBatchDetailPage() {
                     </option>
                   ))}
                 </select>
-              </label>
+                </label>
+              )}
+              {batch.packing_records.length === 0 && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="label text-xs">Pack type</span>
+                    <input
+                      type="text"
+                      value={cartonPackType}
+                      onChange={(e) => setCartonPackType(e.target.value)}
+                      className="input"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="label text-xs">Bag weight kg</span>
+                    <input
+                      type="number"
+                      min="0.001"
+                      step="0.001"
+                      value={cartonBagWeightKg}
+                      onChange={(e) => setCartonBagWeightKg(e.target.value)}
+                      className="input"
+                    />
+                  </label>
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="block">
                   <span className="label text-xs">每箱袋數 Bags / carton</span>
@@ -1550,7 +1591,12 @@ export default function ProdBatchDetailPage() {
               </button>
               <button
                 onClick={handleDownloadCartonLabel}
-                disabled={cartonLabelBusy || !cartonPackingRecordId || !cartonPackingDate || Number(cartonBagsPerCarton) < 1}
+                disabled={
+                  cartonLabelBusy ||
+                  !cartonPackingDate ||
+                  Number(cartonBagsPerCarton) < 1 ||
+                  (!cartonPackingRecordId && Number(cartonBagWeightKg) <= 0)
+                }
                 className="btn btn-primary flex items-center gap-1.5"
               >
                 <ArrowDownTrayIcon className="h-4 w-4" />
