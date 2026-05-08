@@ -666,14 +666,14 @@ def _build_carton_label_html(batch: ProdBatch, record: Optional[ProdPackingRecor
     * {{ box-sizing: border-box; }}
     html, body {{ margin: 0; width: 100mm; height: 75mm; overflow: hidden; }}
     body {{ font-family: Arial, "Microsoft YaHei", sans-serif; color: #111; background: #fff; }}
-    .label {{ width: 100mm; height: 75mm; padding: 3.2mm 4mm; display: grid; grid-template-rows: auto auto auto auto auto 1fr; gap: 1.4mm; overflow: hidden; }}
-    .header {{ border-bottom: 0.35mm solid #111; padding-bottom: 1.1mm; display: flex; align-items: end; justify-content: space-between; gap: 3mm; }}
-    .company {{ font-size: 9.2pt; font-weight: 800; letter-spacing: 0; white-space: nowrap; }}
-    .title {{ font-size: 6.8pt; font-weight: 800; text-transform: uppercase; white-space: nowrap; }}
+    .label {{ width: 100mm; height: 75mm; padding: 2.8mm 3.6mm; display: grid; grid-template-rows: auto auto auto auto auto 1fr; gap: 1mm; overflow: hidden; }}
+    .header {{ border-bottom: 0.3mm solid #111; padding-bottom: 0.8mm; display: flex; align-items: end; justify-content: space-between; gap: 3mm; }}
+    .company {{ font-size: 8.2pt; font-weight: 800; letter-spacing: 0; white-space: nowrap; }}
+    .title {{ font-size: 6pt; font-weight: 800; text-transform: uppercase; white-space: nowrap; }}
     .batch {{ display: grid; grid-template-columns: 16mm 1fr; gap: 2mm; align-items: center; }}
-    .product {{ border-bottom: 0.25mm solid #111; padding-bottom: 1.2mm; }}
-    .product-name {{ font-size: 16pt; font-weight: 900; line-height: 1.02; max-height: 17mm; overflow: hidden; }}
-    .metrics {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 2mm; border-bottom: 0.25mm solid #111; padding-bottom: 1.3mm; }}
+    .product {{ min-height: 27mm; border-bottom: 0.25mm solid #111; padding-bottom: 0.8mm; display: flex; flex-direction: column; justify-content: center; }}
+    .product-name {{ font-size: 24pt; font-weight: 900; line-height: 0.96; max-height: 25mm; overflow: hidden; word-break: break-word; }}
+    .metrics {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 2mm; border-bottom: 0.25mm solid #111; padding-bottom: 1mm; }}
     .metric {{ min-width: 0; }}
     .key {{ font-size: 6.2pt; color: #555; font-weight: 800; text-transform: uppercase; line-height: 1; }}
     .value {{ font-size: 8.5pt; font-weight: 800; line-height: 1.08; }}
@@ -681,7 +681,7 @@ def _build_carton_label_html(batch: ProdBatch, record: Optional[ProdPackingRecor
     .metric .value {{ font-size: 14pt; font-weight: 900; margin-top: 0.5mm; white-space: nowrap; }}
     .meta {{ display: grid; grid-template-columns: 16mm 1fr 18mm 1fr; gap: 1mm 2mm; align-content: start; }}
     .barcode-wrap {{ align-self: end; text-align: center; }}
-    .barcode {{ width: 89mm; height: 12mm; display: block; margin: 0 auto; }}
+    .barcode {{ width: 89mm; height: 10mm; display: block; margin: 0 auto; }}
   </style>
 </head>
 <body>
