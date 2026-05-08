@@ -4,6 +4,7 @@ import html
 import json
 from datetime import timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any, Optional
 
 import httpx
@@ -33,6 +34,8 @@ from app.schemas.labelmaker import (
 
 router = APIRouter(prefix="/labelmaker", tags=["LabelMaker"])
 
+PACK_SPECIFIC_TEMPLATE_FIELDS = {"net_weight_g", "serving_size_g", "servings_per_package"}
+
 
 def _json(value: Any) -> Any:
     if hasattr(value, "model_dump"):
@@ -40,7 +43,7 @@ def _json(value: Any) -> Any:
     return value
 
 
-async def _to_response(db: AsyncSession, template: LabelTemplate) -> LabelTemplateResponse:
+async def _to_response(db: AsyncSession, template: Any) -> LabelTemplateResponse:
     product = getattr(template, "product", None)
     pack_type_result = await db.execute(
         select(ProdPackTypeConfig).where(ProdPackTypeConfig.code == template.pack_type_code)
@@ -82,6 +85,53 @@ async def _get_template(db: AsyncSession, template_id: int) -> LabelTemplate:
     return template
 
 
+async def _get_pack_type(db: AsyncSession, pack_type_code: str) -> ProdPackTypeConfig | None:
+    result = await db.execute(
+        select(ProdPackTypeConfig).where(ProdPackTypeConfig.code == pack_type_code)
+    )
+    return result.scalar_one_or_none()
+
+
+def _pack_weight_g(product: ProdProduct | None, pack_type: ProdPackTypeConfig | None) -> Decimal | None:
+    source = pack_type.nominal_weight_kg if pack_type and pack_type.nominal_weight_kg is not None else None
+    if source is None and product and product.pack_size_kg is not None:
+        source = product.pack_size_kg
+    if source is None:
+        return None
+    return Decimal(str(source)) * Decimal("1000")
+
+
+def _template_for_pack(
+    template: LabelTemplate,
+    pack_type_code: str,
+    pack_type: ProdPackTypeConfig | None,
+) -> Any:
+    product = getattr(template, "product", None)
+    pack_weight_g = _pack_weight_g(product, pack_type)
+    if pack_weight_g is None:
+        return template
+    return SimpleNamespace(
+        id=template.id,
+        prod_product_id=template.prod_product_id,
+        pack_type_code=pack_type_code,
+        product_name_zh=template.product_name_zh,
+        product_name_en=template.product_name_en,
+        net_weight_g=pack_weight_g,
+        serving_size_g=pack_weight_g,
+        servings_per_package=template.servings_per_package,
+        storage_conditions=template.storage_conditions,
+        customer_text=template.customer_text,
+        shelf_life_days=template.shelf_life_days,
+        nutrition_per_100g=template.nutrition_per_100g,
+        ingredients=template.ingredients,
+        recipe=template.recipe,
+        allergens_confirmed_at=template.allergens_confirmed_at,
+        created_at=template.created_at,
+        updated_at=template.updated_at,
+        product=product,
+    )
+
+
 @router.get("/templates", response_model=list[LabelTemplateResponse])
 async def list_templates(
     prod_product_id: Optional[int] = None,
@@ -105,6 +155,7 @@ async def get_template_by_product_pack(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
+    pack_type = await _get_pack_type(db, pack_type_code)
     result = await db.execute(
         select(LabelTemplate)
         .options(selectinload(LabelTemplate.product))
@@ -113,8 +164,17 @@ async def get_template_by_product_pack(
     )
     template = result.scalar_one_or_none()
     if not template:
+        result = await db.execute(
+            select(LabelTemplate)
+            .options(selectinload(LabelTemplate.product))
+            .where(LabelTemplate.prod_product_id == prod_product_id)
+            .order_by(LabelTemplate.updated_at.desc())
+            .limit(1)
+        )
+        template = result.scalar_one_or_none()
+    if not template:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Label template not found")
-    return await _to_response(db, template)
+    return await _to_response(db, _template_for_pack(template, pack_type_code, pack_type))
 
 
 @router.get("/templates/{template_id}", response_model=LabelTemplateResponse)
@@ -167,13 +227,29 @@ async def update_template(
     db: AsyncSession = Depends(get_db),
 ):
     template = await _get_template(db, template_id)
+    updates: dict[str, Any] = {}
     for field, value in data.model_dump(exclude_unset=True).items():
         if field == "nutrition_per_100g" and value is not None:
-            setattr(template, field, _json(value))
+            updates[field] = _json(value)
         elif field == "ingredients" and value is not None:
-            setattr(template, field, [_json(item) for item in value])
+            updates[field] = [_json(item) for item in value]
         else:
-            setattr(template, field, value)
+            updates[field] = value
+        setattr(template, field, updates[field])
+    shared_updates = {
+        field: value
+        for field, value in updates.items()
+        if field not in PACK_SPECIFIC_TEMPLATE_FIELDS
+    }
+    if shared_updates:
+        result = await db.execute(
+            select(LabelTemplate)
+            .where(LabelTemplate.prod_product_id == template.prod_product_id)
+            .where(LabelTemplate.id != template.id)
+        )
+        for sibling in result.scalars().all():
+            for field, value in shared_updates.items():
+                setattr(sibling, field, value)
     await db.flush()
     await db.commit()
     return await _to_response(db, await _get_template(db, template_id))
@@ -263,6 +339,7 @@ async def _resolve_pdf_template(db: AsyncSession, data: LabelPdfRequest) -> Labe
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="template_id or prod_product_id + pack_type_code is required",
         )
+    pack_type = await _get_pack_type(db, data.pack_type_code)
     result = await db.execute(
         select(LabelTemplate)
         .options(selectinload(LabelTemplate.product))
@@ -271,8 +348,17 @@ async def _resolve_pdf_template(db: AsyncSession, data: LabelPdfRequest) -> Labe
     )
     template = result.scalar_one_or_none()
     if not template:
+        result = await db.execute(
+            select(LabelTemplate)
+            .options(selectinload(LabelTemplate.product))
+            .where(LabelTemplate.prod_product_id == data.prod_product_id)
+            .order_by(LabelTemplate.updated_at.desc())
+            .limit(1)
+        )
+        template = result.scalar_one_or_none()
+    if not template:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Label template not found")
-    return template
+    return _template_for_pack(template, data.pack_type_code, pack_type)
 
 
 async def _openai_json(instructions: str, payload: Any) -> dict[str, Any]:

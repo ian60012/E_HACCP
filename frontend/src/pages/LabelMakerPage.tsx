@@ -81,8 +81,9 @@ export default function LabelMakerPage() {
     setError('');
     setMessage('');
     try {
+      const packType = applicablePackTypes.find((item) => item.code === selectedPackType) ?? null;
       const template = await labelmakerApi.getTemplateByProductPack(selectedProduct.id, selectedPackType);
-      setDraft(fromTemplate(template));
+      setDraft(withPackSizing(fromTemplate(template), selectedProduct, packType));
       setShelfLifeDays(template.shelf_life_days);
       setTemplateId(template.id);
     } catch (err: any) {
@@ -227,8 +228,9 @@ export default function LabelMakerPage() {
       const saved = templateId
         ? await labelmakerApi.updateTemplate(templateId, payload)
         : await labelmakerApi.createTemplate(payload);
+      const packType = applicablePackTypes.find((item) => item.code === selectedPackType) ?? null;
       setTemplateId(saved.id);
-      setDraft(fromTemplate(saved));
+      setDraft(withPackSizing(fromTemplate(saved), selectedProduct, packType));
       setShelfLifeDays(saved.shelf_life_days);
       return saved;
     } catch (err: any) {
@@ -256,18 +258,19 @@ export default function LabelMakerPage() {
   }
 
   async function exportPdf() {
-    if (!draft) return;
+    if (!draft || !selectedProduct || !selectedPackType) return;
     if (printErrors.length > 0) {
       setError(`PDF export is blocked: ${printErrors.join(' ')}`);
       return;
     }
-    const saved = templateId ? null : await persistTemplate();
-    const idForPdf = templateId ?? saved?.id;
-    if (!idForPdf) return;
+    if (!templateId) {
+      const saved = await persistTemplate();
+      if (!saved) return;
+    }
     setSaving(true);
     setError('');
     try {
-      const blob = await labelmakerApi.renderPdf({ template_id: idForPdf, expiry_date: expiryDate });
+      const blob = await labelmakerApi.renderPdf({ prod_product_id: selectedProduct.id, pack_type_code: selectedPackType, expiry_date: expiryDate });
       downloadBlob(blob, makePdfFileName(draft, expiryDate) + '.pdf');
       setMessage('PDF downloaded.');
     } catch (err: any) {
@@ -439,7 +442,7 @@ export default function LabelMakerPage() {
 
 function createDefaultTemplate(product: ProdProduct, packType: PackTypeConfig | null): ProductTemplate {
   const now = new Date().toISOString();
-  const netWeightG = Math.round(Number(packType?.nominal_weight_kg ?? product.pack_size_kg ?? 1) * 1000);
+  const netWeightG = packWeightG(product, packType);
   return {
     id: `${product.id}:${packType?.code ?? 'pack'}`,
     productNameZh: product.name,
@@ -462,6 +465,20 @@ function createDefaultTemplate(product: ProdProduct, packType: PackTypeConfig | 
     recipe: createEmptyRecipe(netWeightG, 1),
     createdAt: now,
     updatedAt: now,
+  };
+}
+
+function packWeightG(product: ProdProduct, packType: PackTypeConfig | null): number {
+  return Math.round(Number(packType?.nominal_weight_kg ?? product.pack_size_kg ?? 1) * 1000);
+}
+
+function withPackSizing(template: ProductTemplate, product: ProdProduct, packType: PackTypeConfig | null): ProductTemplate {
+  const netWeightG = packWeightG(product, packType);
+  return {
+    ...template,
+    netWeightG,
+    servingSizeG: netWeightG,
+    recipe: template.recipe ? { ...template.recipe, serveSizeG: netWeightG } : template.recipe,
   };
 }
 
