@@ -663,17 +663,24 @@ def _build_carton_label_html(batch: ProdBatch, record: Optional[ProdPackingRecor
   <style>
     @page {{ size: 100mm 75mm; margin: 0; }}
     * {{ box-sizing: border-box; }}
-    body {{ margin: 0; width: 100mm; height: 75mm; font-family: Arial, "Microsoft YaHei", sans-serif; color: #111; background: #fff; }}
-    .label {{ width: 100mm; height: 75mm; padding: 5mm; display: grid; grid-template-rows: auto 1fr auto; gap: 3mm; }}
-    .header {{ border-bottom: 0.45mm solid #111; padding-bottom: 2mm; }}
-    .company {{ font-size: 12pt; font-weight: 800; letter-spacing: 0; }}
-    .title {{ font-size: 9pt; font-weight: 700; margin-top: 1mm; text-transform: uppercase; }}
-    .grid {{ display: grid; grid-template-columns: 29mm 1fr; gap: 1.7mm 3mm; align-content: start; }}
-    .key {{ font-size: 7pt; color: #555; font-weight: 700; text-transform: uppercase; }}
-    .value {{ font-size: 10pt; font-weight: 800; line-height: 1.12; }}
-    .value.large {{ font-size: 13pt; }}
-    .barcode-wrap {{ border-top: 0.35mm solid #111; padding-top: 2mm; text-align: center; }}
-    .barcode {{ width: 88mm; height: 18mm; display: block; margin: 0 auto; }}
+    html, body {{ margin: 0; width: 100mm; height: 75mm; overflow: hidden; }}
+    body {{ font-family: Arial, "Microsoft YaHei", sans-serif; color: #111; background: #fff; }}
+    .label {{ width: 100mm; height: 75mm; padding: 3.2mm 4mm; display: grid; grid-template-rows: auto auto auto auto auto 1fr; gap: 1.4mm; overflow: hidden; }}
+    .header {{ border-bottom: 0.35mm solid #111; padding-bottom: 1.1mm; display: flex; align-items: end; justify-content: space-between; gap: 3mm; }}
+    .company {{ font-size: 9.2pt; font-weight: 800; letter-spacing: 0; white-space: nowrap; }}
+    .title {{ font-size: 6.8pt; font-weight: 800; text-transform: uppercase; white-space: nowrap; }}
+    .batch {{ display: grid; grid-template-columns: 16mm 1fr; gap: 2mm; align-items: center; }}
+    .product {{ border-bottom: 0.25mm solid #111; padding-bottom: 1.2mm; }}
+    .product-name {{ font-size: 16pt; font-weight: 900; line-height: 1.02; max-height: 17mm; overflow: hidden; }}
+    .metrics {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 2mm; border-bottom: 0.25mm solid #111; padding-bottom: 1.3mm; }}
+    .metric {{ min-width: 0; }}
+    .key {{ font-size: 6.2pt; color: #555; font-weight: 800; text-transform: uppercase; line-height: 1; }}
+    .value {{ font-size: 8.5pt; font-weight: 800; line-height: 1.08; }}
+    .value.large {{ font-size: 12pt; }}
+    .metric .value {{ font-size: 14pt; font-weight: 900; margin-top: 0.5mm; white-space: nowrap; }}
+    .meta {{ display: grid; grid-template-columns: 16mm 1fr 18mm 1fr; gap: 1mm 2mm; align-content: start; }}
+    .barcode-wrap {{ align-self: end; text-align: center; }}
+    .barcode {{ width: 89mm; height: 12mm; display: block; margin: 0 auto; }}
   </style>
 </head>
 <body>
@@ -682,14 +689,21 @@ def _build_carton_label_html(batch: ProdBatch, record: Optional[ProdPackingRecor
       <div class="company">FD CATERING SERVICE PTY LTD</div>
       <div class="title">Carton Label</div>
     </section>
-    <section class="grid">
+    <section class="batch">
       <div class="key">Batch</div><div class="value large">{html.escape(batch.batch_code)}</div>
-      <div class="key">Product</div><div class="value">{html.escape(product_name)}</div>
+    </section>
+    <section class="product">
+      <div class="key">Product</div>
+      <div class="product-name">{html.escape(product_name)}</div>
+    </section>
+    <section class="metrics">
+      <div class="metric"><div class="key">Bags / Carton</div><div class="value">{data.bags_per_carton}</div></div>
+      <div class="metric"><div class="key">Bag Weight</div><div class="value">{html.escape(weight_text)}</div></div>
+      <div class="metric"><div class="key">Carton Net</div><div class="value">{_trim_decimal(total_weight)} kg</div></div>
+    </section>
+    <section class="meta">
       <div class="key">Pack Type</div><div class="value">{html.escape(str(pack_type))}</div>
-      <div class="key">Bags / Carton</div><div class="value">{data.bags_per_carton}</div>
-      <div class="key">Bag Weight</div><div class="value">{html.escape(weight_text)}</div>
-      <div class="key">Carton Net</div><div class="value">{_trim_decimal(total_weight)} kg</div>
-      <div class="key">Packing Date</div><div class="value">{data.packing_date.isoformat()}</div>
+      <div class="key">Date</div><div class="value">{data.packing_date.isoformat()}</div>
     </section>
     <section class="barcode-wrap">
       {barcode_svg}
