@@ -404,7 +404,7 @@ export default function ProdProductsPage() {
           </div>
 
           {/* Pack-config section (only shown when editing an existing product with pack types) */}
-          {editingId && packTypeOptions.length > 0 && (
+          {editingId && packTypeOptions.length > 0 && formProductType === 'forming' && (
             <div className="border-t pt-3 mt-1 space-y-2">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-semibold text-gray-600">
