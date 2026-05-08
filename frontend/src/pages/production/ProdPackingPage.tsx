@@ -36,6 +36,20 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
+async function readErrorDetail(error: any, fallback: string): Promise<string> {
+  const data = error?.response?.data;
+  if (data instanceof Blob) {
+    const text = await data.text();
+    try {
+      const parsed = JSON.parse(text);
+      return parsed?.detail || text || fallback;
+    } catch {
+      return text || fallback;
+    }
+  }
+  return data?.detail || fallback;
+}
+
 interface LocalTrim {
   trim_type: string;
   weight_kg: string;
@@ -269,9 +283,7 @@ export default function ProdPackingPage() {
       const packName = packTypeConfigs.find((pt) => pt.code === rec.pack_type)?.name || rec.pack_type;
       downloadBlob(blob, `${batch.batch_code}-${packName}-label.pdf`);
     } catch (err: any) {
-      const detail = err?.response?.data instanceof Blob
-        ? 'Label template not found. Create it in LabelMaker for this product and pack type.'
-        : err?.response?.data?.detail;
+      const detail = await readErrorDetail(err, 'Label PDF export failed.');
       setError(detail || 'Label PDF export failed.');
     } finally {
       setLabelBusy(false);
@@ -423,7 +435,7 @@ export default function ProdPackingPage() {
                         <button
                           type="button"
                           onClick={() => handleExportLabel(rec)}
-                          disabled={labelBusy || !rec.product_id}
+                          disabled={labelBusy}
                           className="btn btn-secondary flex items-center gap-1 px-2 py-1 text-xs"
                         >
                           <ArrowDownTrayIcon className="h-3.5 w-3.5" /> PDF
@@ -639,7 +651,7 @@ export default function ProdPackingPage() {
                       <button
                         type="button"
                         onClick={() => handleExportLabel(rec)}
-                        disabled={labelBusy || !rec.product_id}
+                        disabled={labelBusy}
                         className="btn btn-secondary flex items-center gap-1 px-2 py-1 text-xs"
                       >
                         <ArrowDownTrayIcon className="h-3.5 w-3.5" /> PDF

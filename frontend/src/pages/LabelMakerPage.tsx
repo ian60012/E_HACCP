@@ -217,8 +217,8 @@ export default function LabelMakerPage() {
     setMessage('Allergen review confirmed.');
   }
 
-  async function saveTemplate() {
-    if (!draft || !selectedProduct || !selectedPackType) return;
+  async function persistTemplate(): Promise<LabelTemplate | null> {
+    if (!draft || !selectedProduct || !selectedPackType) return null;
     setSaving(true);
     setError('');
     try {
@@ -229,12 +229,18 @@ export default function LabelMakerPage() {
       setTemplateId(saved.id);
       setDraft(fromTemplate(saved));
       setShelfLifeDays(saved.shelf_life_days);
-      setMessage('Label template saved.');
+      return saved;
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to save label template.');
+      setError(await readErrorDetail(err, 'Failed to save label template.'));
+      return null;
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveTemplate() {
+    const saved = await persistTemplate();
+    if (saved) setMessage('Label template saved.');
   }
 
   async function deleteTemplate() {
@@ -249,15 +255,22 @@ export default function LabelMakerPage() {
   }
 
   async function exportPdf() {
-    if (!draft || !templateId || printErrors.length > 0) return;
+    if (!draft) return;
+    if (printErrors.length > 0) {
+      setError(`PDF export is blocked: ${printErrors.join(' ')}`);
+      return;
+    }
+    const saved = templateId ? null : await persistTemplate();
+    const idForPdf = templateId ?? saved?.id;
+    if (!idForPdf) return;
     setSaving(true);
     setError('');
     try {
-      const blob = await labelmakerApi.renderPdf({ template_id: templateId, expiry_date: expiryDate });
+      const blob = await labelmakerApi.renderPdf({ template_id: idForPdf, expiry_date: expiryDate });
       downloadBlob(blob, makePdfFileName(draft, expiryDate) + '.pdf');
       setMessage('PDF downloaded.');
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'PDF export failed.');
+      setError(await readErrorDetail(err, 'PDF export failed.'));
     } finally {
       setSaving(false);
     }
@@ -285,7 +298,7 @@ export default function LabelMakerPage() {
               <TrashIcon className="h-4 w-4" /> Delete
             </button>
           )}
-          <button type="button" className="btn btn-secondary flex items-center gap-1.5" onClick={exportPdf} disabled={saving || printErrors.length > 0 || !templateId}>
+          <button type="button" className="btn btn-secondary flex items-center gap-1.5" onClick={exportPdf} disabled={saving}>
             <ArrowDownTrayIcon className="h-4 w-4" /> PDF
           </button>
           <button type="button" className="btn btn-primary" onClick={saveTemplate} disabled={saving}>
@@ -536,4 +549,18 @@ function downloadBlob(blob: Blob, fileName: string) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+async function readErrorDetail(error: any, fallback: string): Promise<string> {
+  const data = error?.response?.data;
+  if (data instanceof Blob) {
+    const text = await data.text();
+    try {
+      const parsed = JSON.parse(text);
+      return parsed?.detail || text || fallback;
+    } catch {
+      return text || fallback;
+    }
+  }
+  return data?.detail || fallback;
 }
