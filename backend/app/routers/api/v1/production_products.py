@@ -26,7 +26,7 @@ from app.dependencies.auth import get_current_active_user, require_role
 router = APIRouter(prefix="/production/products", tags=["Production Products"])
 
 
-def _to_response(product: ProdProduct) -> ProdProductResponse:
+def _to_response(product: ProdProduct, pack_config_count: int = 0) -> ProdProductResponse:
     return ProdProductResponse(
         id=product.id,
         code=product.code,
@@ -38,6 +38,7 @@ def _to_response(product: ProdProduct) -> ProdProductResponse:
         inv_item_id=product.inv_item_id,
         is_active=product.is_active,
         created_at=product.created_at,
+        pack_config_count=pack_config_count,
     )
 
 
@@ -80,8 +81,23 @@ async def list_products(
     )
     items = items_result.scalars().all()
 
+    # Single GROUP BY query for pack-config counts (avoids N+1)
+    product_ids = [p.id for p in items]
+    if product_ids:
+        cnt_result = await db.execute(
+            select(ProdProductPackConfig.product_id, func.count())
+            .where(
+                ProdProductPackConfig.product_id.in_(product_ids),
+                ProdProductPackConfig.inv_item_id.is_not(None),
+            )
+            .group_by(ProdProductPackConfig.product_id)
+        )
+        pack_cfg_counts: dict[int, int] = {row[0]: row[1] for row in cnt_result}
+    else:
+        pack_cfg_counts = {}
+
     return PaginatedResponse(
-        items=[_to_response(p) for p in items],
+        items=[_to_response(p, pack_cfg_counts.get(p.id, 0)) for p in items],
         total=total,
         skip=skip,
         limit=limit,

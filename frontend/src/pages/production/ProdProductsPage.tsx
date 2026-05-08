@@ -383,13 +383,16 @@ export default function ProdProductsPage() {
                 placeholder="—"
               />
             </div>
-            <div>
-              <label className="label text-xs">庫存品項 Inv Item（單一對應用）</label>
-              <select value={formInvItemId} onChange={(e) => setFormInvItemId(Number(e.target.value) || '')} className="input">
-                <option value="">— 未連結 —</option>
-                {invItems.map(i => <option key={i.id} value={i.id}>{i.code} {i.name}</option>)}
-              </select>
-            </div>
+            {/* Show single inv_item link only for hot_process — forming uses pack-config instead */}
+            {formProductType === 'hot_process' && (
+              <div>
+                <label className="label text-xs">庫存品項 Inv Item</label>
+                <select value={formInvItemId} onChange={(e) => setFormInvItemId(Number(e.target.value) || '')} className="input">
+                  <option value="">— 未連結 —</option>
+                  {invItems.map(i => <option key={i.id} value={i.id}>{i.code} {i.name}</option>)}
+                </select>
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2">
             <button type="button" onClick={resetForm} className="btn btn-secondary text-sm">
@@ -500,7 +503,7 @@ export default function ProdProductsPage() {
                   <th className="pb-2 pr-4"><Bi k="th.ccpLimit" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.packSizeKg" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.lossRateWarnPct" /></th>
-                  <th className="pb-2 pr-4">庫存品項</th>
+                  <th className="pb-2 pr-4">入庫配置 Config</th>
                   <th className="pb-2 pr-4"><Bi k="field.isActive" /></th>
                   <th className="pb-2" />
                 </tr>
@@ -518,10 +521,19 @@ export default function ProdProductsPage() {
                     <td className="py-2 pr-4 text-gray-500">{product.ccp_limit_temp}°C</td>
                     <td className="py-2 pr-4 text-gray-500">{product.pack_size_kg ?? '—'}</td>
                     <td className="py-2 pr-4 text-gray-500">{product.loss_rate_warn_pct != null ? `${product.loss_rate_warn_pct}%` : '—'}</td>
-                    <td className="py-2 pr-4 text-gray-500">
-                      {product.inv_item_id
-                        ? <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-green-500" />{invItems.find(i => i.id === product.inv_item_id)?.code ?? `#${product.inv_item_id}`}</span>
-                        : <span className="text-gray-300">—</span>}
+                    <td className="py-2 pr-4">
+                      {product.product_type === 'forming' ? (
+                        product.pack_config_count > 0
+                          ? <span className="text-green-600 text-xs font-medium">✓ {product.pack_config_count} 已設定</span>
+                          : <span className="text-amber-500 text-xs font-medium">⚠ 未設定</span>
+                      ) : (
+                        product.inv_item_id
+                          ? <span className="flex items-center gap-1 text-gray-500">
+                              <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+                              {invItems.find(i => i.id === product.inv_item_id)?.code ?? `#${product.inv_item_id}`}
+                            </span>
+                          : <span className="text-gray-300">—</span>
+                      )}
                     </td>
                     <td className="py-2 pr-4">
                       <button

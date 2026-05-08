@@ -74,6 +74,7 @@ class ProdProductResponse(BaseModel):
     inv_item_id: Optional[int] = None
     is_active: bool
     created_at: datetime
+    pack_config_count: int = 0
 
 
 class FormingOption(BaseModel):

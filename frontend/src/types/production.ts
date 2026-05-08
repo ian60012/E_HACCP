@@ -53,6 +53,7 @@ export interface ProdProduct {
   inv_item_id: number | null;
   is_active: boolean;
   created_at: string;
+  pack_config_count: number;
 }
 
 export interface ProdProductCreate {
