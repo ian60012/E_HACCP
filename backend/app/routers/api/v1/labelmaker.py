@@ -35,6 +35,7 @@ from app.schemas.labelmaker import (
 router = APIRouter(prefix="/labelmaker", tags=["LabelMaker"])
 
 PACK_SPECIFIC_TEMPLATE_FIELDS = {"net_weight_g", "serving_size_g", "servings_per_package"}
+SERVING_SIZE_G = Decimal("100")
 
 
 def _json(value: Any) -> Any:
@@ -101,6 +102,10 @@ def _pack_weight_g(product: ProdProduct | None, pack_type: ProdPackTypeConfig | 
     return Decimal(str(source)) * Decimal("1000")
 
 
+def _servings_per_package(net_weight_g: Decimal) -> Decimal:
+    return max(Decimal("1"), (net_weight_g / SERVING_SIZE_G).quantize(Decimal("0.01")))
+
+
 def _template_for_pack(
     template: LabelTemplate,
     pack_type_code: str,
@@ -117,8 +122,8 @@ def _template_for_pack(
         product_name_zh=template.product_name_zh,
         product_name_en=template.product_name_en,
         net_weight_g=pack_weight_g,
-        serving_size_g=pack_weight_g,
-        servings_per_package=template.servings_per_package,
+        serving_size_g=SERVING_SIZE_G,
+        servings_per_package=_servings_per_package(pack_weight_g),
         storage_conditions=template.storage_conditions,
         customer_text=template.customer_text,
         shelf_life_days=template.shelf_life_days,

@@ -25,6 +25,7 @@ const nutritionFields: Array<{ key: keyof NutritionValues; label: string; unit: 
 ];
 
 type LabelView = 'label' | 'calculator';
+const servingSizeG = 100;
 
 export default function LabelMakerPage() {
   const [products, setProducts] = useState<ProdProduct[]>([]);
@@ -135,8 +136,8 @@ export default function LabelMakerPage() {
         ? {
             ...current,
             recipe,
-            servingSizeG: recipe.serveSizeG > 0 ? recipe.serveSizeG : current.servingSizeG,
-            servingsPerPackage: recipe.servesPerPackage > 0 ? recipe.servesPerPackage : current.servingsPerPackage,
+            servingSizeG,
+            servingsPerPackage: servingsForWeight(current.netWeightG),
             nutritionPer100g,
           }
         : current,
@@ -448,8 +449,8 @@ function createDefaultTemplate(product: ProdProduct, packType: PackTypeConfig | 
     productNameZh: product.name,
     productNameEn: '',
     netWeightG,
-    servingSizeG: netWeightG,
-    servingsPerPackage: 1,
+    servingSizeG,
+    servingsPerPackage: servingsForWeight(netWeightG),
     ingredients: [],
     storageConditions: 'Store frozen at -18 C or below.',
     customerText: defaultFactoryInformation,
@@ -462,7 +463,7 @@ function createDefaultTemplate(product: ProdProduct, packType: PackTypeConfig | 
       sugarsG: 0,
       sodiumMg: 0,
     },
-    recipe: createEmptyRecipe(netWeightG, 1),
+    recipe: createEmptyRecipe(servingSizeG, servingsForWeight(netWeightG)),
     createdAt: now,
     updatedAt: now,
   };
@@ -477,9 +478,16 @@ function withPackSizing(template: ProductTemplate, product: ProdProduct, packTyp
   return {
     ...template,
     netWeightG,
-    servingSizeG: netWeightG,
-    recipe: template.recipe ? { ...template.recipe, serveSizeG: netWeightG } : template.recipe,
+    servingSizeG,
+    servingsPerPackage: servingsForWeight(netWeightG),
+    recipe: template.recipe
+      ? { ...template.recipe, serveSizeG: servingSizeG, servesPerPackage: servingsForWeight(netWeightG) }
+      : template.recipe,
   };
+}
+
+function servingsForWeight(netWeightG: number): number {
+  return Math.max(1, Number((netWeightG / servingSizeG).toFixed(2)));
 }
 
 function fromTemplate(template: LabelTemplate): ProductTemplate {
