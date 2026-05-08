@@ -27,7 +27,28 @@
       "Bash(start \"\" \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\")",
       "Bash(powershell -Command:*)",
       "Bash(docker cp:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(Select-String -Pattern \"production_helper|production-helper\")",
+      "Bash(Select-Object -First 50)",
+      "Bash(echo \"EXIT=$?\")",
+      "PowerShell(docker cp haccp_backend:/tmp/import.sql D:\\\\e_haccp\\\\docs\\\\import_inventory.sql; docker cp D:\\\\e_haccp\\\\docs\\\\import_inventory.sql haccp_postgres:/tmp/import.sql; docker exec haccp_postgres psql -U haccp_user -d haccp_db -p 5555 -f /tmp/import.sql)",
+      "Bash(Get-ChildItem -Path \"D:\\\\e_haccp\" -Directory)",
+      "Bash(Select-Object Name)",
+      "PowerShell(docker cp D:\\\\e_haccp\\\\database\\\\migrations\\\\20260507_add_item_type.sql haccp_postgres:/tmp/m.sql; docker exec haccp_postgres psql -U haccp_user -d haccp_db -p 5555 -f /tmp/m.sql)",
+      "Bash(docker restart haccp_backend *)",
+      "Bash(ssh *)",
+      "Bash(sshpass -V)",
+      "Bash(pip --version)",
+      "Bash(pip install *)",
+      "PowerShell(docker cp D:\\\\e_haccp\\\\database\\\\migrations\\\\20260507_add_item_type.sql haccp_postgres:/tmp/m.sql; docker exec haccp_postgres psql -U haccp_user -d haccp_db -p 5555 -f /tmp/m.sql; docker exec haccp_postgres psql -U haccp_user -d haccp_db -p 5555 -c \"SELECT item_type, COUNT\\(*\\) FROM inv_items GROUP BY item_type ORDER BY 2 DESC;\")",
+      "Bash(cat C:\\\\\\\\Users\\\\\\\\ianht\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\claude\\\\\\\\D--e-haccp\\\\\\\\8d79a2ff-efc2-45ff-982c-a0005ac024f6\\\\\\\\tasks\\\\\\\\bnl2xbzky.output)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(git merge *)",
+      "PowerShell(Head *)",
+      "PowerShell(docker cp D:\\\\e_haccp\\\\database\\\\migrations\\\\20260507_add_prod_pack_config.sql haccp_postgres:/tmp/mppc.sql; docker exec haccp_postgres psql -U haccp_user -d haccp_db -p 5555 -f /tmp/mppc.sql; docker exec haccp_postgres psql -U haccp_user -d haccp_db -p 5555 -c \"\\\\d prod_product_pack_config\")"
     ]
   }
 }
