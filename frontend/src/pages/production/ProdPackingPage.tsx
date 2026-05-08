@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { prodBatchesApi, prodProductsApi, packTypesApi } from '@/api/production';
+import { labelmakerApi } from '@/api/labelmaker';
 import { invItemsApi } from '@/api/inventory';
 import {
   ProdBatch, ProdProduct, ProdPackType,
@@ -22,6 +23,17 @@ interface LocalPackRecord {
   bag_count: string;
   nominal_weight_kg: string;
   remark: string;
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 interface LocalTrim {
@@ -46,6 +58,7 @@ export default function ProdPackingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [labelBusy, setLabelBusy] = useState(false);
 
   // Pack-config for auto-fill
   const [packConfigs, setPackConfigs] = useState<ProdProductPackConfig[]>([]);
@@ -240,6 +253,31 @@ export default function ProdPackingPage() {
     }
   };
 
+  const handleExportLabel = async (rec: LocalPackRecord) => {
+    if (!batch || !rec.product_id) {
+      setError('This packing record must have a product before a label can be generated.');
+      return;
+    }
+    setLabelBusy(true);
+    setError('');
+    try {
+      const blob = await labelmakerApi.renderPdf({
+        prod_product_id: Number(rec.product_id),
+        pack_type_code: String(rec.pack_type),
+        production_date: batch.production_date,
+      });
+      const packName = packTypeConfigs.find((pt) => pt.code === rec.pack_type)?.name || rec.pack_type;
+      downloadBlob(blob, `${batch.batch_code}-${packName}-label.pdf`);
+    } catch (err: any) {
+      const detail = err?.response?.data instanceof Blob
+        ? 'Label template not found. Create it in LabelMaker for this product and pack type.'
+        : err?.response?.data?.detail;
+      setError(detail || 'Label PDF export failed.');
+    } finally {
+      setLabelBusy(false);
+    }
+  };
+
   if (loading) return <LoadingSpinner fullPage />;
   if (error && !batch) return <ErrorCard message={error} onRetry={fetchBatch} />;
   if (!batch) return <ErrorCard message={bi('error.loadFailed')} />;
@@ -296,6 +334,7 @@ export default function ProdPackingPage() {
                   <th className="pb-2 pr-3"><Bi k="field.bagCount" /></th>
                   <th className="pb-2 pr-3"><Bi k="field.theoreticalTotal" /></th>
                   <th className="pb-2 pr-3"><Bi k="field.remark" /></th>
+                  <th className="pb-2 pr-3">Label</th>
                   {!isReadOnly && <th className="pb-2" />}
                 </tr>
               </thead>
@@ -379,6 +418,16 @@ export default function ProdPackingPage() {
                             placeholder={bi('placeholder.remark')}
                           />
                         )}
+                      </td>
+                      <td className="py-2 pr-3">
+                        <button
+                          type="button"
+                          onClick={() => handleExportLabel(rec)}
+                          disabled={labelBusy || !rec.product_id}
+                          className="btn btn-secondary flex items-center gap-1 px-2 py-1 text-xs"
+                        >
+                          <ArrowDownTrayIcon className="h-3.5 w-3.5" /> PDF
+                        </button>
                       </td>
                       {!isReadOnly && (
                         <td className="py-2">
@@ -500,6 +549,7 @@ export default function ProdPackingPage() {
                 <th className="pb-2 pr-3"><Bi k="field.nominalWeight" /></th>
                 <th className="pb-2 pr-3"><Bi k="field.theoreticalTotal" /></th>
                 <th className="pb-2 pr-3"><Bi k="field.remark" /></th>
+                <th className="pb-2 pr-3">Label</th>
                 {!isReadOnly && <th className="pb-2" />}
               </tr>
             </thead>
@@ -584,6 +634,16 @@ export default function ProdPackingPage() {
                           placeholder={bi('placeholder.remark')}
                         />
                       )}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <button
+                        type="button"
+                        onClick={() => handleExportLabel(rec)}
+                        disabled={labelBusy || !rec.product_id}
+                        className="btn btn-secondary flex items-center gap-1 px-2 py-1 text-xs"
+                      >
+                        <ArrowDownTrayIcon className="h-3.5 w-3.5" /> PDF
+                      </button>
                     </td>
                     {!isReadOnly && (
                       <td className="py-2">

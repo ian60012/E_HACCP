@@ -39,6 +39,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production-use-a-long-random-string}
       ENVIRONMENT: production
       PRODUCTION_HELPER_DATA_DIR: /app/app/data/production_helper
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.2}
     ports:
       - "8001:8000"
     volumes:

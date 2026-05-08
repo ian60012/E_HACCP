@@ -76,6 +76,7 @@ import UsersPage from '@/pages/users/UsersPage';
 
 // Production Helper (Captain only)
 import ProductionHelperPage from '@/pages/ProductionHelper/ProductionHelperPage';
+import LabelMakerPage from '@/pages/LabelMakerPage';
 
 // Inventory module
 import InventoryItemsPage from '@/pages/inventory/InventoryItemsPage';
@@ -116,6 +117,7 @@ export default function App() {
           <Route path="/production/repack/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdRepackDetailPage /></RoleGuard>} />
           <Route path="/production/products" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdProductsPage /></RoleGuard>} />
           <Route path="/production/pack-types" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdPackTypesPage /></RoleGuard>} />
+          <Route path="/labelmaker" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production', 'Captain']}><LabelMakerPage /></RoleGuard>} />
 
           {/* Cooking logs */}
           <Route path="/cooking-logs" element={<CookingLogsPage />} />

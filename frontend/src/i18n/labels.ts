@@ -510,6 +510,11 @@ const labels: Record<string, BiLabelType> = {
   'page.portal.productionDesc': { zh: '成型批次、熱加工投料、打包與分裝作業', en: 'Forming batches, hot process, packing & repack' },
   'page.portal.inventory': { zh: '出入庫管理', en: 'Inventory' },
   'page.portal.inventoryDesc': { zh: '庫存查詢、入出庫單、品項與儲位管理', en: 'Stock balance, documents, items & locations' },
+  'page.portal.labelmaker': { zh: '標籤編輯與列印', en: 'Label Editing & Printing' },
+  'page.portal.labelmakerDesc': {
+    zh: '產品包裝標籤、FSANZ 營養標示與過敏原管理',
+    en: 'Product pack labels, FSANZ nutrition panels & allergen declarations',
+  },
   'page.portal.comingSoon': { zh: '開發中', en: 'Coming Soon' },
   // Navigation
   'nav.production': { zh: '生產管理', en: 'Production' },
@@ -757,7 +762,6 @@ const labels: Record<string, BiLabelType> = {
     zh: '週生產計畫、配方庫與叫貨總覽',
     en: 'Weekly plan, recipes & purchase overview',
   },
-
   // Page titles
   'ph.page.title': { zh: '週生產計畫', en: 'Weekly Production Plan' },
   'ph.page.subtitle': {

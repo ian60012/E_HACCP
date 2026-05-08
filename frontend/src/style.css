@@ -8,6 +8,267 @@
   }
 }
 
+.labelmaker-page .recipe-builder {
+  display: grid;
+  gap: 14px;
+}
+
+.labelmaker-page .recipe-titlebar {
+  border-top: 3px solid #8b382d;
+  padding-top: 10px;
+}
+
+.labelmaker-page .recipe-titlebar h2 {
+  margin: 0 0 12px;
+  color: #103a4b;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.labelmaker-page .recipe-step-header {
+  display: grid;
+  grid-template-columns: 108px 1fr;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #cfd8d3;
+  border-bottom-color: #727b78;
+  border-radius: 7px;
+  background: #edf1ef;
+}
+
+.labelmaker-page .recipe-step-header span {
+  display: grid;
+  min-height: 42px;
+  place-items: center;
+  background: #0f766e;
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.labelmaker-page .recipe-step-header strong {
+  padding: 0 14px;
+  color: #101817;
+  font-size: 15px;
+}
+
+.labelmaker-page .recipe-search-row {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.labelmaker-page .recipe-search {
+  position: relative;
+}
+
+.labelmaker-page .translation-hint {
+  margin-top: 6px;
+  color: #31524c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.labelmaker-page .translation-hint.error {
+  color: #9f3328;
+}
+
+.labelmaker-page .recipe-search-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid #aebbb6;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgb(19 33 31 / 18%);
+}
+
+.labelmaker-page .recipe-search-results button {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  min-height: 54px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #eef1ef;
+  text-align: left;
+}
+
+.labelmaker-page .recipe-search-results button:hover {
+  background: #eef7f4;
+}
+
+.labelmaker-page .recipe-search-results span {
+  font-weight: 800;
+}
+
+.labelmaker-page .recipe-search-results small {
+  color: #66736e;
+  line-height: 1.25;
+}
+
+.labelmaker-page .recipe-action {
+  min-height: 42px;
+  border-radius: 8px;
+  background: #4b5563;
+  color: #ffffff;
+  padding: 0 12px;
+  font-weight: 800;
+}
+
+.labelmaker-page .recipe-table-wrap {
+  overflow-x: auto;
+}
+
+.labelmaker-page .recipe-table {
+  width: 100%;
+  min-width: 1040px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.labelmaker-page .recipe-table th {
+  background: #0e7490;
+  color: #ffffff;
+  font-size: 13px;
+  line-height: 1.25;
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.labelmaker-page .recipe-table td {
+  border-bottom: 1px solid #cfe2e8;
+  background: #e4f5fa;
+  padding: 8px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.labelmaker-page .recipe-note-row td,
+.labelmaker-page .recipe-total-row td {
+  background: #dff3f8;
+}
+
+.labelmaker-page .recipe-total-row td {
+  font-weight: 900;
+}
+
+.labelmaker-page .recipe-food-cell {
+  display: grid;
+  gap: 6px;
+}
+
+.labelmaker-page .recipe-food-name {
+  display: block;
+  max-height: 54px;
+  overflow: auto;
+  color: #16201e;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.labelmaker-page .percentage-toggle {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: #364842;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.labelmaker-page .percentage-toggle input {
+  width: 14px;
+}
+
+.labelmaker-page .custom-nutrients,
+.labelmaker-page .custom-nutrient-card {
+  display: grid;
+  gap: 10px;
+}
+
+.labelmaker-page .custom-nutrient-card {
+  border: 1px solid #dbe3df;
+  border-radius: 8px;
+  background: #fbfcfb;
+  padding: 12px;
+}
+
+.labelmaker-page .custom-nutrient-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.labelmaker-page .recipe-info-strip,
+.labelmaker-page .ingredients-text-panel {
+  border-radius: 8px;
+  background: #f1fafc;
+  padding: 12px;
+}
+
+.labelmaker-page .recipe-weight-grid,
+.labelmaker-page .recipe-serving-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.labelmaker-page .metric-input {
+  display: grid;
+  grid-template-columns: auto minmax(90px, 1fr) auto;
+  align-items: stretch;
+}
+
+.labelmaker-page .metric-input span,
+.labelmaker-page .metric-input em {
+  display: grid;
+  min-height: 40px;
+  place-items: center;
+  background: #0e7490;
+  color: #ffffff;
+  padding: 0 10px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.labelmaker-page .ingredients-text-panel {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid #cfe2e8;
+}
+
+.labelmaker-page .labelmaker-preview {
+  position: sticky;
+  top: 5rem;
+  height: max-content;
+}
+
+.labelmaker-page .labelmaker-preview iframe {
+  width: 390px;
+  height: 260px;
+  max-width: 100%;
+  border: 1px solid #c7d0cb;
+  background: #ffffff;
+}
+
+@media (max-width: 900px) {
+  .labelmaker-page .recipe-search-row,
+  .labelmaker-page .recipe-weight-grid,
+  .labelmaker-page .recipe-serving-row,
+  .labelmaker-page .custom-nutrient-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @layer components {
   .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200;

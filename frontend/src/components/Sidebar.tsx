@@ -110,6 +110,7 @@ const productionSections: NavSection[] = [
       { to: '/production/repack', label: '分裝報表', labelKey: 'nav.prodRepack', icon: ArrowPathIcon },
       { to: '/production/products', label: '產品管理', labelKey: 'nav.prodProducts', icon: Squares2X2Icon },
       { to: '/production/pack-types', label: '包裝類型', labelKey: 'nav.packTypes', icon: TagIcon },
+      { to: '/labelmaker', label: 'LabelMaker', icon: TagIcon },
     ],
   },
 ];
@@ -131,6 +132,7 @@ const productionHelperSections: NavSection[] = [
 function detectSystem(pathname: string): 'haccp' | 'inventory' | 'production' | 'production-helper' {
   if (pathname.startsWith('/inventory') || pathname.startsWith('/inventory/raw-materials')) return 'inventory';
   if (pathname.startsWith('/production-helper')) return 'production-helper';
+  if (pathname.startsWith('/labelmaker')) return 'production';
   if (pathname.startsWith('/production')) return 'production';
   return 'haccp';
 }

@@ -34,6 +34,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-haccp_password}
       POSTGRES_DB: ${POSTGRES_DB:-haccp_db}
       PRODUCTION_HELPER_DATA_DIR: /app/app/data/production_helper
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.2}
     ports:
       - "8000:8000"
     volumes:

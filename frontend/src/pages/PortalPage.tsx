@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheckIcon, CogIcon, ArchiveBoxIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
+import { ShieldCheckIcon, CogIcon, ArchiveBoxIcon, ClipboardDocumentListIcon, TagIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
 import Bi, { bi } from '@/components/Bi';
 
@@ -45,6 +45,14 @@ const systems: SystemCard[] = [
     color: 'text-rose-600 bg-rose-50 border-rose-200 hover:border-rose-400',
     roles: ['Captain'],
   },
+  {
+    titleKey: 'page.portal.labelmaker',
+    descKey: 'page.portal.labelmakerDesc',
+    icon: TagIcon,
+    to: '/labelmaker',
+    color: 'text-cyan-700 bg-cyan-50 border-cyan-200 hover:border-cyan-400',
+    roles: ['Admin', 'QA', 'Production', 'Captain'],
+  },
 ];
 
 export default function PortalPage() {
@@ -62,7 +70,7 @@ export default function PortalPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-3xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl">
         {systems
           .filter((sys) => user?.role === 'Captain' || !sys.roles || sys.roles.includes(user?.role || ''))
           .map((sys) => (
