@@ -1,4 +1,5 @@
 import type { ProductTemplate } from '../types';
+import { createClientId } from './clientId';
 import { emptyNutrition, validateNutrition } from './nutrition';
 import { createEmptyRecipe } from './recipeNutrition';
 
@@ -18,7 +19,7 @@ export function normalizeFactoryInformation(value: string): string {
 export function createProductTemplate(): ProductTemplate {
   const now = new Date().toISOString();
   return {
-    id: crypto.randomUUID(),
+    id: createClientId('template'),
     productNameZh: '',
     productNameEn: '',
     netWeightG: 2500,
@@ -37,7 +38,7 @@ export function createProductTemplate(): ProductTemplate {
 export function createBeefBoneTemplate(): ProductTemplate {
   const now = new Date().toISOString();
   return {
-    id: crypto.randomUUID(),
+    id: createClientId('template'),
     productNameZh: '熟制牛汤骨海底捞专供',
     productNameEn: 'Cooked Beef Soup Bone',
     netWeightG: 2500,
@@ -45,7 +46,7 @@ export function createBeefBoneTemplate(): ProductTemplate {
     servingsPerPackage: 1,
     ingredients: [
       {
-        id: crypto.randomUUID(),
+        id: createClientId('ingredient'),
         name: 'Beef Soup Bone',
         allergenTags: [],
       },

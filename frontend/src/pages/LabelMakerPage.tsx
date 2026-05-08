@@ -10,6 +10,7 @@ import type { AllergenKey, Ingredient, NutritionValues, ProductTemplate, RecipeS
 import { allergenLabels, allergenOrder, detectIngredientAllergens, formatContains, summariseAllergens } from '@/features/labelmaker/domain/allergens';
 import { buildLabelHtml, makePdfFileName } from '@/features/labelmaker/domain/labelHtml';
 import { formatEnergy, formatGrams, formatMilligrams, perServing } from '@/features/labelmaker/domain/nutrition';
+import { createClientId } from '@/features/labelmaker/domain/clientId';
 import { defaultFactoryInformation, validateProduct } from '@/features/labelmaker/domain/product';
 import { createEmptyRecipe, recipeIngredientNames } from '@/features/labelmaker/domain/recipeNutrition';
 
@@ -153,7 +154,7 @@ export default function LabelMakerPage() {
         allergensConfirmedAt: undefined,
         ingredients: names.map((name) => {
           const existing = existingByName.get(name.toLowerCase());
-          return existing ? { ...existing, name } : { id: crypto.randomUUID(), name, allergenTags: [] };
+          return existing ? { ...existing, name } : { id: createClientId('ingredient'), name, allergenTags: [] };
         }),
       };
     });
@@ -180,7 +181,7 @@ export default function LabelMakerPage() {
         ? {
             ...current,
             allergensConfirmedAt: undefined,
-            ingredients: [...current.ingredients, { id: crypto.randomUUID(), name: '', allergenTags: [] }],
+            ingredients: [...current.ingredients, { id: createClientId('ingredient'), name: '', allergenTags: [] }],
           }
         : current,
     );

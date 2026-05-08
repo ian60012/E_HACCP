@@ -1,5 +1,6 @@
 import fsanzFoodsJson from '../data/fsanzFoods.json';
 import type { FsanzFood, NutritionValues, RecipeIngredient, RecipeState, RecipeUnit } from '../types';
+import { createClientId } from './clientId';
 import { emptyNutrition } from './nutrition';
 
 export const fsanzFoods = fsanzFoodsJson as FsanzFood[];
@@ -30,7 +31,7 @@ export function createEmptyRecipe(productServingSizeG = 0, servingsPerPackage = 
 
 export function createFsanzRecipeIngredient(food: FsanzFood): RecipeIngredient {
   return {
-    id: crypto.randomUUID(),
+    id: createClientId('recipe-ingredient'),
     source: 'fsanz',
     foodId: food.foodId,
     name: food.foodName,
@@ -45,7 +46,7 @@ export function createFsanzRecipeIngredient(food: FsanzFood): RecipeIngredient {
 
 export function createCustomRecipeIngredient(): RecipeIngredient {
   return {
-    id: crypto.randomUUID(),
+    id: createClientId('recipe-ingredient'),
     source: 'custom',
     name: 'Custom ingredient',
     labelName: 'Custom ingredient',
