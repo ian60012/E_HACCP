@@ -442,8 +442,8 @@ function createDefaultTemplate(product: ProdProduct, packType: PackTypeConfig | 
   const netWeightG = Math.round(Number(packType?.nominal_weight_kg ?? product.pack_size_kg ?? 1) * 1000);
   return {
     id: `${product.id}:${packType?.code ?? 'pack'}`,
-    productNameZh: '',
-    productNameEn: product.name,
+    productNameZh: product.name,
+    productNameEn: '',
     netWeightG,
     servingSizeG: netWeightG,
     servingsPerPackage: 1,
