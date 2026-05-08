@@ -68,7 +68,10 @@ CODE128_PATTERNS = [
 
 
 def _safe_filename(value: str) -> str:
-    return "".join(ch if ch.isalnum() or ch in ("-", "_", ".") else "_" for ch in value).strip("_") or "carton-label"
+    return "".join(
+        ch if (ch.isascii() and (ch.isalnum() or ch in ("-", "_", "."))) else "_"
+        for ch in value
+    ).strip("_") or "carton-label"
 
 
 def _trim_decimal(value: object, decimals: int = 3) -> str:
