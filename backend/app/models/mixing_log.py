@@ -25,6 +25,8 @@ class MixingLog(ALCOAMixin, Base):
     visual_check = Column(Boolean, nullable=False, server_default="false")
     corrective_action = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
+    operator_signature_data_url = Column(Text, nullable=True)
+    verifier_signature_data_url = Column(Text, nullable=True)
 
     # Relationships
     prod_product = relationship("ProdProduct", lazy="raise", foreign_keys=[prod_product_id])

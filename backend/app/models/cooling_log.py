@@ -58,6 +58,8 @@ class CoolingLog(ALCOAMixin, Base):
     ccp_status = Column(CCPStatusType, nullable=True)
     corrective_action = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
+    operator_signature_data_url = Column(Text, nullable=True)
+    verifier_signature_data_url = Column(Text, nullable=True)
 
     # Relationships
     operator = relationship("User", lazy="raise", foreign_keys="CoolingLog.operator_id")

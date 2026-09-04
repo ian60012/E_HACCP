@@ -51,6 +51,8 @@ class AssemblyPackingLog(ALCOAMixin, Base):
 
     corrective_action = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
+    operator_signature_data_url = Column(Text, nullable=True)
+    verifier_signature_data_url = Column(Text, nullable=True)
 
     # Relationships
     operator = relationship("User", lazy="raise", foreign_keys="AssemblyPackingLog.operator_id")

@@ -26,6 +26,8 @@ class CookingLog(ALCOAMixin, Base):
     ccp_status = Column(CCPStatusType, nullable=True)
     corrective_action = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
+    operator_signature_data_url = Column(Text, nullable=True)
+    verifier_signature_data_url = Column(Text, nullable=True)
 
     # Relationships (lazy="raise" prevents N+1 — must use selectinload())
     prod_product = relationship("ProdProduct", lazy="raise", foreign_keys=[prod_product_id])

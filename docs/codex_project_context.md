@@ -169,6 +169,7 @@ Core production/HACCP signature behavior:
 - Cooking, cooling, mixing, assembly packing, production batch creation, production packing, and daily batch sheets require an operator handwritten signature for new records.
 - QA lock/verify actions for those core records require a verifier handwritten signature in the request body.
 - Signatures are PNG Data URLs stored in nullable `TEXT` columns so old records without signatures remain readable. Production batch creation and packing operator signatures use separate columns so later packing cannot overwrite the original batch signature.
+- Signature columns are declared only on the four signed ALCOA models, not on the shared `ALCOAMixin`; receiving, sanitising, PPE, and deviation tables do not carry signature columns.
 - `backend/app/schemas/common.py` owns the shared signature validator and `QALockRequest`.
 - `frontend/src/components/SignaturePad.tsx` and `SignatureLockDialog.tsx` are the shared UI pieces.
 - `ALCOAAuditBar` displays operator/verifier signature previews alongside existing ALCOA+ metadata.

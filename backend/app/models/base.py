@@ -5,10 +5,8 @@ Every log table (receiving, cooking, cooling, sanitising, assembly, deviation)
 inherits this mixin to get standardized audit trail fields:
 
   operator_id   - WHO recorded the entry (Attributable)
-  operator_signature_data_url - handwritten operator signature image
   created_at    - WHEN it was recorded (Contemporaneous, auto-stamped)
   verified_by   - WHO reviewed it (QA verification)
-  verifier_signature_data_url - handwritten verifier signature image
   is_locked     - Locked after QA review (no further edits)
   is_voided     - Soft delete (never hard delete)
   void_reason   - Reason for voiding
@@ -43,8 +41,6 @@ class ALCOAMixin:
     def verified_by(cls):
         return Column(Integer, ForeignKey("users.id"), nullable=True)
 
-    operator_signature_data_url = Column(Text, nullable=True)
-    verifier_signature_data_url = Column(Text, nullable=True)
     is_locked = Column(Boolean, nullable=False, default=False, server_default="false")
     is_voided = Column(Boolean, nullable=False, default=False, server_default="false")
     void_reason = Column(Text, nullable=True)
