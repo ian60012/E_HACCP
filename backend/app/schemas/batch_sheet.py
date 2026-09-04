@@ -6,6 +6,8 @@ from typing import Optional, List
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.common import SignatureDataUrl
+
 
 class ReceivingLogSummary(BaseModel):
     """Minimal receiving log info embedded in batch sheet line responses."""
@@ -48,7 +50,12 @@ class ProdBatchSheetLineResponse(BaseModel):
 class SaveBatchSheetRequest(BaseModel):
     """Full batch sheet save (operator + all lines)."""
     operator_name: Optional[str] = None
+    operator_signature_data_url: SignatureDataUrl
     lines: List[ProdBatchSheetLineCreate]
+
+
+class VerifyBatchSheetRequest(BaseModel):
+    verifier_signature_data_url: SignatureDataUrl
 
 
 class ProdDailyBatchSheetResponse(BaseModel):
@@ -58,8 +65,10 @@ class ProdDailyBatchSheetResponse(BaseModel):
     batch_id: int
     operator_id: Optional[int] = None
     operator_name: Optional[str] = None
+    operator_signature_data_url: Optional[str] = None
     verified_by: Optional[int] = None
     verifier_name: Optional[str] = None
+    verifier_signature_data_url: Optional[str] = None
     verified_at: Optional[datetime] = None
     is_locked: bool
     created_at: datetime

@@ -26,8 +26,10 @@ export interface ProdDailyBatchSheet {
   batch_id: number;
   operator_id: number | null;
   operator_name: string | null;
+  operator_signature_data_url: string | null;
   verified_by: number | null;
   verifier_name: string | null;
+  verifier_signature_data_url: string | null;
   verified_at: string | null;
   is_locked: boolean;
   created_at: string;
@@ -47,7 +49,12 @@ export interface ProdBatchSheetLineCreate {
 
 export interface SaveBatchSheetRequest {
   operator_name?: string;
+  operator_signature_data_url: string;
   lines: ProdBatchSheetLineCreate[];
+}
+
+export interface VerifyBatchSheetRequest {
+  verifier_signature_data_url: string;
 }
 
 export interface BatchSheetSummary {

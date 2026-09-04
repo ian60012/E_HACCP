@@ -9,6 +9,7 @@ import ErrorCard from '@/components/ErrorCard';
 import StatusBadge from '@/components/StatusBadge';
 import ALCOAAuditBar from '@/components/ALCOAAuditBar';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import SignatureLockDialog from '@/components/SignatureLockDialog';
 import Bi, { bi } from '@/components/Bi';
 
 function formatDateTime(iso: string | null): string {
@@ -106,11 +107,11 @@ export default function CoolingLogDetailPage() {
 
   useEffect(() => { fetchLog(); }, [fetchLog]);
 
-  const handleLock = async () => {
+  const handleLock = async (signatureDataUrl: string) => {
     if (!log) return;
     setActionLoading(true);
     try {
-      const updated = await coolingLogsApi.lock(log.id);
+      const updated = await coolingLogsApi.lock(log.id, { verifier_signature_data_url: signatureDataUrl });
       setLog(updated);
       setLockDialog(false);
     } catch {
@@ -164,7 +165,9 @@ export default function CoolingLogDetailPage() {
       {/* ALCOA Audit Bar */}
       <ALCOAAuditBar
         operatorName={log.operator_name}
+        operatorSignatureDataUrl={log.operator_signature_data_url}
         verifierName={log.verifier_name}
+        verifierSignatureDataUrl={log.verifier_signature_data_url}
         createdAt={log.created_at}
         isLocked={log.is_locked}
         isVoided={log.is_voided}
@@ -292,7 +295,7 @@ export default function CoolingLogDetailPage() {
       </div>
 
       {/* Dialogs */}
-      <ConfirmDialog open={lockDialog} title={bi('confirm.lock.title')} message={bi('confirm.lock.message')} variant="warning" confirmLabel={bi('confirm.lock.confirm')} onConfirm={handleLock} onCancel={() => setLockDialog(false)} loading={actionLoading} />
+      <SignatureLockDialog open={lockDialog} title={bi('confirm.lock.title')} message={bi('confirm.lock.message')} confirmLabel={bi('confirm.lock.confirm')} onConfirm={handleLock} onCancel={() => setLockDialog(false)} loading={actionLoading} />
       <ConfirmDialog open={voidDialog} title={bi('confirm.void.title')} message={bi('confirm.void.message')} variant="danger" confirmLabel={bi('confirm.void.confirm')} requireReason reasonLabel={bi('confirm.void.reason')} reasonMinLength={5} onConfirm={handleVoid} onCancel={() => setVoidDialog(false)} loading={actionLoading} />
     </div>
   );

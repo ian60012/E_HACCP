@@ -2,6 +2,7 @@ import apiClient from './client';
 import {
   ProdDailyBatchSheet,
   SaveBatchSheetRequest,
+  VerifyBatchSheetRequest,
   BatchSheetSummary,
 } from '@/types/batch-sheet';
 import { PaginatedResponse } from '@/types/common';
@@ -27,9 +28,10 @@ export const batchSheetApi = {
     return res.data;
   },
 
-  verify: async (batchId: number): Promise<ProdDailyBatchSheet> => {
+  verify: async (batchId: number, data: VerifyBatchSheetRequest): Promise<ProdDailyBatchSheet> => {
     const res = await apiClient.post<ProdDailyBatchSheet>(
-      `/api/v1/production/batches/${batchId}/batch-sheet/verify`
+      `/api/v1/production/batches/${batchId}/batch-sheet/verify`,
+      data
     );
     return res.data;
   },

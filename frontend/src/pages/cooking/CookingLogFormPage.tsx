@@ -13,6 +13,7 @@ import CCPIndicator from '@/components/CCPIndicator';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Bi, { bi } from '@/components/Bi';
 import DateTimeInput from '@/components/DateTimeInput';
+import SignaturePad from '@/components/SignaturePad';
 
 import { toMelbourneInput, nowMelbourne, melbourneToUTC } from '@/utils/timezone';
 import { useAuth } from '@/hooks/useAuth';
@@ -44,6 +45,7 @@ export default function CookingLogFormPage() {
   const [coreTemp, setCoreTemp] = useState('');
   const [correctiveAction, setCorrectiveAction] = useState('');
   const [notes, setNotes] = useState('');
+  const [operatorSignature, setOperatorSignature] = useState('');
   const [prodBatchId, setProdBatchId] = useState<number | ''>('');
   const [hotInputId, setHotInputId] = useState<number | undefined>(undefined);
 
@@ -141,6 +143,10 @@ export default function CookingLogFormPage() {
         });
         navigate(`/cooking-logs/${id}`);
       } else {
+        if (!operatorSignature) {
+          setError('請先完成手寫簽名 Signature is required');
+          return;
+        }
         const created = await cookingLogsApi.create({
           batch_id: batchId,
           prod_product_id: prodProductId ? Number(prodProductId) : undefined,
@@ -152,6 +158,7 @@ export default function CookingLogFormPage() {
           notes: notes || undefined,
           prod_batch_id: prodBatchId ? Number(prodBatchId) : undefined,
           hot_input_id: hotInputId,
+          operator_signature_data_url: operatorSignature,
         });
         // If came from a production batch, go back there
         const returnToBatch = searchParams.get('prod_batch_id');
@@ -277,6 +284,15 @@ export default function CookingLogFormPage() {
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
             className="input min-h-[60px]" placeholder="其他備註" />
         </FormField>
+
+        {!isEdit && (
+          <SignaturePad
+            value={operatorSignature}
+            onChange={setOperatorSignature}
+            required
+            error={!operatorSignature && error.includes('Signature') ? error : undefined}
+          />
+        )}
 
         <div className="flex items-center gap-3 pt-4 border-t">
           <button type="submit" disabled={submitting || (isEdit && existingLog?.is_locked)}

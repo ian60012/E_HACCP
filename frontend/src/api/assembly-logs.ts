@@ -1,6 +1,6 @@
 import apiClient from './client';
 import { AssemblyPackingLog, AssemblyPackingLogCreate, AssemblyPackingLogUpdate } from '@/types/assembly-log';
-import { PaginatedResponse, VoidRequest } from '@/types/common';
+import { PaginatedResponse, VoidRequest, QALockRequest } from '@/types/common';
 
 export const assemblyLogsApi = {
   list: async (params?: { skip?: number; limit?: number; prod_batch_id?: number; is_voided?: boolean }): Promise<PaginatedResponse<AssemblyPackingLog>> => {
@@ -23,8 +23,8 @@ export const assemblyLogsApi = {
     return response.data;
   },
 
-  lock: async (id: number): Promise<AssemblyPackingLog> => {
-    const response = await apiClient.post<AssemblyPackingLog>(`/api/v1/assembly-logs/${id}/lock`);
+  lock: async (id: number, data: QALockRequest): Promise<AssemblyPackingLog> => {
+    const response = await apiClient.post<AssemblyPackingLog>(`/api/v1/assembly-logs/${id}/lock`, data);
     return response.data;
   },
 

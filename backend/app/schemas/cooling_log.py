@@ -6,7 +6,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.schemas.common import ALCOAResponseMixin
+from app.schemas.common import ALCOAResponseMixin, SignatureDataUrl
 
 
 class CoolingLogCreate(BaseModel):
@@ -25,6 +25,7 @@ class CoolingLogCreate(BaseModel):
     goes_to_freezer: bool = False
     corrective_action: Optional[str] = None
     notes: Optional[str] = None
+    operator_signature_data_url: SignatureDataUrl
 
     @model_validator(mode="after")
     def validate_progressive_times(self):

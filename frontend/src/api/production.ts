@@ -4,6 +4,7 @@ import {
   ProdBatch, ProdBatchCreate, ProdBatchUpdate,
   ProdFormingTrolley, ProdFormingTrolleyCreate,
   ProdPackingSaveRequest,
+  ProdPackingVerifyRequest,
   ProdHotInput, ProdHotInputCreate,
   ProdRepackJob, ProdRepackJobCreate,
   ProdRepackInput, ProdRepackInputCreate,
@@ -97,6 +98,10 @@ export const prodBatchesApi = {
   },
   savePacking: async (batchId: number, data: ProdPackingSaveRequest): Promise<ProdBatch> => {
     const res = await apiClient.post<ProdBatch>(`/api/v1/production/batches/${batchId}/packing`, data);
+    return res.data;
+  },
+  verifyPacking: async (batchId: number, data: ProdPackingVerifyRequest): Promise<ProdBatch> => {
+    const res = await apiClient.post<ProdBatch>(`/api/v1/production/batches/${batchId}/packing/verify`, data);
     return res.data;
   },
   getPackingTotals: async (batchId: number): Promise<PackingTotals> => {

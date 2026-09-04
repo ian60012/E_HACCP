@@ -8,6 +8,7 @@ import ErrorCard from '@/components/ErrorCard';
 import StatusBadge from '@/components/StatusBadge';
 import ALCOAAuditBar from '@/components/ALCOAAuditBar';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import SignatureLockDialog from '@/components/SignatureLockDialog';
 import Bi, { bi } from '@/components/Bi';
 
 function formatDateTime(iso: string): string {
@@ -29,6 +30,7 @@ export default function MixingLogDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lockLoading, setLockLoading] = useState(false);
+  const [lockDialogOpen, setLockDialogOpen] = useState(false);
   const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const [voidLoading, setVoidLoading] = useState(false);
 
@@ -50,12 +52,13 @@ export default function MixingLogDetailPage() {
     fetchLog();
   }, [fetchLog]);
 
-  const handleLock = async () => {
+  const handleLock = async (signatureDataUrl: string) => {
     if (!log) return;
     setLockLoading(true);
     try {
-      const updated = await mixingLogsApi.lock(log.id);
+      const updated = await mixingLogsApi.lock(log.id, { verifier_signature_data_url: signatureDataUrl });
       setLog(updated);
+      setLockDialogOpen(false);
     } catch {
       setError(bi('error.updateFailed'));
     } finally {
@@ -105,14 +108,16 @@ export default function MixingLogDetailPage() {
 
       <ALCOAAuditBar
         operatorName={log.operator_name}
+        operatorSignatureDataUrl={log.operator_signature_data_url}
         verifierName={log.verifier_name}
+        verifierSignatureDataUrl={log.verifier_signature_data_url}
         createdAt={log.created_at}
         isLocked={log.is_locked}
         isVoided={log.is_voided}
         voidReason={log.void_reason}
         voidedAt={log.voided_at}
         voidedBy={log.voided_by}
-        onLock={handleLock}
+        onLock={() => setLockDialogOpen(true)}
         onVoid={() => setVoidDialogOpen(true)}
         lockLoading={lockLoading}
       />
@@ -219,6 +224,15 @@ export default function MixingLogDetailPage() {
         onConfirm={handleVoid}
         onCancel={() => setVoidDialogOpen(false)}
         loading={voidLoading}
+      />
+      <SignatureLockDialog
+        open={lockDialogOpen}
+        title={bi('confirm.lock.title')}
+        message={bi('confirm.lock.message')}
+        confirmLabel={bi('confirm.lock.confirm')}
+        onConfirm={handleLock}
+        onCancel={() => setLockDialogOpen(false)}
+        loading={lockLoading}
       />
     </div>
   );

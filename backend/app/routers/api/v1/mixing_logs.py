@@ -19,7 +19,7 @@ from app.schemas.mixing_log import (
     MixingLogUpdate,
     MixingLogResponse,
 )
-from app.schemas.common import PaginatedResponse, VoidRequest
+from app.schemas.common import PaginatedResponse, VoidRequest, QALockRequest
 from app.dependencies.auth import get_current_active_user, require_role
 from app.services.qa_lock_service import lock_record
 from app.services.void_service import void_record
@@ -46,8 +46,10 @@ def _to_response(log: MixingLog) -> MixingLogResponse:
         notes=log.notes,
         operator_id=log.operator_id,
         operator_name=log.operator.full_name if log.operator else None,
+        operator_signature_data_url=log.operator_signature_data_url,
         verified_by=log.verified_by,
         verifier_name=log.verifier.full_name if log.verifier else None,
+        verifier_signature_data_url=log.verifier_signature_data_url,
         is_locked=log.is_locked,
         is_voided=log.is_voided,
         void_reason=log.void_reason,
@@ -127,9 +129,11 @@ async def create_mixing_log(
         final_temp=data.final_temp,
         start_time=data.start_time,
         end_time=data.end_time,
+        visual_check=data.visual_check,
         corrective_action=data.corrective_action,
         notes=data.notes,
         operator_id=current_user.id,
+        operator_signature_data_url=data.operator_signature_data_url,
     )
     db.add(log)
     await db.flush()
@@ -171,11 +175,12 @@ async def update_mixing_log(
 @router.post("/{log_id}/lock", response_model=MixingLogResponse)
 async def lock_mixing_log(
     log_id: int,
+    body: QALockRequest,
     current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
     """QA-lock a mixing log (Admin/QA only)."""
-    await lock_record(db, MixingLog, log_id, current_user)
+    await lock_record(db, MixingLog, log_id, current_user, body.verifier_signature_data_url)
     result = await db.execute(_base_query().where(MixingLog.id == log_id))
     log = result.scalar_one()
     return _to_response(log)

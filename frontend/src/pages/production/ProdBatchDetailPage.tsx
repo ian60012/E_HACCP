@@ -22,6 +22,7 @@ import ErrorCard from '@/components/ErrorCard';
 import Bi, { bi } from '@/components/Bi';
 import RoleGate from '@/components/RoleGate';
 import DateTimeInput from '@/components/DateTimeInput';
+import SignaturePad from '@/components/SignaturePad';
 import { toMelbourneInput, nowMelbourne, melbourneToUTC, formatMelbourne } from '@/utils/timezone';
 
 const num = (v: any): number => (v == null ? 0 : Number(v));
@@ -142,6 +143,7 @@ export default function ProdBatchDetailPage() {
     coding_legibility: undefined,
     corrective_action: undefined,
     notes: undefined,
+    operator_signature_data_url: '',
   });
 
   // Mixing logs (forming)
@@ -381,6 +383,10 @@ export default function ProdBatchDetailPage() {
 
   const handleSaveAssembly = async () => {
     if (!batch) return;
+    if (editingAssemblyId === null && !assemblyForm.operator_signature_data_url) {
+      setError('請先完成手寫簽名 Signature is required');
+      return;
+    }
     setAssemblySaving(true);
     try {
       if (editingAssemblyId !== null) {
@@ -396,6 +402,7 @@ export default function ProdBatchDetailPage() {
         sample_3_g: undefined, sample_4_g: undefined, sample_5_g: undefined,
         seal_integrity: undefined, coding_legibility: undefined,
         corrective_action: undefined, notes: undefined,
+        operator_signature_data_url: '',
       });
       await fetchAssemblyLogs();
     } catch (err: any) {
@@ -880,6 +887,14 @@ export default function ProdBatchDetailPage() {
                     />
                   </div>
                 </div>
+                {editingAssemblyId === null && (
+                  <SignaturePad
+                    value={assemblyForm.operator_signature_data_url}
+                    onChange={(value) => setAssemblyForm({ ...assemblyForm, operator_signature_data_url: value })}
+                    required
+                    error={!assemblyForm.operator_signature_data_url && error.includes('Signature') ? error : undefined}
+                  />
+                )}
                 <div className="flex justify-end gap-2">
                   <button type="button" onClick={() => { setShowHotInputForm(false); setHotInputWeight(''); setHotInputNotes(''); }} className="btn btn-secondary text-sm">
                     <Bi k="btn.cancel" />
@@ -945,6 +960,7 @@ export default function ProdBatchDetailPage() {
                             coding_legibility: log.coding_legibility ?? undefined,
                             corrective_action: log.corrective_action ?? undefined,
                             notes: log.notes ?? undefined,
+                            operator_signature_data_url: log.operator_signature_data_url || '',
                           });
                           setShowAssemblyForm(true);
                         }}
@@ -1038,6 +1054,14 @@ export default function ProdBatchDetailPage() {
                       className="input" rows={2} />
                   </div>
                 </div>
+                {editingAssemblyId === null && (
+                  <SignaturePad
+                    value={assemblyForm.operator_signature_data_url}
+                    onChange={(value) => setAssemblyForm({ ...assemblyForm, operator_signature_data_url: value })}
+                    required
+                    error={!assemblyForm.operator_signature_data_url && error.includes('Signature') ? error : undefined}
+                  />
+                )}
                 <div className="flex justify-end gap-2">
                   <button type="button" onClick={() => { setShowAssemblyForm(false); setEditingAssemblyId(null); }} className="btn btn-secondary text-sm">
                     <Bi k="btn.cancel" />
@@ -1314,6 +1338,7 @@ export default function ProdBatchDetailPage() {
                             coding_legibility: log.coding_legibility ?? undefined,
                             corrective_action: log.corrective_action ?? undefined,
                             notes: log.notes ?? undefined,
+                            operator_signature_data_url: log.operator_signature_data_url || '',
                           });
                           setShowAssemblyForm(true);
                         }}

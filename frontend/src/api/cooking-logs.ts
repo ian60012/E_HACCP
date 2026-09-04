@@ -1,6 +1,6 @@
 import apiClient from './client';
 import { CookingLog, CookingLogCreate, CookingLogUpdate } from '@/types/cooking-log';
-import { PaginatedResponse, VoidRequest } from '@/types/common';
+import { PaginatedResponse, VoidRequest, QALockRequest } from '@/types/common';
 
 export const cookingLogsApi = {
   list: async (params?: { skip?: number; limit?: number; is_voided?: boolean; batch_id?: string; prod_batch_id?: number; hot_input_id?: number }): Promise<PaginatedResponse<CookingLog>> => {
@@ -23,8 +23,8 @@ export const cookingLogsApi = {
     return response.data;
   },
 
-  lock: async (id: number): Promise<CookingLog> => {
-    const response = await apiClient.post<CookingLog>(`/api/v1/cooking-logs/${id}/lock`);
+  lock: async (id: number, data: QALockRequest): Promise<CookingLog> => {
+    const response = await apiClient.post<CookingLog>(`/api/v1/cooking-logs/${id}/lock`, data);
     return response.data;
   },
 

@@ -16,8 +16,10 @@ class ProdDailyBatchSheet(Base):
     batch_id = Column(Integer, ForeignKey("prod_batches.id", ondelete="CASCADE"), nullable=False, unique=True)
     operator_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     operator_name = Column(VARCHAR(100), nullable=True)
+    operator_signature_data_url = Column(Text, nullable=True)
     verified_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     verified_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    verifier_signature_data_url = Column(Text, nullable=True)
     is_locked = Column(Boolean, nullable=False, default=False, server_default="false")
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
 

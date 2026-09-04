@@ -1,6 +1,6 @@
 import apiClient from './client';
 import { CoolingLog, CoolingLogCreate, CoolingLogUpdate } from '@/types/cooling-log';
-import { PaginatedResponse, VoidRequest } from '@/types/common';
+import { PaginatedResponse, VoidRequest, QALockRequest } from '@/types/common';
 
 export const coolingLogsApi = {
   list: async (params?: { skip?: number; limit?: number; prod_batch_id?: number; hot_input_id?: number; is_voided?: boolean }): Promise<PaginatedResponse<CoolingLog>> => {
@@ -23,8 +23,8 @@ export const coolingLogsApi = {
     return response.data;
   },
 
-  lock: async (id: number): Promise<CoolingLog> => {
-    const response = await apiClient.post<CoolingLog>(`/api/v1/cooling-logs/${id}/lock`);
+  lock: async (id: number, data: QALockRequest): Promise<CoolingLog> => {
+    const response = await apiClient.post<CoolingLog>(`/api/v1/cooling-logs/${id}/lock`, data);
     return response.data;
   },
 

@@ -1,6 +1,6 @@
 import apiClient from './client';
 import { MixingLog, MixingLogCreate, MixingLogUpdate } from '@/types/mixing-log';
-import { PaginatedResponse, VoidRequest } from '@/types/common';
+import { PaginatedResponse, VoidRequest, QALockRequest } from '@/types/common';
 
 export const mixingLogsApi = {
   list: async (params?: { skip?: number; limit?: number; is_voided?: boolean; prod_batch_id?: number }): Promise<PaginatedResponse<MixingLog>> => {
@@ -23,8 +23,8 @@ export const mixingLogsApi = {
     return response.data;
   },
 
-  lock: async (id: number): Promise<MixingLog> => {
-    const response = await apiClient.post<MixingLog>(`/api/v1/mixing-logs/${id}/lock`);
+  lock: async (id: number, data: QALockRequest): Promise<MixingLog> => {
+    const response = await apiClient.post<MixingLog>(`/api/v1/mixing-logs/${id}/lock`, data);
     return response.data;
   },
 

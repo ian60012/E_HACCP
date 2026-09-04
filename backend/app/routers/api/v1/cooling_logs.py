@@ -26,7 +26,7 @@ from app.schemas.cooling_log import (
     CoolingLogUpdate,
     CoolingLogResponse,
 )
-from app.schemas.common import PaginatedResponse, VoidRequest
+from app.schemas.common import PaginatedResponse, VoidRequest, QALockRequest
 from app.dependencies.auth import get_current_active_user, require_role
 from app.services.cooling_validator import validate_cooling_ccp
 from app.services.qa_lock_service import lock_record
@@ -56,8 +56,10 @@ def _to_response(log: CoolingLog) -> CoolingLogResponse:
         notes=log.notes,
         operator_id=log.operator_id,
         operator_name=log.operator.full_name if log.operator else None,
+        operator_signature_data_url=log.operator_signature_data_url,
         verified_by=log.verified_by,
         verifier_name=log.verifier.full_name if log.verifier else None,
+        verifier_signature_data_url=log.verifier_signature_data_url,
         is_locked=log.is_locked,
         is_voided=log.is_voided,
         void_reason=log.void_reason,
@@ -150,6 +152,7 @@ async def create_cooling_log(
         corrective_action=data.corrective_action,
         notes=data.notes,
         operator_id=current_user.id,
+        operator_signature_data_url=data.operator_signature_data_url,
     )
     db.add(log)
     await db.flush()
@@ -230,11 +233,12 @@ async def update_cooling_log(
 @router.post("/{log_id}/lock", response_model=CoolingLogResponse)
 async def lock_cooling_log(
     log_id: int,
+    body: QALockRequest,
     current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
     """QA-lock a cooling log (Admin/QA only)."""
-    await lock_record(db, CoolingLog, log_id, current_user)
+    await lock_record(db, CoolingLog, log_id, current_user, body.verifier_signature_data_url)
     result = await db.execute(_base_query().where(CoolingLog.id == log_id))
     log = result.scalar_one()
     return _to_response(log)

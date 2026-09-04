@@ -7,6 +7,7 @@ import FormField from '@/components/FormField';
 import ErrorCard from '@/components/ErrorCard';
 import Bi, { bi } from '@/components/Bi';
 import DateTimeInput from '@/components/DateTimeInput';
+import SignaturePad from '@/components/SignaturePad';
 import { melbourneToUTC } from '@/utils/timezone';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -30,6 +31,7 @@ export default function ProdBatchFormPage() {
   const [specPieceWeightG, setSpecPieceWeightG] = useState('17.5');
   const [startTime, setStartTime] = useState('');
   const [operator, setOperator] = useState(user?.full_name || '');
+  const [operatorSignature, setOperatorSignature] = useState('');
   const [supervisor, setSupervisor] = useState('');
 
   const [saving, setSaving] = useState(false);
@@ -59,6 +61,10 @@ export default function ProdBatchFormPage() {
       setError(bi('error.required'));
       return;
     }
+    if (!operatorSignature) {
+      setError('請先完成手寫簽名 Signature is required');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -70,6 +76,7 @@ export default function ProdBatchFormPage() {
         spec_piece_weight_g: Number(specPieceWeightG),
         start_time: startTime ? melbourneToUTC(startTime) : undefined,
         operator: operator || undefined,
+        operator_signature_data_url: operatorSignature,
         supervisor: supervisor || undefined,
       });
       navigate(`/production/batches/${batch.id}`);
@@ -170,6 +177,15 @@ export default function ProdBatchFormPage() {
               />
             </FormField>
           </div>
+        </div>
+
+        <div className="card">
+          <SignaturePad
+            value={operatorSignature}
+            onChange={setOperatorSignature}
+            required
+            error={!operatorSignature && error.includes('Signature') ? error : undefined}
+          />
         </div>
 
         <div className="flex justify-end gap-2">

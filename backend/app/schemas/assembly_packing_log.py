@@ -5,7 +5,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.common import ALCOAResponseMixin
+from app.schemas.common import ALCOAResponseMixin, SignatureDataUrl
 
 
 class AssemblyPackingLogCreate(BaseModel):
@@ -22,6 +22,7 @@ class AssemblyPackingLogCreate(BaseModel):
     coding_legibility: Optional[str] = None
     corrective_action: Optional[str] = None
     notes: Optional[str] = None
+    operator_signature_data_url: SignatureDataUrl
 
 
 class AssemblyPackingLogUpdate(BaseModel):

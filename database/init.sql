@@ -841,16 +841,6 @@ CREATE TABLE IF NOT EXISTS prod_pack_types (
 );
 
 -- Product × pack-type → inventory-item config (裝袋庫存配置)
-CREATE TABLE IF NOT EXISTS prod_product_pack_config (
-    id              SERIAL PRIMARY KEY,
-    product_id      INTEGER NOT NULL REFERENCES prod_products(id) ON DELETE CASCADE,
-    pack_type_code  VARCHAR(30) NOT NULL,
-    inv_item_id     INTEGER REFERENCES inv_items(id) ON DELETE SET NULL,
-    UNIQUE (product_id, pack_type_code)
-);
-
-CREATE INDEX IF NOT EXISTS idx_prod_pack_config_product ON prod_product_pack_config(product_id);
-
 -- LabelMaker templates (product x pack-type labels)
 CREATE TABLE IF NOT EXISTS label_templates (
     id                      SERIAL PRIMARY KEY,
@@ -1050,6 +1040,16 @@ CREATE TABLE IF NOT EXISTS inv_items (
 );
 
 -- Warehouse locations (儲位)
+CREATE TABLE IF NOT EXISTS prod_product_pack_config (
+    id              SERIAL PRIMARY KEY,
+    product_id      INTEGER NOT NULL REFERENCES prod_products(id) ON DELETE CASCADE,
+    pack_type_code  VARCHAR(30) NOT NULL,
+    inv_item_id     INTEGER REFERENCES inv_items(id) ON DELETE SET NULL,
+    UNIQUE (product_id, pack_type_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_prod_pack_config_product ON prod_product_pack_config(product_id);
+
 CREATE TABLE IF NOT EXISTS inv_locations (
     id        SERIAL PRIMARY KEY,
     code      VARCHAR(50)  UNIQUE NOT NULL,
@@ -1284,6 +1284,59 @@ SELECT 'BATCH-20260424-008',
        '2026-04-24 15:12:00+10'::timestamptz, 3.9,
        'Pass'::ccp_status_enum, id
 FROM users WHERE username = 'production1';
+
+CREATE TABLE IF NOT EXISTS prod_daily_batch_sheets (
+    id            SERIAL PRIMARY KEY,
+    batch_id      INTEGER NOT NULL UNIQUE REFERENCES prod_batches(id) ON DELETE CASCADE,
+    operator_id   INTEGER REFERENCES users(id),
+    operator_name VARCHAR(100),
+    verified_by   INTEGER REFERENCES users(id),
+    verified_at   TIMESTAMPTZ,
+    is_locked     BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS prod_batch_sheet_lines (
+    id                SERIAL PRIMARY KEY,
+    sheet_id          INTEGER NOT NULL REFERENCES prod_daily_batch_sheets(id) ON DELETE CASCADE,
+    inv_item_id       INTEGER REFERENCES inv_items(id) ON DELETE SET NULL,
+    ingredient_name   VARCHAR(200) NOT NULL,
+    receiving_log_id  INTEGER REFERENCES receiving_logs(id) ON DELETE SET NULL,
+    is_used           BOOLEAN NOT NULL DEFAULT FALSE,
+    supplier          VARCHAR(200),
+    supplier_batch_no VARCHAR(100),
+    qty_used          NUMERIC(12,3),
+    unit              VARCHAR(20),
+    seq               INTEGER NOT NULL DEFAULT 0
+);
+
+-- Handwritten signatures for core HACCP/production records
+ALTER TABLE cooking_logs
+  ADD COLUMN IF NOT EXISTS operator_signature_data_url TEXT,
+  ADD COLUMN IF NOT EXISTS verifier_signature_data_url TEXT;
+
+ALTER TABLE cooling_logs
+  ADD COLUMN IF NOT EXISTS operator_signature_data_url TEXT,
+  ADD COLUMN IF NOT EXISTS verifier_signature_data_url TEXT;
+
+ALTER TABLE mixing_logs
+  ADD COLUMN IF NOT EXISTS operator_signature_data_url TEXT,
+  ADD COLUMN IF NOT EXISTS verifier_signature_data_url TEXT;
+
+ALTER TABLE assembly_packing_logs
+  ADD COLUMN IF NOT EXISTS operator_signature_data_url TEXT,
+  ADD COLUMN IF NOT EXISTS verifier_signature_data_url TEXT;
+
+ALTER TABLE prod_batches
+  ADD COLUMN IF NOT EXISTS operator_signature_data_url TEXT,
+  ADD COLUMN IF NOT EXISTS packing_operator_signature_data_url TEXT,
+  ADD COLUMN IF NOT EXISTS packing_verified_by INTEGER REFERENCES users(id),
+  ADD COLUMN IF NOT EXISTS packing_verified_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS packing_verifier_signature_data_url TEXT;
+
+ALTER TABLE prod_daily_batch_sheets
+  ADD COLUMN IF NOT EXISTS operator_signature_data_url TEXT,
+  ADD COLUMN IF NOT EXISTS verifier_signature_data_url TEXT;
 
 -- ============================================================================
 -- INITIALIZATION COMPLETE

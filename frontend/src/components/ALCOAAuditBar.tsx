@@ -5,7 +5,9 @@ import Bi from '@/components/Bi';
 
 interface ALCOAAuditBarProps {
   operatorName: string | null;
+  operatorSignatureDataUrl?: string | null;
   verifierName: string | null;
+  verifierSignatureDataUrl?: string | null;
   createdAt: string;
   isLocked: boolean;
   isVoided: boolean;
@@ -31,7 +33,9 @@ function formatDateTime(iso: string): string {
 
 export default function ALCOAAuditBar({
   operatorName,
+  operatorSignatureDataUrl,
   verifierName,
+  verifierSignatureDataUrl,
   createdAt,
   isLocked,
   isVoided,
@@ -129,6 +133,24 @@ export default function ALCOAAuditBar({
           </div>
         )}
       </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <SignatureImage title="填表人簽名 Operator Signature" src={operatorSignatureDataUrl} />
+        <SignatureImage title="QA簽名 QA Signature" src={verifierSignatureDataUrl} />
+      </div>
+    </div>
+  );
+}
+
+function SignatureImage({ title, src }: { title: string; src?: string | null }) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-3">
+      <p className="text-xs font-medium text-gray-500">{title}</p>
+      {src ? (
+        <img src={src} alt={title} className="mt-2 h-24 max-w-full rounded border border-gray-100 object-contain" />
+      ) : (
+        <p className="mt-2 text-sm text-gray-400">未保存簽名 No signature saved</p>
+      )}
     </div>
   );
 }

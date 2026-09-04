@@ -192,6 +192,29 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE prod_products ADD COLUMN IF NOT EXISTS inv_item_id INTEGER REFERENCES inv_items(id) ON DELETE SET NULL"
         ))
         await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_pack_types (
+                id SERIAL PRIMARY KEY,
+                code VARCHAR(50) UNIQUE NOT NULL,
+                name VARCHAR(200) NOT NULL,
+                nominal_weight_kg NUMERIC(8,3),
+                applicable_type VARCHAR(50) NOT NULL DEFAULT 'forming',
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS prod_product_pack_config (
+                id SERIAL PRIMARY KEY,
+                product_id INTEGER NOT NULL REFERENCES prod_products(id) ON DELETE CASCADE,
+                pack_type_code VARCHAR(30) NOT NULL,
+                inv_item_id INTEGER REFERENCES inv_items(id) ON DELETE SET NULL,
+                UNIQUE (product_id, pack_type_code)
+            )
+        """))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_prod_pack_config_product ON prod_product_pack_config(product_id)"
+        ))
+        await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS prod_batches (
                 id SERIAL PRIMARY KEY,
                 batch_code VARCHAR(50) UNIQUE NOT NULL,
@@ -524,6 +547,42 @@ async def lifespan(app: FastAPI):
                 seq               INTEGER NOT NULL DEFAULT 0
             )
         """))
+        # Handwritten signatures for core HACCP/production records
+        for table_name in (
+            "cooking_logs",
+            "cooling_logs",
+            "mixing_logs",
+            "assembly_packing_logs",
+        ):
+            await conn.execute(text(
+                f"ALTER TABLE {table_name} "
+                "ADD COLUMN IF NOT EXISTS operator_signature_data_url TEXT"
+            ))
+            await conn.execute(text(
+                f"ALTER TABLE {table_name} "
+                "ADD COLUMN IF NOT EXISTS verifier_signature_data_url TEXT"
+            ))
+        await conn.execute(text(
+            "ALTER TABLE prod_batches ADD COLUMN IF NOT EXISTS operator_signature_data_url TEXT"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE prod_batches ADD COLUMN IF NOT EXISTS packing_operator_signature_data_url TEXT"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE prod_batches ADD COLUMN IF NOT EXISTS packing_verified_by INTEGER REFERENCES users(id)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE prod_batches ADD COLUMN IF NOT EXISTS packing_verified_at TIMESTAMPTZ"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE prod_batches ADD COLUMN IF NOT EXISTS packing_verifier_signature_data_url TEXT"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE prod_daily_batch_sheets ADD COLUMN IF NOT EXISTS operator_signature_data_url TEXT"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE prod_daily_batch_sheets ADD COLUMN IF NOT EXISTS verifier_signature_data_url TEXT"
+        ))
     # Production Helper data directory (plans/recipes/purchase_status JSON files)
     production_helper.init_data_dir()
 

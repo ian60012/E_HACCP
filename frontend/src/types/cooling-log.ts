@@ -32,6 +32,7 @@ export interface CoolingLogCreate {
   goes_to_freezer?: boolean;
   corrective_action?: string;
   notes?: string;
+  operator_signature_data_url: string;
 }
 
 export interface CoolingLogUpdate {

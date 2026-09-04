@@ -1,7 +1,7 @@
 """Production batches router (生產批次)."""
 
 import html
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -28,6 +28,7 @@ from app.schemas.production import (
     ProdFormingTrolleyCreate,
     ProdFormingTrolleyResponse,
     ProdPackingSaveRequest,
+    ProdPackingVerifyRequest,
     ProdPackingRecordResponse,
     ProdPackingTrimResponse,
     CartonLabelRequest,
@@ -200,7 +201,13 @@ def _to_response(batch: ProdBatch) -> ProdBatchResponse:
         end_time=batch.end_time,
         status=batch.status.value if hasattr(batch.status, "value") else batch.status,
         operator=batch.operator,
+        operator_signature_data_url=batch.operator_signature_data_url,
         supervisor=batch.supervisor,
+        packing_operator_signature_data_url=batch.packing_operator_signature_data_url,
+        packing_verified_by=batch.packing_verified_by,
+        packing_verifier_name=batch.packing_verifier.full_name if batch.packing_verifier else None,
+        packing_verified_at=batch.packing_verified_at,
+        packing_verifier_signature_data_url=batch.packing_verifier_signature_data_url,
         estimated_forming_net_weight_kg=batch.estimated_forming_net_weight_kg,
         estimated_forming_pieces=batch.estimated_forming_pieces,
         input_weight_kg=batch.input_weight_kg,
@@ -237,6 +244,7 @@ def _base_query():
         selectinload(ProdBatch.packing_records).selectinload(ProdPackingRecord.inv_item),
         selectinload(ProdBatch.packing_trims),
         selectinload(ProdBatch.hot_inputs),
+        selectinload(ProdBatch.packing_verifier),
     )
 
 
@@ -319,6 +327,7 @@ async def create_batch(
         spec_piece_weight_g=data.spec_piece_weight_g,
         start_time=data.start_time,
         operator=data.operator,
+        operator_signature_data_url=data.operator_signature_data_url,
         supervisor=data.supervisor,
     )
     db.add(batch)
@@ -585,10 +594,42 @@ async def save_packing(
 
     # Set batch status to packed (editable until enter-stock)
     batch.status = "packed"
+    batch.packing_operator_signature_data_url = data.operator_signature_data_url
+    batch.packing_verified_by = None
+    batch.packing_verified_at = None
+    batch.packing_verifier_signature_data_url = None
     await db.flush()
     await db.commit()
 
     # Reload batch with all relations
+    result = await db.execute(_base_query().where(ProdBatch.id == batch_id))
+    return _to_response(result.scalar_one())
+
+
+@router.post("/{batch_id}/packing/verify", response_model=ProdBatchResponse)
+async def verify_packing(
+    batch_id: int,
+    data: ProdPackingVerifyRequest,
+    current_user: User = Depends(require_role("Admin", "QA")),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(_base_query().where(ProdBatch.id == batch_id))
+    batch = result.scalar_one_or_none()
+    if not batch:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Batch not found")
+    batch_status = batch.status.value if hasattr(batch.status, "value") else batch.status
+    if batch_status not in ("packed", "closed"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Packing must be saved before verification")
+    if not batch.packing_records:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No packing records to verify")
+    if batch.packing_verified_by:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Packing is already verified")
+
+    batch.packing_verified_by = current_user.id
+    batch.packing_verified_at = datetime.now(timezone.utc)
+    batch.packing_verifier_signature_data_url = data.verifier_signature_data_url
+    await db.commit()
+
     result = await db.execute(_base_query().where(ProdBatch.id == batch_id))
     return _to_response(result.scalar_one())
 

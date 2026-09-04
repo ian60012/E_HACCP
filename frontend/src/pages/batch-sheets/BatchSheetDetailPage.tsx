@@ -14,6 +14,8 @@ import { ReceivingLog } from '@/types/receiving-log';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import RoleGate from '@/components/RoleGate';
+import SignaturePad from '@/components/SignaturePad';
+import SignatureLockDialog from '@/components/SignatureLockDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { formatMelbourne } from '@/utils/timezone';
 
@@ -56,6 +58,8 @@ export default function BatchSheetDetailPage() {
   const [saving, setSaving] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState('');
+  const [operatorSignature, setOperatorSignature] = useState('');
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
 
   const fetchReceivingLogs = useCallback(async (itemId: number) => {
     if (receivingLogsByItem[itemId]) return; // already loaded
@@ -80,6 +84,7 @@ export default function BatchSheetDetailPage() {
 
         if (sheetData) {
           setSheet(sheetData);
+          setOperatorSignature(sheetData.operator_signature_data_url || '');
           setLines(
             sheetData.lines
               .sort((a, b) => a.seq - b.seq)
@@ -153,11 +158,16 @@ export default function BatchSheetDetailPage() {
   };
 
   const handleSave = async () => {
+    if (!operatorSignature) {
+      setError('請先完成手寫簽名 Signature is required');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
       const payload = {
         operator_name: user?.full_name,
+        operator_signature_data_url: operatorSignature,
         lines: lines.map((l, idx) => ({
           inv_item_id: l.inv_item_id,
           ingredient_name: l.ingredient_name,
@@ -178,12 +188,13 @@ export default function BatchSheetDetailPage() {
     }
   };
 
-  const handleVerify = async () => {
+  const handleVerify = async (signatureDataUrl: string) => {
     setVerifying(true);
     setError('');
     try {
-      const verified = await batchSheetApi.verify(id);
+      const verified = await batchSheetApi.verify(id, { verifier_signature_data_url: signatureDataUrl });
       setSheet(verified);
+      setVerifyDialogOpen(false);
     } catch (err: any) {
       setError(err?.response?.data?.detail || '驗核失敗');
     } finally {
@@ -227,6 +238,11 @@ export default function BatchSheetDetailPage() {
         {sheet && !sheet.is_locked && sheet.operator_name && (
           <p className="text-xs text-gray-400 mt-1">填表人：{sheet.operator_name}</p>
         )}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <SignaturePreview title="填表人簽名 Operator Signature" src={sheet?.operator_signature_data_url} />
+        <SignaturePreview title="QA簽名 QA Signature" src={sheet?.verifier_signature_data_url} />
       </div>
 
       {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
@@ -276,6 +292,17 @@ export default function BatchSheetDetailPage() {
         )}
       </div>
 
+      {!isLocked && (
+        <div className="card">
+          <SignaturePad
+            value={operatorSignature}
+            onChange={setOperatorSignature}
+            required
+            error={!operatorSignature && error.includes('Signature') ? error : undefined}
+          />
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex items-center gap-3 flex-wrap">
         {!isLocked && (
@@ -290,7 +317,7 @@ export default function BatchSheetDetailPage() {
         {!isLocked && (
           <RoleGate roles={['Admin', 'QA']}>
             <button
-              onClick={handleVerify}
+              onClick={() => setVerifyDialogOpen(true)}
               disabled={verifying || lines.length === 0}
               className="btn bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
             >
@@ -308,6 +335,27 @@ export default function BatchSheetDetailPage() {
           查看批次詳情
         </button>
       </div>
+      <SignatureLockDialog
+        open={verifyDialogOpen}
+        title="QA 驗核 Daily Batch Sheet"
+        message="請簽名以確認此 Daily Batch Sheet 已完成 QA 驗核。"
+        onConfirm={handleVerify}
+        onCancel={() => setVerifyDialogOpen(false)}
+        loading={verifying}
+      />
+    </div>
+  );
+}
+
+function SignaturePreview({ title, src }: { title: string; src?: string | null }) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-3">
+      <p className="text-xs font-medium text-gray-500">{title}</p>
+      {src ? (
+        <img src={src} alt={title} className="mt-2 h-20 max-w-full rounded border border-gray-100 object-contain" />
+      ) : (
+        <p className="mt-2 text-sm text-gray-400">未保存簽名 No signature saved</p>
+      )}
     </div>
   );
 }

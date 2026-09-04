@@ -29,6 +29,7 @@ export interface CookingLogCreate {
   core_temp?: string;
   corrective_action?: string;
   notes?: string;
+  operator_signature_data_url: string;
 }
 
 export interface CookingLogUpdate {

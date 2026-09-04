@@ -145,6 +145,11 @@ export interface ProdPackingTrimCreate {
 export interface ProdPackingSaveRequest {
   records: ProdPackingRecordCreate[];
   trims: ProdPackingTrimCreate[];
+  operator_signature_data_url: string;
+}
+
+export interface ProdPackingVerifyRequest {
+  verifier_signature_data_url: string;
 }
 
 // ----- Pack-config (裝袋庫存配置) -----
@@ -190,7 +195,13 @@ export interface ProdBatch {
   end_time: string | null;
   status: ProdBatchStatus;
   operator: string | null;
+  operator_signature_data_url: string | null;
   supervisor: string | null;
+  packing_operator_signature_data_url: string | null;
+  packing_verified_by: number | null;
+  packing_verifier_name: string | null;
+  packing_verified_at: string | null;
+  packing_verifier_signature_data_url: string | null;
   estimated_forming_net_weight_kg: string | null;
   estimated_forming_pieces: number | null;
   input_weight_kg: string | null;
@@ -216,6 +227,7 @@ export interface ProdBatchCreate {
   spec_piece_weight_g?: number;
   start_time?: string;
   operator?: string;
+  operator_signature_data_url: string;
   supervisor?: string;
   input_weight_kg?: number;
   contamination_found?: boolean;

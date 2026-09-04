@@ -25,6 +25,7 @@ from app.models.receiving_log import ReceivingLog
 from app.models.user import User
 from app.schemas.batch_sheet import (
     SaveBatchSheetRequest,
+    VerifyBatchSheetRequest,
     ProdDailyBatchSheetResponse,
     ProdBatchSheetLineResponse,
     ReceivingLogSummary,
@@ -75,8 +76,10 @@ def _sheet_to_response(sheet: ProdDailyBatchSheet) -> ProdDailyBatchSheetRespons
         batch_id=sheet.batch_id,
         operator_id=sheet.operator_id,
         operator_name=sheet.operator_name,
+        operator_signature_data_url=sheet.operator_signature_data_url,
         verified_by=sheet.verified_by,
         verifier_name=sheet.verifier.full_name if sheet.verifier else None,
+        verifier_signature_data_url=sheet.verifier_signature_data_url,
         verified_at=sheet.verified_at,
         is_locked=sheet.is_locked,
         created_at=sheet.created_at,
@@ -211,6 +214,7 @@ async def save_batch_sheet(
             batch_id=batch_id,
             operator_id=current_user.id,
             operator_name=data.operator_name or current_user.full_name,
+            operator_signature_data_url=data.operator_signature_data_url,
         )
         db.add(sheet)
         await db.flush()
@@ -220,6 +224,7 @@ async def save_batch_sheet(
         if not sheet.operator_id:
             sheet.operator_id = current_user.id
             sheet.operator_name = data.operator_name or current_user.full_name
+        sheet.operator_signature_data_url = data.operator_signature_data_url
 
     # Replace all lines
     existing = await db.execute(
@@ -253,6 +258,7 @@ async def save_batch_sheet(
 @router.post("/{batch_id}/batch-sheet/verify", response_model=ProdDailyBatchSheetResponse)
 async def verify_batch_sheet(
     batch_id: int,
+    data: VerifyBatchSheetRequest,
     current_user: User = Depends(require_role("Admin", "QA")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -271,6 +277,7 @@ async def verify_batch_sheet(
     sheet.is_locked = True
     sheet.verified_by = current_user.id
     sheet.verified_at = datetime.now(timezone.utc)
+    sheet.verifier_signature_data_url = data.verifier_signature_data_url
     await db.commit()
 
     result = await db.execute(

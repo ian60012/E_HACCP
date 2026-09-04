@@ -8,8 +8,10 @@ export interface PaginatedResponse<T> {
 export interface ALCOAFields {
   operator_id: number;
   operator_name: string | null;
+  operator_signature_data_url: string | null;
   verified_by: number | null;
   verifier_name: string | null;
+  verifier_signature_data_url: string | null;
   is_locked: boolean;
   is_voided: boolean;
   void_reason: string | null;
@@ -20,6 +22,10 @@ export interface ALCOAFields {
 
 export interface VoidRequest {
   void_reason: string;
+}
+
+export interface QALockRequest {
+  verifier_signature_data_url: string;
 }
 
 export interface CCPValidationResult {

@@ -6,6 +6,8 @@ from typing import Optional, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.common import SignatureDataUrl
+
 
 # ---------------------------------------------------------------------------
 # Pack type config (包裝類型設定)
@@ -196,6 +198,11 @@ class ProdPackingTrimResponse(BaseModel):
 class ProdPackingSaveRequest(BaseModel):
     records: List[ProdPackingRecordCreate]
     trims: List[ProdPackingTrimCreate]
+    operator_signature_data_url: SignatureDataUrl
+
+
+class ProdPackingVerifyRequest(BaseModel):
+    verifier_signature_data_url: SignatureDataUrl
 
 
 class CartonLabelRequest(BaseModel):
@@ -218,6 +225,7 @@ class ProdBatchCreate(BaseModel):
     spec_piece_weight_g: Decimal = Decimal("0")
     start_time: Optional[datetime] = None
     operator: Optional[str] = Field(None, max_length=100)
+    operator_signature_data_url: SignatureDataUrl
     supervisor: Optional[str] = Field(None, max_length=100)
     input_weight_kg: Optional[Decimal] = None
     contamination_found: bool = False
@@ -266,7 +274,13 @@ class ProdBatchResponse(BaseModel):
     end_time: Optional[datetime] = None
     status: str
     operator: Optional[str] = None
+    operator_signature_data_url: Optional[str] = None
     supervisor: Optional[str] = None
+    packing_operator_signature_data_url: Optional[str] = None
+    packing_verified_by: Optional[int] = None
+    packing_verifier_name: Optional[str] = None
+    packing_verified_at: Optional[datetime] = None
+    packing_verifier_signature_data_url: Optional[str] = None
     estimated_forming_net_weight_kg: Optional[Decimal] = None
     estimated_forming_pieces: Optional[int] = None
     input_weight_kg: Optional[Decimal] = None

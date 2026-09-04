@@ -10,6 +10,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import Bi, { bi } from '@/components/Bi';
 import DateTimeInput from '@/components/DateTimeInput';
+import SignaturePad from '@/components/SignaturePad';
 import { toMelbourneInput, nowMelbourne, melbourneToUTC } from '@/utils/timezone';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -42,6 +43,7 @@ export default function MixingLogFormPage() {
   const [visualCheck, setVisualCheck] = useState(false);
   const [correctiveAction, setCorrectiveAction] = useState('');
   const [notes, setNotes] = useState('');
+  const [operatorSignature, setOperatorSignature] = useState('');
 
   const selectedProduct = products.find(p => p.id === prodProductId);
 
@@ -125,6 +127,10 @@ export default function MixingLogFormPage() {
         });
         navigate(`/mixing-logs/${id}`);
       } else {
+        if (!operatorSignature) {
+          setError('請先完成手寫簽名 Signature is required');
+          return;
+        }
         const created = await mixingLogsApi.create({
           batch_id: batchId,
           prod_product_id: prodProductId ? Number(prodProductId) : undefined,
@@ -137,6 +143,7 @@ export default function MixingLogFormPage() {
           visual_check: visualCheck,
           corrective_action: correctiveAction || undefined,
           notes: notes || undefined,
+          operator_signature_data_url: operatorSignature,
         });
         const returnToBatch = searchParams.get('prod_batch_id');
         if (returnToBatch) {
@@ -269,6 +276,15 @@ export default function MixingLogFormPage() {
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
             className="input min-h-[60px]" placeholder="其他備註" />
         </FormField>
+
+        {!isEdit && (
+          <SignaturePad
+            value={operatorSignature}
+            onChange={setOperatorSignature}
+            required
+            error={!operatorSignature && error.includes('Signature') ? error : undefined}
+          />
+        )}
 
         <div className="flex items-center gap-3 pt-4 border-t">
           <button type="submit" disabled={submitting || (isEdit && existingLog?.is_locked)}

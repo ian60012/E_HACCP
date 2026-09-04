@@ -9,6 +9,7 @@ import FormField from '@/components/FormField';
 import CCPIndicator from '@/components/CCPIndicator';
 import Bi, { bi } from '@/components/Bi';
 import DateTimeInput from '@/components/DateTimeInput';
+import SignaturePad from '@/components/SignaturePad';
 
 import { toMelbourneInput, nowMelbourne, melbourneToUTC } from '@/utils/timezone';
 import { useAuth } from '@/hooks/useAuth';
@@ -43,6 +44,7 @@ export default function CoolingLogFormPage() {
   const [goesToFreezer, setGoesToFreezer] = useState(false);
   const [correctiveAction, setCorrectiveAction] = useState('');
   const [notes, setNotes] = useState('');
+  const [operatorSignature, setOperatorSignature] = useState('');
 
   // Validation
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -174,6 +176,10 @@ export default function CoolingLogFormPage() {
         await coolingLogsApi.update(Number(id), updateData);
         navigate(`/cooling-logs/${id}`);
       } else {
+        if (!operatorSignature) {
+          setSubmitError('請先完成手寫簽名 Signature is required');
+          return;
+        }
         const createData: CoolingLogCreate = {
           batch_id: batchId.trim(),
           prod_batch_id: prodBatchId,
@@ -187,6 +193,7 @@ export default function CoolingLogFormPage() {
           goes_to_freezer: goesToFreezer,
           corrective_action: correctiveAction || undefined,
           notes: notes || undefined,
+          operator_signature_data_url: operatorSignature,
         };
         const created = await coolingLogsApi.create(createData);
         const returnToBatch = searchParams.get('prod_batch_id');
@@ -451,6 +458,17 @@ export default function CoolingLogFormPage() {
         </div>
 
         {/* Submit */}
+        {!isEdit && (
+          <div className="card">
+            <SignaturePad
+              value={operatorSignature}
+              onChange={setOperatorSignature}
+              required
+              error={!operatorSignature && submitError.includes('Signature') ? submitError : undefined}
+            />
+          </div>
+        )}
+
         {submitError && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
             {submitError}

@@ -1,2 +1,5 @@
 # Production Helper runtime data (created on startup, not committed)
 backend/app/data/production_helper/*.json
+
+# Local-only Codex runtime memory; keep out of GitHub.
+docs/codex_local_runtime_memory.md

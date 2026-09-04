@@ -33,6 +33,7 @@ export interface AssemblyPackingLogCreate {
   coding_legibility?: string;
   corrective_action?: string;
   notes?: string;
+  operator_signature_data_url: string;
 }
 
 export interface AssemblyPackingLogUpdate {

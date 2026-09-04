@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.common import ALCOAResponseMixin
+from app.schemas.common import ALCOAResponseMixin, SignatureDataUrl
 
 
 class MixingLogCreate(BaseModel):
@@ -22,6 +22,7 @@ class MixingLogCreate(BaseModel):
     visual_check: bool = False
     corrective_action: Optional[str] = None
     notes: Optional[str] = None
+    operator_signature_data_url: SignatureDataUrl
 
 
 class MixingLogUpdate(BaseModel):

@@ -65,7 +65,12 @@ class ProdBatch(Base):
     end_time = Column(TIMESTAMP(timezone=True), nullable=True)
     status = Column(ProdBatchStatusType, nullable=False, server_default="open")
     operator = Column(VARCHAR(100), nullable=True)
+    operator_signature_data_url = Column(Text, nullable=True)
     supervisor = Column(VARCHAR(100), nullable=True)
+    packing_operator_signature_data_url = Column(Text, nullable=True)
+    packing_verified_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    packing_verified_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    packing_verifier_signature_data_url = Column(Text, nullable=True)
     estimated_forming_net_weight_kg = Column(Numeric(12, 3), nullable=True)
     estimated_forming_pieces = Column(Integer, nullable=True)
     input_weight_kg = Column(Numeric(12, 3), nullable=True)
@@ -83,6 +88,7 @@ class ProdBatch(Base):
     packing_trims = relationship("ProdPackingTrim", back_populates="batch", lazy="raise", cascade="all, delete-orphan")
     cooking_logs = relationship("CookingLog", back_populates="prod_batch", lazy="raise", foreign_keys="CookingLog.prod_batch_id")
     hot_inputs = relationship("ProdHotInput", back_populates="batch", lazy="raise", cascade="all, delete-orphan", order_by="ProdHotInput.seq")
+    packing_verifier = relationship("User", lazy="raise", foreign_keys=[packing_verified_by])
 
 
 class ProdFormingTrolley(Base):

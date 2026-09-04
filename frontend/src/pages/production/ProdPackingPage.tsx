@@ -13,6 +13,9 @@ import { InvItem } from '@/types/inventory';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import Bi, { bi } from '@/components/Bi';
+import RoleGate from '@/components/RoleGate';
+import SignaturePad from '@/components/SignaturePad';
+import SignatureLockDialog from '@/components/SignatureLockDialog';
 
 const num = (v: any): number => (v == null ? 0 : Number(v));
 
@@ -81,6 +84,9 @@ export default function ProdPackingPage() {
   const [records, setRecords] = useState<LocalPackRecord[]>([]);
   const [trims, setTrims] = useState<LocalTrim[]>([]);
   const [editing, setEditing] = useState(false);
+  const [operatorSignature, setOperatorSignature] = useState('');
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   const fetchBatch = useCallback(async () => {
     if (!id) return;
@@ -110,6 +116,7 @@ export default function ProdPackingPage() {
           }))
         );
       }
+      setOperatorSignature(data.packing_operator_signature_data_url || '');
     } catch {
       setError(bi('error.loadFailed'));
     } finally {
@@ -230,6 +237,10 @@ export default function ProdPackingPage() {
 
   const handleSave = async () => {
     if (!batch) return;
+    if (!operatorSignature) {
+      setError('請先完成手寫簽名 Signature is required');
+      return;
+    }
     if (!confirm(bi('confirm.saveCloseBatch'))) return;
 
     const validRecords: ProdPackingRecordCreate[] = records
@@ -257,6 +268,7 @@ export default function ProdPackingPage() {
       const updated = await prodBatchesApi.savePacking(batch.id, {
         records: validRecords,
         trims: validTrims,
+        operator_signature_data_url: operatorSignature,
       });
       setBatch(updated);
       setEditing(false);
@@ -264,6 +276,23 @@ export default function ProdPackingPage() {
       setError(err?.response?.data?.detail || bi('error.saveFailed'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleVerifyPacking = async (signatureDataUrl: string) => {
+    if (!batch) return;
+    setVerifying(true);
+    setError('');
+    try {
+      const updated = await prodBatchesApi.verifyPacking(batch.id, {
+        verifier_signature_data_url: signatureDataUrl,
+      });
+      setBatch(updated);
+      setVerifyDialogOpen(false);
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || bi('error.updateFailed'));
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -495,6 +524,15 @@ export default function ProdPackingPage() {
           </div>
         )}
 
+        <PackingSignatureSection
+          batch={batch}
+          isReadOnly={isReadOnly}
+          operatorSignature={operatorSignature}
+          setOperatorSignature={setOperatorSignature}
+          error={error}
+          onVerify={() => setVerifyDialogOpen(true)}
+        />
+
         {/* Actions */}
         <div className="flex items-center gap-2">
           <button onClick={() => navigate(`/production/batches/${batch.id}`)} className="btn btn-secondary">
@@ -511,6 +549,14 @@ export default function ProdPackingPage() {
             </button>
           )}
         </div>
+        <SignatureLockDialog
+          open={verifyDialogOpen}
+          title="QA 驗核包裝"
+          message="請簽名以確認此包裝記錄已完成 QA 驗核。"
+          onConfirm={handleVerifyPacking}
+          onCancel={() => setVerifyDialogOpen(false)}
+          loading={verifying}
+        />
       </div>
     );
   }
@@ -802,6 +848,15 @@ export default function ProdPackingPage() {
         </div>
       )}
 
+      <PackingSignatureSection
+        batch={batch}
+        isReadOnly={isReadOnly}
+        operatorSignature={operatorSignature}
+        setOperatorSignature={setOperatorSignature}
+        error={error}
+        onVerify={() => setVerifyDialogOpen(true)}
+      />
+
       {/* Actions */}
       <div className="flex items-center gap-2">
         <button onClick={() => navigate(`/production/batches/${batch.id}`)} className="btn btn-secondary">
@@ -818,6 +873,75 @@ export default function ProdPackingPage() {
           </button>
         )}
       </div>
+      <SignatureLockDialog
+        open={verifyDialogOpen}
+        title="QA 驗核包裝"
+        message="請簽名以確認此包裝記錄已完成 QA 驗核。"
+        onConfirm={handleVerifyPacking}
+        onCancel={() => setVerifyDialogOpen(false)}
+        loading={verifying}
+      />
+    </div>
+  );
+}
+
+function PackingSignatureSection({
+  batch,
+  isReadOnly,
+  operatorSignature,
+  setOperatorSignature,
+  error,
+  onVerify,
+}: {
+  batch: ProdBatch;
+  isReadOnly: boolean;
+  operatorSignature: string;
+  setOperatorSignature: (value: string) => void;
+  error: string;
+  onVerify: () => void;
+}) {
+  return (
+    <div className="card space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-gray-800">簽名與QA驗核 Signatures</h2>
+        {batch.status === 'packed' && !batch.packing_verified_by && (
+          <RoleGate roles={['Admin', 'QA']}>
+            <button type="button" onClick={onVerify} className="btn bg-indigo-600 text-white hover:bg-indigo-700 text-sm">
+              QA 驗核鎖定
+            </button>
+          </RoleGate>
+        )}
+      </div>
+      {isReadOnly ? (
+        <SignaturePreview title="包裝操作員簽名 Packing Operator Signature" src={batch.packing_operator_signature_data_url} />
+      ) : (
+        <SignaturePad
+          value={operatorSignature}
+          onChange={setOperatorSignature}
+          required
+          error={!operatorSignature && error.includes('Signature') ? error : undefined}
+        />
+      )}
+      <SignaturePreview title="QA簽名 QA Signature" src={batch.packing_verifier_signature_data_url} />
+      {batch.packing_verified_by && (
+        <p className="text-sm text-green-700">
+          已驗核 {batch.packing_verifier_name || ''}
+          {batch.packing_verified_at ? ` · ${new Date(batch.packing_verified_at).toLocaleString('zh-TW', { timeZone: 'Australia/Melbourne' })}` : ''}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SignaturePreview({ title, src }: { title: string; src?: string | null }) {
+  return (
+    <div className="rounded-lg border border-gray-200 p-3">
+      <p className="text-xs font-medium text-gray-500">{title}</p>
+      {src ? (
+        <img src={src} alt={title} className="mt-2 h-24 max-w-full rounded border border-gray-100 object-contain" />
+      ) : (
+        <p className="mt-2 text-sm text-gray-400">未保存簽名 No signature saved</p>
+      )}
     </div>
   );
 }

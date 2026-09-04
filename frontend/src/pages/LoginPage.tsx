@@ -111,7 +111,7 @@ export default function LoginPage() {
             <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
               <button
                 type="button"
-                onClick={() => { setUsername('operator1'); setPassword('password123'); }}
+                onClick={() => { setUsername('production1'); setPassword('password123'); }}
                 className="p-1.5 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
               >
                 操作員
@@ -125,7 +125,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                onClick={() => { setUsername('manager1'); setPassword('password123'); }}
+                onClick={() => { setUsername('admin1'); setPassword('password123'); }}
                 className="p-1.5 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
               >
                 經理

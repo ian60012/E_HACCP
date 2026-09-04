@@ -6,7 +6,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.schemas.common import ALCOAResponseMixin
+from app.schemas.common import ALCOAResponseMixin, SignatureDataUrl
 
 
 class CookingLogCreate(BaseModel):
@@ -21,6 +21,7 @@ class CookingLogCreate(BaseModel):
     core_temp: Optional[Decimal] = Field(None, ge=0, le=250)
     corrective_action: Optional[str] = None
     notes: Optional[str] = None
+    operator_signature_data_url: SignatureDataUrl
 
     @model_validator(mode="after")
     def validate_time_order(self):
