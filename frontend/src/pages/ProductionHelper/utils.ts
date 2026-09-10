@@ -9,7 +9,7 @@ export const DAYS = [
   { key: '周五', label: '周五' },
 ] as const;
 
-export const STATIONS = ['面点', '厨房'] as const;
+export const STATIONS = ['面点', '厨房', '肉加工'] as const;
 export type Station = typeof STATIONS[number];
 
 export function isoDate(date: Date): string {

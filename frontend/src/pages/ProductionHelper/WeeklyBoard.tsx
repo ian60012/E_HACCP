@@ -5,6 +5,18 @@ import NoteCard from './NoteCard';
 import { STATIONS, isoDate } from './utils';
 import Bi from '@/components/Bi';
 
+function stationHeaderClass(station: string): string {
+  if (station === '面点') return 'bg-emerald-50 text-emerald-700';
+  if (station === '肉加工') return 'bg-rose-50 text-rose-700';
+  return 'bg-amber-50 text-amber-700';
+}
+
+function stationRowClass(station: string): string {
+  if (station === '面点') return 'text-emerald-700 bg-emerald-50/40';
+  if (station === '肉加工') return 'text-rose-700 bg-rose-50/40';
+  return 'text-amber-700 bg-amber-50/40';
+}
+
 interface Props {
   week: string;
   dates: { key: string; label: string; date: string }[];
@@ -159,11 +171,7 @@ function MobileStation({
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div
-        className={`flex items-center justify-between px-4 py-3 ${
-          station === '面点'
-            ? 'bg-emerald-50 text-emerald-700'
-            : 'bg-amber-50 text-amber-700'
-        }`}
+        className={`flex items-center justify-between px-4 py-3 ${stationHeaderClass(station)}`}
       >
         <h2 className="font-extrabold">{station}</h2>
         <span className="text-xs font-medium text-slate-500">
@@ -238,9 +246,7 @@ function Row({
   return (
     <>
       <div
-        className={`flex items-center justify-center font-extrabold text-base border-t border-slate-200 ${
-          station === '面点' ? 'text-emerald-700 bg-emerald-50/40' : 'text-amber-700 bg-amber-50/40'
-        }`}
+        className={`flex items-center justify-center font-extrabold text-base border-t border-slate-200 ${stationRowClass(station)}`}
       >
         {station}
       </div>

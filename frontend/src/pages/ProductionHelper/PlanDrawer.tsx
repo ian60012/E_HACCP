@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import Drawer from './Drawer';
 import { PHPlanItem, PHProduct, PHRecipe, PHInventoryItem } from '@/api/productionHelper';
-import { fmtDate } from './utils';
+import { fmtDate, STATIONS } from './utils';
 import Bi, { bi } from '@/components/Bi';
 
 interface Props {
@@ -146,8 +146,9 @@ export default function PlanDrawer(props: Props) {
             onChange={(e) => setForm({ ...form, station: e.target.value })}
             className="mt-1 w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
           >
-            <option value="面点">面点</option>
-            <option value="厨房">厨房</option>
+            {STATIONS.map((station) => (
+              <option key={station} value={station}>{station}</option>
+            ))}
           </select>
         </label>
         <label className="text-sm sm:col-span-2">

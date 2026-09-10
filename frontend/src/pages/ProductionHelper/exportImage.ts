@@ -16,6 +16,12 @@ export interface ExportWeeklyPlanArgs {
 
 const FONT_FAMILY = '"Segoe UI", "Microsoft YaHei", sans-serif';
 
+function stationTextColor(station: string): string {
+  if (station === '面点') return '#006400';
+  if (station === '肉加工') return '#be123c';
+  return '#a45300';
+}
+
 export function exportWeeklyPlanImage({ plans, dates, weekKey }: ExportWeeklyPlanArgs): void {
   const scale = 2;
   const margin = 44;
@@ -133,7 +139,7 @@ export function exportWeeklyPlanImage({ plans, dates, weekKey }: ExportWeeklyPla
       drawLine(ctx, tableX, rowY, tableX + tableW, rowY, '#e0e2e6');
     }
     ctx.textAlign = 'center';
-    ctx.fillStyle = station === '面点' ? '#006400' : '#a45300';
+    ctx.fillStyle = stationTextColor(station);
     ctx.font = `800 18px ${FONT_FAMILY}`;
     ctx.fillText(station, tableX + stationWidth / 2, rowY + rowHeight / 2 + 6);
 
