@@ -124,7 +124,7 @@ export default function PlanDrawer(props: Props) {
       subtitle={bi('ph.page.subtitle')}
       onClose={onClose}
     >
-      <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-3">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="text-sm">
           <span className="text-slate-700"><Bi k="ph.field.date" /></span>
           <select
@@ -150,7 +150,7 @@ export default function PlanDrawer(props: Props) {
             <option value="厨房">厨房</option>
           </select>
         </label>
-        <label className="text-sm col-span-2">
+        <label className="text-sm sm:col-span-2">
           <span className="text-slate-700"><Bi k="ph.field.product" /></span>
           <select
             value={String(form.product_id)}
@@ -203,7 +203,7 @@ export default function PlanDrawer(props: Props) {
             className="mt-1 w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
           />
         </label>
-        <label className="text-sm col-span-2">
+        <label className="text-sm sm:col-span-2">
           <span className="text-slate-700"><Bi k="ph.field.notes" /></span>
           <textarea
             value={form.notes}
@@ -215,7 +215,7 @@ export default function PlanDrawer(props: Props) {
         </label>
 
         {form.product_id ? (
-          <div className="col-span-2 rounded-md bg-slate-50 p-2.5 text-xs text-slate-700">
+          <div className="rounded-md bg-slate-50 p-2.5 text-xs text-slate-700 sm:col-span-2">
             {product ? (
               <>
                 <strong>
@@ -240,7 +240,7 @@ export default function PlanDrawer(props: Props) {
           </div>
         ) : null}
 
-        <div className="col-span-2 flex items-center gap-2 pt-2 border-t border-slate-200 mt-2">
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200 mt-2 sm:col-span-2">
           {item ? (
             <button
               type="button"

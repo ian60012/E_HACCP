@@ -76,8 +76,8 @@ export default function NoteDrawer(props: Props) {
       title={bi(item ? 'ph.drawer.editNote' : 'ph.drawer.newNote')}
       onClose={onClose}
     >
-      <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-3">
-        <label className="text-sm col-span-2">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="text-sm sm:col-span-2">
           <span className="text-slate-700"><Bi k="ph.field.title" /></span>
           <input
             type="text"
@@ -88,7 +88,7 @@ export default function NoteDrawer(props: Props) {
             className="mt-1 w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
           />
         </label>
-        <label className="text-sm col-span-2">
+        <label className="text-sm sm:col-span-2">
           <span className="text-slate-700"><Bi k="ph.field.content" /></span>
           <textarea
             value={form.content}
@@ -99,7 +99,7 @@ export default function NoteDrawer(props: Props) {
           />
         </label>
 
-        <div className="col-span-2 flex items-center gap-2 pt-2 border-t border-slate-200 mt-2">
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200 mt-2 sm:col-span-2">
           {item ? (
             <button
               type="button"

@@ -154,7 +154,7 @@ export default function ProductionHelperPage() {
   }
 
   return (
-    <div className="p-4 max-w-[1400px] mx-auto">
+    <div className="max-w-[1400px] mx-auto sm:p-4">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
         <div>
@@ -165,23 +165,23 @@ export default function ProductionHelperPage() {
             <Bi k="ph.page.subtitle" />
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex w-full items-center gap-2 flex-wrap xl:w-auto xl:justify-end">
           <button
             type="button"
             onClick={prevWeek}
-            className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
+            className="text-sm min-h-11 px-3 rounded-lg border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
             title={bi('ph.btn.prevWeek')}
           >
             <ChevronLeftIcon className="h-4 w-4" />
             <Bi k="ph.btn.prevWeek" showEn={false} />
           </button>
-          <div className="text-sm font-bold px-3 py-1.5 rounded-md bg-slate-100 text-slate-700">
+          <div className="order-first flex min-h-11 w-full items-center justify-center rounded-lg bg-slate-100 px-3 text-sm font-bold text-slate-700 sm:order-none sm:w-auto">
             {dates[0]?.date} ~ {dates[dates.length - 1]?.date}
           </div>
           <button
             type="button"
             onClick={nextWeek}
-            className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
+            className="text-sm min-h-11 px-3 rounded-lg border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
             title={bi('ph.btn.nextWeek')}
           >
             <Bi k="ph.btn.nextWeek" showEn={false} />
@@ -190,14 +190,14 @@ export default function ProductionHelperPage() {
           <button
             type="button"
             onClick={todayWeek}
-            className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50"
+            className="text-sm min-h-11 px-3 rounded-lg border border-slate-300 hover:bg-slate-50"
           >
             <Bi k="ph.btn.thisWeek" showEn={false} />
           </button>
           <button
             type="button"
             onClick={loadBootstrap}
-            className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
+            className="text-sm min-h-11 px-3 rounded-lg border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
             title={bi('ph.btn.refresh')}
           >
             <ArrowPathIcon className="h-4 w-4" />
@@ -206,7 +206,7 @@ export default function ProductionHelperPage() {
           <button
             type="button"
             onClick={handleExportImage}
-            className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
+            className="text-sm min-h-11 px-3 rounded-lg border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1"
             title={bi('ph.btn.exportImage')}
           >
             <ArrowDownTrayIcon className="h-4 w-4" />
@@ -215,7 +215,7 @@ export default function ProductionHelperPage() {
           <button
             type="button"
             onClick={() => setPlanDrawer({ open: true, item: null, defaults: { date: dates[0]?.date, station: '面点' } })}
-            className="text-sm px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center gap-1"
+            className="text-sm min-h-11 px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center gap-1"
           >
             <PlusIcon className="h-4 w-4" />
             <Bi k="ph.btn.newPlan" showEn={false} />
@@ -341,7 +341,8 @@ function Stat({ labelKey, value }: { labelKey: string; value: string | number })
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
       <div className="text-xs text-slate-500">
-        <Bi k={labelKey} />
+        <span className="md:hidden"><Bi k={labelKey} showEn={false} /></span>
+        <span className="hidden md:inline"><Bi k={labelKey} /></span>
       </div>
       <div className="text-2xl font-bold text-slate-900 mt-0.5">{value}</div>
     </div>
