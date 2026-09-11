@@ -1,5 +1,5 @@
 import { PHPlanItem } from '@/api/productionHelper';
-import { DAYS, STATIONS } from './utils';
+import { DAYS, STATIONS, planItemsInDisplayOrder } from './utils';
 import { t } from '@/i18n/labels';
 
 export interface WeekDate {
@@ -37,9 +37,9 @@ export function exportWeeklyPlanImage({ plans, dates, weekKey }: ExportWeeklyPla
   const rowHeights = STATIONS.map((station) => {
     const maxCellHeight = Math.max(
       ...dates.map((day) => {
-        const items = weekPlans.filter(
+        const items = planItemsInDisplayOrder(weekPlans.filter(
           (item) => item.date === day.date && item.station === station
-        );
+        ));
         return exportCellHeight(items, colWidth);
       })
     );
@@ -145,7 +145,9 @@ export function exportWeeklyPlanImage({ plans, dates, weekKey }: ExportWeeklyPla
 
     dates.forEach((day, dayIdx) => {
       const cellX = tableX + stationWidth + dayIdx * colWidth;
-      const items = weekPlans.filter((item) => item.date === day.date && item.station === station);
+      const items = planItemsInDisplayOrder(
+        weekPlans.filter((item) => item.date === day.date && item.station === station)
+      );
       drawExportCell(ctx, cellX, rowY, colWidth, rowHeight, items);
     });
     rowY += rowHeight;

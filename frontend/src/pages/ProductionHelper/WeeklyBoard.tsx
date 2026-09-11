@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { PHPlanItem } from '@/api/productionHelper';
 import PlanCard from './PlanCard';
 import NoteCard from './NoteCard';
-import { STATIONS, isoDate } from './utils';
+import { STATIONS, isoDate, planItemsInDisplayOrder } from './utils';
 import Bi from '@/components/Bi';
 
 function stationHeaderClass(station: string): string {
@@ -162,9 +162,9 @@ function MobileStation({
   onEditPlan: Props['onEditPlan'];
   onEditNote: Props['onEditNote'];
 }) {
-  const allItems = plans.filter(
+  const allItems = planItemsInDisplayOrder(plans.filter(
     (item) => item.week === week && item.date === date.date && item.station === station
-  );
+  ));
   const planItems = allItems.filter((item) => (item.type || 'plan') === 'plan');
   const noteItems = allItems.filter((item) => item.type === 'note');
 
@@ -251,9 +251,9 @@ function Row({
         {station}
       </div>
       {dates.map((d) => {
-        const allItems = plans.filter(
+        const allItems = planItemsInDisplayOrder(plans.filter(
           (i) => i.week === week && i.date === d.date && i.station === station
-        );
+        ));
         const planItems = allItems.filter((i) => (i.type || 'plan') === 'plan');
         const noteItems = allItems.filter((i) => i.type === 'note');
         return (

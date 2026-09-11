@@ -1,3 +1,5 @@
+import type { PHPlanItem } from '@/api/productionHelper';
+
 // Date utilities for the production helper week board.
 // Week starts Monday (ISO). All exported strings are local-date ISO (YYYY-MM-DD).
 
@@ -50,4 +52,11 @@ export function weekKey(currentMonday: Date): string {
 
 export function purchaseStatusKey(week: string, dueDate: string, materialType: string, itemName: string): string {
   return `${week}:${dueDate}:${materialType}:${itemName || ''}`;
+}
+
+export function planItemsInDisplayOrder(items: PHPlanItem[]): PHPlanItem[] {
+  return [
+    ...items.filter((item) => (item.type || 'plan') === 'plan'),
+    ...items.filter((item) => item.type === 'note'),
+  ];
 }
