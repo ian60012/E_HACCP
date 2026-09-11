@@ -11,8 +11,18 @@ export const DAYS = [
   { key: '周五', label: '周五' },
 ] as const;
 
-export const STATIONS = ['面点', '厨房', '肉加工'] as const;
+export const STATIONS = ['面点', '厨房A组', '厨房B组', '肉加工'] as const;
 export type Station = typeof STATIONS[number];
+
+export function normalizeStation(station?: string): string {
+  if (station === '厨房') return '厨房A组';
+  return station || '面点';
+}
+
+export function normalizePlanItemStation(item: PHPlanItem): PHPlanItem {
+  const station = normalizeStation(item.station);
+  return station === item.station ? item : { ...item, station };
+}
 
 export function isoDate(date: Date): string {
   const d = new Date(date);

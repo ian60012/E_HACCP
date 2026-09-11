@@ -1,6 +1,6 @@
 # E_HACCP Project Context
 
-Last updated: 2026-06-02.
+Last updated: 2026-09-11.
 
 ## Quick Load
 
@@ -219,6 +219,8 @@ Key frontend files:
 ### Production Helper
 
 Production Helper is Captain-only. It reads products, batches, and inventory items from Postgres, but persists plans, recipes, and purchase status as JSON under `PRODUCTION_HELPER_DATA_DIR`.
+
+Production plan stations are `面点`, `厨房A组`, `厨房B组`, and `肉加工`. The frontend maps legacy `厨房` plan records to `厨房A组` when loading so existing plans remain visible and can later be reassigned to B group.
 
 Key files:
 

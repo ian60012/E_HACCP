@@ -3,7 +3,7 @@ import {
   phApi, PHBootstrap, PHPlanItem, PHRecipe, PHRequirement,
   PHProduct, PHBatch, PHInventoryItem,
 } from '@/api/productionHelper';
-import { startOfWeek, weekKey, weekDates, addDays } from './utils';
+import { startOfWeek, weekKey, weekDates, addDays, normalizePlanItemStation } from './utils';
 
 export interface PHState {
   loading: boolean;
@@ -40,7 +40,7 @@ export function useProductionHelper() {
         products: data.products.items || [],
         batches: data.recent_batches.items || [],
         inventoryItems: data.inventory_items.items || [],
-        plans: data.plans.items || [],
+        plans: (data.plans.items || []).map(normalizePlanItemStation),
         recipes: data.recipes.recipes || [],
         orderedKeys: new Set(data.purchase_status?.ordered_keys || []),
       }));
@@ -72,13 +72,16 @@ export function useProductionHelper() {
   // ---- plan/note CRUD ----
   const createPlan = useCallback(async (body: Partial<PHPlanItem>) => {
     const created = await phApi.createPlan(body);
-    setState((s) => ({ ...s, plans: [...s.plans, created] }));
+    setState((s) => ({ ...s, plans: [...s.plans, normalizePlanItemStation(created)] }));
     return created;
   }, []);
 
   const updatePlan = useCallback(async (id: string, body: Partial<PHPlanItem>) => {
     const updated = await phApi.updatePlan(id, body);
-    setState((s) => ({ ...s, plans: s.plans.map((p) => (p.id === id ? updated : p)) }));
+    setState((s) => ({
+      ...s,
+      plans: s.plans.map((p) => (p.id === id ? normalizePlanItemStation(updated) : p)),
+    }));
     return updated;
   }, []);
 
