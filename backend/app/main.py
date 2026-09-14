@@ -35,6 +35,7 @@ from app.routers.api.v1 import inventory_docs
 from app.routers.api.v1 import inventory_balance
 from app.routers.api.v1 import production_products
 from app.routers.api.v1 import production_pack_types
+from app.routers.api.v1 import meat_processing
 from app.routers.api.v1 import production_batches
 from app.routers.api.v1 import production_repack
 from app.routers.api.v1 import assembly_packing_logs
@@ -583,6 +584,8 @@ async def lifespan(app: FastAPI):
         await conn.execute(text(
             "ALTER TABLE prod_daily_batch_sheets ADD COLUMN IF NOT EXISTS verifier_signature_data_url TEXT"
         ))
+    from app.core.meat_migration import migrate_meat
+    await migrate_meat(engine)
     # Production Helper data directory (plans/recipes/purchase_status JSON files)
     production_helper.init_data_dir()
 
@@ -639,6 +642,7 @@ app.include_router(inventory_balance.router, prefix="/api/v1")
 app.include_router(production_products.router, prefix="/api/v1")
 app.include_router(production_pack_types.router, prefix="/api/v1")
 app.include_router(production_batches.router, prefix="/api/v1")
+app.include_router(meat_processing.router, prefix="/api/v1")
 app.include_router(production_repack.router, prefix="/api/v1")
 
 # Assembly & Packing logs (forming batch food safety)

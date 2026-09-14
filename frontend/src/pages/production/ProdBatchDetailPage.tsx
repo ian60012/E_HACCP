@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { ArrowDownTrayIcon, ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { prodBatchesApi, prodProductsApi } from '@/api/production';
 import { cookingLogsApi } from '@/api/cooking-logs';
@@ -81,7 +81,7 @@ export default function ProdBatchDetailPage() {
   const navigate = useNavigate();
 
   const [batch, setBatch] = useState<ProdBatch | null>(null);
-  const [productType, setProductType] = useState<'forming' | 'hot_process' | null>(null);
+  const [productType, setProductType] = useState<'forming' | 'hot_process' | 'meat_processing' | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -193,7 +193,7 @@ export default function ProdBatchDetailPage() {
       setEditContaminationFound(data.contamination_found ?? false);
       setEditChangeOver(data.change_over ?? false);
       const matched = options.find((o) => o.code === data.product_code);
-      setProductType((matched?.product_type as 'forming' | 'hot_process') ?? 'forming');
+      setProductType(data.process_type ?? (matched?.product_type as 'forming' | 'hot_process' | 'meat_processing') ?? 'forming');
       setBatchProductPackSizeKg(matched?.pack_size_kg ?? null);
     } catch {
       setError(bi('error.loadFailed'));
@@ -574,6 +574,7 @@ export default function ProdBatchDetailPage() {
     }
   };
 
+  if (productType === "meat_processing") return <Navigate to={`/production/meat/${id}`} replace />;
   if (loading) return <LoadingSpinner fullPage />;
   if (error && !batch) return <ErrorCard message={error} onRetry={fetchBatch} />;
   if (!batch) return <ErrorCard message={bi('error.loadFailed')} />;

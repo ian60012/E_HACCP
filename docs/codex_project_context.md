@@ -1,6 +1,6 @@
 # E_HACCP Project Context
 
-Last updated: 2026-09-11.
+Last updated: 2026-09-15.
 
 ## Quick Load
 
@@ -38,7 +38,7 @@ docker exec haccp_backend pytest
 - `README.md` and `docs/cursor_project_brief.md` mention Vue, but the actual frontend is React/Vite.
 - `docs/cursor_project_brief.md` is an early MVP brief, not the current architecture.
 - Adminer is mapped to host port `9090` in current `docker-compose.yml`, although old docs mention `8080`.
-- `prod_batch_status_enum` differs across history: current frontend type includes `open | packed | closed`; `backend/app/main.py` startup enum creation lists `open | closed`; `database/init.sql` lists `open | packed | closed`. Verify live DB behavior before changing batch status logic.
+- `prod_batch_status_enum` differs across history. The 2026-09-15 meat migration idempotently adds `packed` to older installations; meat workflow states are separate from this enum.
 
 ## Repository Map
 
@@ -194,6 +194,24 @@ Key frontend files:
 - `frontend/src/pages/production/*`
 - `frontend/src/api/production.ts`
 - `frontend/src/types/production.ts`
+
+### Meat Processing
+
+- Product type `meat_processing` supports raw meat preparation: thaw, trim, slice, dice, mince and marinate. Production Helper's JSON planning station remains independent.
+- Every new production batch has a server-assigned immutable `process_type` snapshot. Legacy batches are backfilled from matching products; unresolved rows remain NULL and appear in `prod_batch_type_migration_review`. NULL batches retain legacy product lookup behavior.
+- Main model: `backend/app/models/meat_processing.py`. `prod_meat_records` holds numbered revisions; `prod_meat_inputs`, `prod_meat_steps`, `prod_meat_outputs`, and `prod_meat_losses` belong to each revision. Each save creates a fresh draft revision; historical rows are not deleted or replaced.
+- Workflow: `draft -> submitted -> verified -> stocked`. Saving a submitted revision creates a new unsigned draft. Verification locks the aggregate; corrections after verification require voiding and recreation. Shared `prod_batches.status` stays `open` until stock entry sets `closed`.
+- API: `/api/v1/production/batches/{batch_id}/meat` supports GET and PUT; `/history` GET, `/complete` POST, `/verify` POST and `/enter-stock` POST. Writes include the currently loaded `version`; a stale revision returns 409. Batch list supports `product_type=meat_processing` and `meat_state` filtering with summaries.
+- Services: `backend/app/services/meat_processing.py` centralizes validation, decimal totals, signatures, revision checks, batch row locking, audit entries and kg stock posting. New detail rows are protected by append-only database triggers; verified batch metadata is protected too.
+- Inputs record item, supplier/internal source, source batch, optional matching receiving record, and measured kg. No automatic raw-material deduction. All added processing steps need start/end times before submission; optional temperature and measurement time must be supplied together. No automatic temperature compliance judgment.
+- Outputs must link active intermediate/finished inventory items with base unit `kg` (case-insensitive) or `公斤` and valid allowed locations. Multiple outputs are grouped by item/location into one posted stock document `IN-MEAT-{batch_id}` using measured weight, never bag count. Reusable by-products are outputs, not losses. Nonzero input-output-loss differences require an explanation before completion.
+- Create/edit/complete: Admin or Production; verify: Admin or QA; stock: Admin, Production or Warehouse; void: Admin. Captain retains all permissions. Completion and QA signatures are separate from batch-creation signatures.
+- Legacy batch mutations (packing, trolley, hot inputs, generic updates/stock entry, batch-sheet writes) reject meat batches. Meat batches are excluded from the daily batch-sheet list. Inventory documents linked to meat batches must be voided through the batch flow so workflow and inventory stay consistent.
+- Shared inventory posting, voiding and stocktake confirmation acquire a transaction-scoped `SHARE ROW EXCLUSIVE` lock on `inv_stock_balance` before reading balances. This serializes stock writers, including legacy writers, to prevent lost increments; read-only balance queries remain available.
+- UI: `/production/meat` and `/production/meat/:id`, with responsive inputs, steps, outputs/losses, summaries, history and signing. Creation reuses `/production/batches/new?type=meat_processing`. Existing detail and packing URLs redirect meat batches to their dedicated page. Warehouse has a direct portal entry.
+- Packaging `both` continues to mean forming plus hot process only. Meat packaging must explicitly use `applicable_type=meat_processing`.
+- Migration source packaged with backend: `backend/app/core/meat_processing.sql`; identical SQL is in `database/migrations/20260915_meat_processing.sql` and appended to `database/init.sql`. Startup calls `migrate_meat` after older migrations, committing enum additions separately. Keep the three copies synchronized; tests enforce this.
+- Verification and rollout instructions: `docs/meat_processing_rollout.md`; PostgreSQL integration coverage: `backend/tests/test_meat_processing.py`.
 
 ### Inventory
 

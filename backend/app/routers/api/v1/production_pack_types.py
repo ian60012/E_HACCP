@@ -43,7 +43,9 @@ async def list_pack_types(
     q = select(ProdPackTypeConfig)
     if not show_inactive:
         q = q.where(ProdPackTypeConfig.is_active == True)  # noqa: E712
-    if applicable_type:
+    if applicable_type == "meat_processing":
+        q = q.where(ProdPackTypeConfig.applicable_type == "meat_processing")
+    elif applicable_type:
         q = q.where(
             or_(
                 ProdPackTypeConfig.applicable_type == applicable_type,

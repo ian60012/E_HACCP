@@ -56,6 +56,7 @@ class ProdBatch(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     batch_code = Column(VARCHAR(50), unique=True, nullable=False)
+    process_type = Column(VARCHAR(30), nullable=True)
     product_code = Column(VARCHAR(50), nullable=False)
     product_name = Column(VARCHAR(200), nullable=False)
     production_date = Column(Date, nullable=False)
@@ -83,6 +84,7 @@ class ProdBatch(Base):
     voided_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
 
+    meat_records = relationship("MeatRecord", lazy="raise", order_by="MeatRecord.version")
     forming_trolleys = relationship("ProdFormingTrolley", back_populates="batch", lazy="raise", cascade="all, delete-orphan")
     packing_records = relationship("ProdPackingRecord", back_populates="batch", lazy="raise", cascade="all, delete-orphan")
     packing_trims = relationship("ProdPackingTrim", back_populates="batch", lazy="raise", cascade="all, delete-orphan")

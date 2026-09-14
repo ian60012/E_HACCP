@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { ArrowDownTrayIcon, ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { prodBatchesApi, prodProductsApi, packTypesApi } from '@/api/production';
 import { labelmakerApi } from '@/api/labelmaker';
@@ -133,7 +133,8 @@ export default function ProdPackingPage() {
 
   // Determine product type from the matched product
   const matchedProduct = batch ? products.find((p) => p.code === batch.product_code) : null;
-  const isHotProcess = matchedProduct?.product_type === 'hot_process';
+  const processType = batch?.process_type ?? matchedProduct?.product_type;
+  const isHotProcess = processType === 'hot_process';
   const packSizeKg = matchedProduct?.pack_size_kg ?? null;
   const lossRateWarnPct = matchedProduct?.loss_rate_warn_pct ?? null;
 
@@ -319,6 +320,7 @@ export default function ProdPackingPage() {
     }
   };
 
+  if (processType === "meat_processing") return <Navigate to={`/production/meat/${id}`} replace />;
   if (loading) return <LoadingSpinner fullPage />;
   if (error && !batch) return <ErrorCard message={error} onRetry={fetchBatch} />;
   if (!batch) return <ErrorCard message={bi('error.loadFailed')} />;

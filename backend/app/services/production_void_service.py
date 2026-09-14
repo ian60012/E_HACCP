@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.assembly_packing_log import AssemblyPackingLog
@@ -32,11 +32,17 @@ async def void_batch(
     Writes one audit_log entry per voided record, all in a single transaction.
     Caller must have Admin role (enforced by router dependency).
     """
-    batch = await db.get(ProdBatch, batch_id)
+    batch = await db.scalar(select(ProdBatch).where(ProdBatch.id == batch_id).with_for_update())
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
     if batch.is_voided:
         raise HTTPException(status_code=400, detail="Batch is already voided")
+
+    from app.services.meat_processing import batch_type, latest, audit
+    if await batch_type(db, batch) == "meat_processing":
+        record = await latest(db, batch_id)
+        if record:
+            await audit(db, record, current_user, "VOID", {"is_voided": False})
 
     now = datetime.now(timezone.utc)
     cascade_reason = f"由批次 {batch.batch_code} 廢棄連帶作廢：{void_reason}"

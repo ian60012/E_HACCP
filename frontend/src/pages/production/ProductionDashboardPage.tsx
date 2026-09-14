@@ -11,6 +11,11 @@ import RoleGate from '@/components/RoleGate';
 
 const prodCards = [
   {
+    titleKey: 'nav.meatProcessing', descKey: 'page.meat.desc', icon: ClipboardDocumentListIcon,
+    color: 'bg-rose-50 text-rose-700 border-rose-200', listTo: '/production/meat',
+    newTo: '/production/batches/new?type=meat_processing',
+  },
+  {
     titleKey: 'nav.formingBatches',
     descKey: 'page.prodDashboard.formingDesc',
     icon: ClipboardDocumentListIcon,

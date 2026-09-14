@@ -343,8 +343,10 @@ export default function ProdProductsPage() {
               >
                 <option value="forming">成型 Forming</option>
                 <option value="hot_process">熱加工 Hot Process</option>
+                <option value="meat_processing">肉品加工 Meat Processing</option>
               </select>
             </div>
+            {formProductType !== 'meat_processing' && (
             <div>
               <label className="label text-xs"><Bi k="field.ccpLimitTempUnit" /></label>
               <input
@@ -358,6 +360,7 @@ export default function ProdProductsPage() {
                 required
               />
             </div>
+            )}
             <div>
               <label className="label text-xs"><Bi k="field.packSizeKg" /></label>
               <input
@@ -515,10 +518,10 @@ export default function ProdProductsPage() {
                     <td className="py-2 pr-4 text-gray-700">{product.name}</td>
                     <td className="py-2 pr-4">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${product.product_type === 'forming' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                        {product.product_type === 'forming' ? '成型' : '熱加工'}
+                        {product.product_type === 'forming' ? '成型' : product.product_type === 'hot_process' ? '熱加工' : '肉品加工'}
                       </span>
                     </td>
-                    <td className="py-2 pr-4 text-gray-500">{product.ccp_limit_temp}°C</td>
+                    <td className="py-2 pr-4 text-gray-500">{product.product_type === 'meat_processing' ? '—' : `${product.ccp_limit_temp}°C`}</td>
                     <td className="py-2 pr-4 text-gray-500">{product.pack_size_kg ?? '—'}</td>
                     <td className="py-2 pr-4 text-gray-500">{product.loss_rate_warn_pct != null ? `${product.loss_rate_warn_pct}%` : '—'}</td>
                     <td className="py-2 pr-4">

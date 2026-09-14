@@ -3,8 +3,8 @@
 export type ProdBatchStatus = 'open' | 'packed' | 'closed';
 export type ProdShift = 'Morning' | 'Night';
 export type ProdPackType = string;  // Dynamic from pack type config table
-export type ProdProductType = 'forming' | 'hot_process';
-export type PackApplicableType = 'forming' | 'hot_process' | 'both';
+export type ProdProductType = 'forming' | 'hot_process' | 'meat_processing';
+export type PackApplicableType = 'forming' | 'hot_process' | 'meat_processing' | 'both';
 
 // ----- Pack Type Config -----
 export interface PackTypeConfig {
@@ -184,6 +184,9 @@ export interface ProdHotInputCreate {
 
 // ----- Batches -----
 export interface ProdBatch {
+  process_type: ProdProductType | null;
+  meat_state: import("./meatProcessing").MeatState | null;
+  meat_totals: import("./meatProcessing").MeatTotals | null;
   id: number;
   batch_code: string;
   product_code: string;

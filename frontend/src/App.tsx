@@ -10,6 +10,8 @@ import NotFoundPage from '@/pages/NotFoundPage';
 
 // Production module
 import ProductionDashboardPage from '@/pages/production/ProductionDashboardPage';
+import MeatBatchListPage from '@/pages/production/MeatBatchListPage';
+import MeatBatchDetailPage from '@/pages/production/MeatBatchDetailPage';
 import ProdBatchListPage from '@/pages/production/ProdBatchListPage';
 import ProdBatchFormPage from '@/pages/production/ProdBatchFormPage';
 import ProdBatchDetailPage from '@/pages/production/ProdBatchDetailPage';
@@ -108,6 +110,8 @@ export default function App() {
           <Route path="/haccp" element={<DashboardPage />} />
           {/* Production module - Admin, QA, Production */}
           <Route path="/production" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProductionDashboardPage /></RoleGuard>} />
+          <Route path="/production/meat" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production', 'Warehouse']}><MeatBatchListPage /></RoleGuard>} />
+          <Route path="/production/meat/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production', 'Warehouse']}><MeatBatchDetailPage /></RoleGuard>} />
           <Route path="/production/batches" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdBatchListPage /></RoleGuard>} />
           <Route path="/production/batches/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdBatchFormPage /></RoleGuard>} />
           <Route path="/production/batches/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdBatchDetailPage /></RoleGuard>} />

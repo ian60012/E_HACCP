@@ -107,6 +107,7 @@ const productionSections: NavSection[] = [
       { to: '/production', label: '生產總覽', labelKey: 'nav.prodDashboard', icon: PresentationChartLineIcon },
       { to: '/production/batches?type=forming', label: '水餃成型', labelKey: 'nav.formingBatches', icon: ClipboardDocumentListIcon },
       { to: '/production/batches?type=hot_process', label: '熱加工', labelKey: 'nav.hotProcessBatches', icon: FireIcon },
+      { to: '/production/meat', label: '肉品加工', labelKey: 'nav.meatProcessing', icon: ClipboardDocumentListIcon },
       { to: '/production/repack', label: '分裝報表', labelKey: 'nav.prodRepack', icon: ArrowPathIcon },
       { to: '/production/products', label: '產品管理', labelKey: 'nav.prodProducts', icon: Squares2X2Icon },
       { to: '/production/pack-types', label: '包裝類型', labelKey: 'nav.packTypes', icon: TagIcon },
@@ -161,7 +162,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     .map((section) => ({
       ...section,
       items: section.items.filter(
-        (item) => isCaptain || !item.roles || item.roles.includes(user?.role || '')
+        (item) => (user?.role !== 'Warehouse' || system !== 'production' || item.to === '/production/meat') && (isCaptain || !item.roles || item.roles.includes(user?.role || ''))
       ),
     }))
     .filter((section) => section.items.length > 0);

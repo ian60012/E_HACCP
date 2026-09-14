@@ -12,6 +12,7 @@ import RoleGate from '@/components/RoleGate';
 const applicableTypeOptions: { value: PackApplicableType; labelKey: string }[] = [
   { value: 'forming',     labelKey: 'label.applicableForming' },
   { value: 'hot_process', labelKey: 'label.applicableHotProcess' },
+  { value: 'meat_processing', labelKey: 'label.applicableMeatProcessing' },
   { value: 'both',        labelKey: 'label.applicableBoth' },
 ];
 
@@ -229,7 +230,7 @@ export default function ProdPackTypesPage() {
                   <td className="py-2 pr-4 text-gray-700">{pt.name}</td>
                   <td className="py-2 pr-4">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${applicableTypeBadge[pt.applicable_type] || ''}`}>
-                      {bi(`label.applicable${pt.applicable_type === 'forming' ? 'Forming' : pt.applicable_type === 'hot_process' ? 'HotProcess' : 'Both'}`)}
+                      {bi(`label.applicable${pt.applicable_type === 'forming' ? 'Forming' : pt.applicable_type === 'hot_process' ? 'HotProcess' : pt.applicable_type === 'meat_processing' ? 'MeatProcessing' : 'Both'}`)}
                     </span>
                   </td>
                   <td className="py-2 pr-4 text-gray-500">

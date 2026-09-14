@@ -10,6 +10,8 @@ import EmptyState from '@/components/EmptyState';
 import Pagination from '@/components/Pagination';
 import Bi, { bi } from '@/components/Bi';
 import RoleGate from '@/components/RoleGate';
+import MeatBatchListPage from './MeatBatchListPage';
+import { meatStates } from '@/types/meatProcessing';
 
 const num = (v: any): number => (v == null ? 0 : Number(v));
 
@@ -26,6 +28,11 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function ProdBatchListPage() {
+  const [params] = useSearchParams();
+  return params.get("type") === "meat_processing" ? <MeatBatchListPage /> : <LegacyBatchListPage />;
+}
+
+function LegacyBatchListPage() {
   const [searchParams] = useSearchParams();
   const productType = searchParams.get('type') as 'forming' | 'hot_process' | null;
 
@@ -240,7 +247,7 @@ export default function ProdBatchListPage() {
                       <th className="pb-2 text-right">耗損</th>
                     </>
                   ) : (
-                    <th className="pb-2"><Bi k="field.estNetWeight" /></th>
+                    <th className="pb-2">{productType ? <Bi k="field.estNetWeight" /> : "重量 Weight (kg)"}</th>
                   )}
                 </tr>
               </thead>
@@ -275,7 +282,7 @@ export default function ProdBatchListPage() {
                           </span>
                         ) : (
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[batch.status] || ''}`}>
-                            {statusLabels[batch.status] || batch.status}
+                            {batch.process_type === 'meat_processing' ? meatStates[batch.meat_state || 'draft'] : statusLabels[batch.status] || batch.status}
                           </span>
                         )}
                       </td>
@@ -293,7 +300,7 @@ export default function ProdBatchListPage() {
                         </>
                       ) : (
                         <td className="py-2 text-gray-500">
-                          {batch.estimated_forming_net_weight_kg != null
+                          {batch.process_type === 'meat_processing' ? `${batch.meat_totals?.output_kg ?? '—'} kg` : batch.estimated_forming_net_weight_kg != null
                             ? `${num(batch.estimated_forming_net_weight_kg).toFixed(2)} kg`
                             : '—'}
                         </td>

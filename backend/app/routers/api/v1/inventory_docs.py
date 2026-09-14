@@ -249,6 +249,10 @@ async def void_doc(
     current_user: User = Depends(require_role("Admin", "Warehouse")),
     db: AsyncSession = Depends(get_db),
 ):
+    from app.models.production import ProdBatch
+    meat_batch = await db.scalar(select(ProdBatch.id).where(ProdBatch.inv_stock_doc_id == doc_id, ProdBatch.process_type == "meat_processing"))
+    if meat_batch:
+        raise HTTPException(409, "請從肉品批次作廢並沖回庫存 Void the meat batch to reverse this document")
     # Warehouse can only void Draft docs; Admin can void any status
     user_role = current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role)
     if user_role == "Warehouse":

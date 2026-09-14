@@ -4,6 +4,11 @@ export interface BiLabelType {
 }
 
 const labels: Record<string, BiLabelType> = {
+  'nav.meatProcessing': { zh: '肉品加工', en: 'Meat Processing' },
+  'label.meatProcessing': { zh: '肉品加工', en: 'Meat Processing' },
+  'page.meat.new': { zh: '新增肉品加工批次', en: 'New Meat Processing Batch' },
+  'page.meat.desc': { zh: '原料、加工、產出與覆核入庫', en: 'Inputs, processing, outputs and QA stock entry' },
+  'label.applicableMeatProcessing': { zh: '肉品加工專用', en: 'Meat Processing' },
   // ==================== Navigation ====================
   'nav.home': { zh: '首頁', en: 'Home' },
   'nav.records': { zh: '記錄', en: 'Records' },

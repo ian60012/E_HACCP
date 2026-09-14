@@ -131,6 +131,7 @@ class ProdShift(str, enum.Enum):
 class ProdProductType(str, enum.Enum):
     FORMING = "forming"
     HOT_PROCESS = "hot_process"
+    MEAT_PROCESSING = "meat_processing"
 
 
 ProdBatchStatusType = SAEnum(ProdBatchStatus, name="prod_batch_status_enum", create_type=False, values_callable=_vals)

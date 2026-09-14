@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -48,6 +48,7 @@ async def post_document(session: AsyncSession, doc_id: int, operator_id: int) ->
     4. Insert inv_stock_movements rows
     5. Update document status to Posted
     """
+    await session.execute(text("LOCK TABLE inv_stock_balance IN SHARE ROW EXCLUSIVE MODE"))
     # Load document with lines + items + allowed_locations
     result = await session.execute(
         select(InvStockDoc)
@@ -149,6 +150,7 @@ async def void_document(
     """
     Void a Posted stock document (reversal).
     """
+    await session.execute(text("LOCK TABLE inv_stock_balance IN SHARE ROW EXCLUSIVE MODE"))
     result = await session.execute(
         select(InvStockDoc)
         .options(selectinload(InvStockDoc.lines))
@@ -274,6 +276,7 @@ async def confirm_stocktake(
     - Lines with physical_qty is None → skipped (未盤)
     Directly updates balances and creates movement records (bypasses whitelist).
     """
+    await session.execute(text("LOCK TABLE inv_stock_balance IN SHARE ROW EXCLUSIVE MODE"))
     result = await session.execute(
         select(InvStocktake)
         .options(

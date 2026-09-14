@@ -33,3 +33,5 @@ __all__ = [
     "ProdHotInput",
     "ProdRepackJob", "ProdRepackInput", "ProdRepackOutput", "ProdRepackTrim",
 ]
+
+from app.models.meat_processing import MeatRecord, MeatInput, MeatStep, MeatOutput, MeatLoss

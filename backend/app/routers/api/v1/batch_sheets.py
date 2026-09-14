@@ -19,6 +19,7 @@ from sqlalchemy import select, func, outerjoin
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.services.meat_processing import protect_legacy_meat
 from app.models.batch_sheet import ProdDailyBatchSheet, ProdBatchSheetLine
 from app.models.production import ProdBatch
 from app.models.receiving_log import ReceivingLog
@@ -35,10 +36,10 @@ from app.schemas.common import PaginatedResponse
 from app.dependencies.auth import get_current_active_user, require_role
 
 # Router for /production/batches/{id}/batch-sheet endpoints
-router = APIRouter(prefix="/production/batches", tags=["batch-sheets"])
+router = APIRouter(prefix="/production/batches", tags=["batch-sheets"], dependencies=[Depends(protect_legacy_meat)])
 
 # Router for /batch-sheets list endpoint
-list_router = APIRouter(prefix="/batch-sheets", tags=["batch-sheets"])
+list_router = APIRouter(prefix="/batch-sheets", tags=["batch-sheets"], dependencies=[Depends(protect_legacy_meat)])
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +122,7 @@ async def list_batch_sheets(
     # Count
     count_stmt = (
         select(func.count(ProdBatch.id))
-        .where(ProdBatch.is_voided == False)
+        .where(ProdBatch.is_voided == False, ProdBatch.process_type.is_distinct_from("meat_processing"))
     )
     total = (await db.execute(count_stmt)).scalar()
 
@@ -142,7 +143,7 @@ async def list_batch_sheets(
             outerjoin(ProdBatch, ProdDailyBatchSheet, ProdBatch.id == ProdDailyBatchSheet.batch_id)
             .outerjoin(ProdBatchSheetLine, ProdDailyBatchSheet.id == ProdBatchSheetLine.sheet_id)
         )
-        .where(ProdBatch.is_voided == False)
+        .where(ProdBatch.is_voided == False, ProdBatch.process_type.is_distinct_from("meat_processing"))
         .group_by(ProdBatch.id, ProdDailyBatchSheet.id)
         .order_by(ProdBatch.production_date.desc(), ProdBatch.created_at.desc())
         .offset(skip)

@@ -2,7 +2,8 @@
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, Literal
+from app.schemas.meat_processing import MeatTotals
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,13 +17,13 @@ from app.schemas.common import SignatureDataUrl
 class ProdPackTypeConfigCreate(BaseModel):
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=200)
-    applicable_type: str = "both"   # forming | hot_process | both
+    applicable_type: Literal["forming", "hot_process", "meat_processing", "both"] = "both"   # forming | hot_process | both
     nominal_weight_kg: Optional[Decimal] = None
 
 
 class ProdPackTypeConfigUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=200)
-    applicable_type: Optional[str] = None
+    applicable_type: Optional[Literal["forming", "hot_process", "meat_processing", "both"]] = None
     nominal_weight_kg: Optional[Decimal] = None
     is_active: Optional[bool] = None
 
@@ -49,7 +50,7 @@ class ProdProductCreate(BaseModel):
     ccp_limit_temp: Decimal = Decimal("75.00")
     pack_size_kg: Optional[Decimal] = None
     loss_rate_warn_pct: Optional[Decimal] = None
-    product_type: str = "forming"
+    product_type: Literal["forming", "hot_process", "meat_processing"] = "forming"
     inv_item_id: Optional[int] = None
 
 
@@ -58,7 +59,7 @@ class ProdProductUpdate(BaseModel):
     ccp_limit_temp: Optional[Decimal] = None
     pack_size_kg: Optional[Decimal] = None
     loss_rate_warn_pct: Optional[Decimal] = None
-    product_type: Optional[str] = None
+    product_type: Optional[Literal["forming", "hot_process", "meat_processing"]] = None
     inv_item_id: Optional[int] = None
     is_active: Optional[bool] = None
 
@@ -72,7 +73,7 @@ class ProdProductResponse(BaseModel):
     ccp_limit_temp: Decimal
     pack_size_kg: Optional[Decimal] = None
     loss_rate_warn_pct: Optional[Decimal] = None
-    product_type: str = "forming"
+    product_type: Literal["forming", "hot_process", "meat_processing"] = "forming"
     inv_item_id: Optional[int] = None
     is_active: bool
     created_at: datetime
@@ -261,6 +262,9 @@ class ProdHotInputResponse(BaseModel):
 
 
 class ProdBatchResponse(BaseModel):
+    process_type: Optional[str] = None
+    meat_state: Optional[str] = None
+    meat_totals: Optional[MeatTotals] = None
     model_config = ConfigDict(from_attributes=True)
 
     id: int

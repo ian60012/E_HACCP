@@ -144,7 +144,7 @@ async def download_template(
     headers = [
         ("產品代碼", "必填，不可重複"),
         ("產品名稱", "必填"),
-        ("產品類型", "必填：forming（成型）或 hot_process（熱加工）"),
+        ("產品類型", "必填：forming（成型）、hot_process（熱加工）或 meat_processing（肉品加工）"),
         ("CCP溫度限制°C", "選填，預設 75.00"),
         ("包裝規格kg", "選填"),
         ("損耗率警告%", "選填，0-100"),
@@ -214,7 +214,7 @@ async def import_products(
     skipped = 0
     errors: List[dict] = []
 
-    VALID_TYPES = {"forming", "hot_process"}
+    VALID_TYPES = {"forming", "hot_process", "meat_processing"}
 
     for i, row in enumerate(rows, start=3):
         if not row or all(v is None or str(v).strip() == "" for v in row):

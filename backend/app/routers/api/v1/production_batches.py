@@ -1,4 +1,4 @@
-"""Production batches router (生產批次)."""
+"""Production batches router (ç”Ÿç”¢æ‰¹æ¬¡)."""
 
 import html
 from datetime import date, datetime, timezone
@@ -7,7 +7,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, or_, and_
+from app.services.meat_processing import protect_legacy_meat, totals as meat_totals, value
+from app.models.meat_processing import MeatRecord
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
@@ -51,7 +53,7 @@ from app.services.production_service import (
 )
 from app.services.production_void_service import void_batch as void_batch_service
 
-router = APIRouter(prefix="/production/batches", tags=["Production Batches"])
+router = APIRouter(prefix="/production/batches", tags=["Production Batches"], dependencies=[Depends(protect_legacy_meat)])
 
 CODE128_PATTERNS = [
     "212222", "222122", "222221", "121223", "121322", "131222", "122213", "122312", "132212", "221213",
@@ -191,6 +193,9 @@ def _packing_trim_response(t: ProdPackingTrim) -> ProdPackingTrimResponse:
 def _to_response(batch: ProdBatch) -> ProdBatchResponse:
     return ProdBatchResponse(
         id=batch.id,
+        process_type=batch.process_type,
+        meat_state=batch.meat_records[-1].state if batch.meat_records else ("draft" if batch.process_type == "meat_processing" else None),
+        meat_totals=meat_totals(batch.meat_records[-1]) if batch.meat_records else None,
         batch_code=batch.batch_code,
         product_code=batch.product_code,
         product_name=batch.product_name,
@@ -239,6 +244,9 @@ def _hot_input_response(h: ProdHotInput) -> ProdHotInputResponse:
 
 def _base_query():
     return select(ProdBatch).options(
+        selectinload(ProdBatch.meat_records).selectinload(MeatRecord.inputs),
+        selectinload(ProdBatch.meat_records).selectinload(MeatRecord.outputs),
+        selectinload(ProdBatch.meat_records).selectinload(MeatRecord.losses),
         selectinload(ProdBatch.forming_trolleys),
         selectinload(ProdBatch.packing_records).selectinload(ProdPackingRecord.product),
         selectinload(ProdBatch.packing_records).selectinload(ProdPackingRecord.inv_item),
@@ -256,6 +264,7 @@ async def list_batches(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     product_type: Optional[str] = None,
+    meat_state: Optional[str] = None,
     product_code: Optional[str] = None,
     include_voided: bool = Query(False),
     current_user: User = Depends(get_current_active_user),
@@ -276,14 +285,20 @@ async def list_batches(
         q = q.where(ProdBatch.production_date <= date_to)
         filters.append(ProdBatch.production_date <= date_to)
     if product_type:
-        q = q.join(ProdProduct, ProdBatch.product_code == ProdProduct.code).where(
-            ProdProduct.product_type == product_type
-        )
-        filters.append(
-            ProdBatch.product_code.in_(
-                select(ProdProduct.code).where(ProdProduct.product_type == product_type)
-            )
-        )
+        if product_type not in ("forming", "hot_process", "meat_processing"):
+            raise HTTPException(422, "Invalid product type")
+        type_filter = or_(ProdBatch.process_type == product_type, and_(
+            ProdBatch.process_type.is_(None), ProdBatch.product_code.in_(
+                select(ProdProduct.code).where(ProdProduct.product_type == product_type))))
+        q = q.where(type_filter)
+        filters.append(type_filter)
+    if meat_state:
+        if meat_state not in ("draft", "submitted", "verified", "stocked"):
+            raise HTTPException(422, "Invalid meat state")
+        state_q = select(MeatRecord.state).where(MeatRecord.batch_id == ProdBatch.id).order_by(MeatRecord.version.desc()).limit(1).correlate(ProdBatch).scalar_subquery()
+        condition = and_(ProdBatch.process_type == "meat_processing", func.coalesce(state_q, "draft") == meat_state)
+        q = q.where(condition)
+        filters.append(condition)
     if product_code:
         q = q.where(ProdBatch.product_code == product_code)
         filters.append(ProdBatch.product_code == product_code)
@@ -315,16 +330,20 @@ async def create_batch(
     current_user: User = Depends(require_role("Admin", "Production")),
     db: AsyncSession = Depends(get_db),
 ):
+    product = await db.scalar(select(ProdProduct).where(ProdProduct.code == data.product_code, ProdProduct.is_active.is_(True)))
+    if not product:
+        raise HTTPException(422, "Active production product required")
     batch_code = await generate_batch_code(
         db, data.product_code, data.production_date
     )
     batch = ProdBatch(
+        process_type=value(product.product_type),
         batch_code=batch_code,
         product_code=data.product_code,
-        product_name=data.product_name,
+        product_name=product.name,
         production_date=data.production_date,
         shift=data.shift,
-        spec_piece_weight_g=data.spec_piece_weight_g,
+        spec_piece_weight_g=0 if value(product.product_type) == "meat_processing" else data.spec_piece_weight_g,
         start_time=data.start_time,
         operator=data.operator,
         operator_signature_data_url=data.operator_signature_data_url,
@@ -464,7 +483,7 @@ async def remove_trolley(
 
 
 # ---------------------------------------------------------------------------
-# Hot inputs (多次投料)
+# Hot inputs (å¤šæ¬¡æŠ•æ–™)
 # ---------------------------------------------------------------------------
 
 

@@ -8,18 +8,18 @@ import ErrorCard from '@/components/ErrorCard';
 import Bi, { bi } from '@/components/Bi';
 import DateTimeInput from '@/components/DateTimeInput';
 import SignaturePad from '@/components/SignaturePad';
-import { melbourneToUTC } from '@/utils/timezone';
+import { melbourneToUTC, nowMelbourne } from '@/utils/timezone';
 import { useAuth } from '@/hooks/useAuth';
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return nowMelbourne().slice(0, 10);
 }
 
 export default function ProdBatchFormPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const typeFilter = searchParams.get('type') as 'forming' | 'hot_process' | null;
+  const typeFilter = searchParams.get('type') as 'forming' | 'hot_process' | 'meat_processing' | null;
   const backTo = typeFilter ? `/production/batches?type=${typeFilter}` : '/production/batches';
 
   const [formingOptions, setFormingOptions] = useState<FormingOption[]>([]);
@@ -73,7 +73,7 @@ export default function ProdBatchFormPage() {
         product_name: productName,
         production_date: productionDate,
         shift,
-        spec_piece_weight_g: Number(specPieceWeightG),
+        spec_piece_weight_g: selectedProductType === "forming" ? Number(specPieceWeightG) : 0,
         start_time: startTime ? melbourneToUTC(startTime) : undefined,
         operator: operator || undefined,
         operator_signature_data_url: operatorSignature,
@@ -99,7 +99,7 @@ export default function ProdBatchFormPage() {
               ? <Bi k="page.forming.new" />
               : typeFilter === 'hot_process'
               ? <Bi k="page.hotProcess.new" />
-              : <Bi k="page.prodBatchNew.title" />}
+              : typeFilter === 'meat_processing' ? <Bi k="page.meat.new" /> : <Bi k="page.prodBatchNew.title" />}
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">記錄人 Operator: <span className="font-medium text-gray-700">{user?.full_name}</span></p>
         </div>
@@ -120,7 +120,7 @@ export default function ProdBatchFormPage() {
                 <option value="">{bi('placeholder.selectProduct')}</option>
                 {formingOptions.map((opt) => (
                   <option key={opt.code} value={opt.code}>
-                    {opt.code} — {opt.name} {opt.product_type === 'hot_process' ? `[${bi('label.hotProcess')}]` : `[${bi('label.forming')}]`}
+                    {opt.code} — {opt.name} {opt.product_type === 'meat_processing' ? `[${bi('label.meatProcessing')}]` : opt.product_type === 'hot_process' ? `[${bi('label.hotProcess')}]` : `[${bi('label.forming')}]`}
                   </option>
                 ))}
               </select>
@@ -143,7 +143,7 @@ export default function ProdBatchFormPage() {
                 <option value="Night">{bi('label.night')}</option>
               </select>
             </FormField>
-            {selectedProductType !== 'hot_process' && (
+            {selectedProductType === 'forming' && (
               <FormField label={<Bi k="field.specPieceWeight" />}>
                 <input
                   type="number"
