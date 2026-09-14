@@ -109,7 +109,7 @@ export default function App() {
           <Route path="/" element={<PortalPage />} />
           <Route path="/haccp" element={<DashboardPage />} />
           {/* Production module - Admin, QA, Production */}
-          <Route path="/production" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProductionDashboardPage /></RoleGuard>} />
+          <Route path="/production" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production', 'Warehouse']}><ProductionDashboardPage /></RoleGuard>} />
           <Route path="/production/meat" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production', 'Warehouse']}><MeatBatchListPage /></RoleGuard>} />
           <Route path="/production/meat/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production', 'Warehouse']}><MeatBatchDetailPage /></RoleGuard>} />
           <Route path="/production/batches" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdBatchListPage /></RoleGuard>} />

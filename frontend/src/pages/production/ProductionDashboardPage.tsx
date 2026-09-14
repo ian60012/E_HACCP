@@ -8,6 +8,7 @@ import {
 import { PlusIcon } from '@heroicons/react/24/solid';
 import Bi from '@/components/Bi';
 import RoleGate from '@/components/RoleGate';
+import { useAuth } from '@/hooks/useAuth';
 
 const prodCards = [
   {
@@ -50,6 +51,11 @@ const prodCards = [
 ];
 
 export default function ProductionDashboardPage() {
+  const { user } = useAuth();
+  const visibleCards = user?.role === 'Warehouse'
+    ? prodCards.filter((card) => card.listTo === '/production/meat')
+    : prodCards;
+
   return (
     <div className="space-y-6">
       <div>
@@ -62,7 +68,7 @@ export default function ProductionDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {prodCards.map((card) => (
+        {visibleCards.map((card) => (
           <div
             key={card.titleKey}
             className={`rounded-xl border p-5 transition-shadow hover:shadow-md ${card.color}`}

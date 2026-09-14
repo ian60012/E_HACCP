@@ -15,11 +15,6 @@ interface SystemCard {
 
 const systems: SystemCard[] = [
   {
-    titleKey: 'nav.meatProcessing', descKey: 'page.meat.desc', icon: ClipboardDocumentListIcon,
-    to: '/production/meat', color: 'text-rose-700 bg-rose-50 border-rose-200 hover:border-rose-400',
-    roles: ['Warehouse'],
-  },
-  {
     titleKey: 'page.portal.haccp',
     descKey: 'page.portal.haccpDesc',
     icon: ShieldCheckIcon,
@@ -32,7 +27,7 @@ const systems: SystemCard[] = [
     icon: CogIcon,
     to: '/production',
     color: 'text-amber-600 bg-amber-50 border-amber-200 hover:border-amber-400',
-    roles: ['Admin', 'QA', 'Production'],
+    roles: ['Admin', 'QA', 'Production', 'Warehouse'],
   },
   {
     titleKey: 'page.portal.inventory',

@@ -162,7 +162,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     .map((section) => ({
       ...section,
       items: section.items.filter(
-        (item) => (user?.role !== 'Warehouse' || system !== 'production' || item.to === '/production/meat') && (isCaptain || !item.roles || item.roles.includes(user?.role || ''))
+        (item) => (user?.role !== 'Warehouse' || system !== 'production' || item.to === '/production' || item.to === '/production/meat') && (isCaptain || !item.roles || item.roles.includes(user?.role || ''))
       ),
     }))
     .filter((section) => section.items.length > 0);
