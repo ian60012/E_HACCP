@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.inventory import InvStockDoc, InvStockLine, InvItem, InvLocation, InvLot
-from app.models.enums import InvDocType, InvDocStatus
+from app.models.enums import InvDocType, InvDocStatus, ItemType
 from app.models.user import User
 from app.schemas.inventory import (
     InvStockDocCreate, InvStockDocUpdate, InvStockDocVoidRequest,
@@ -18,7 +18,7 @@ from app.schemas.inventory import (
 from app.schemas.common import PaginatedResponse
 from app.dependencies.auth import get_current_active_user, require_role
 from app.services.inventory_service import (
-    generate_doc_number, post_document, void_document
+    generate_doc_number, post_document, void_document, validate_document_scope
 )
 
 router = APIRouter(prefix="/inventory/docs", tags=["inventory-docs"])
@@ -48,6 +48,7 @@ def _to_response(doc: InvStockDoc) -> InvStockDocResponse:
         id=doc.id,
         doc_number=doc.doc_number,
         doc_type=doc.doc_type.value if hasattr(doc.doc_type, 'value') else doc.doc_type,
+        item_type_scope=doc.item_type_scope,
         status=doc.status.value if hasattr(doc.status, 'value') else doc.status,
         location_id=doc.location_id,
         location_name=doc.location.name if doc.location else None,
@@ -110,6 +111,8 @@ async def list_docs(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=1000),
     doc_type: Optional[str] = None,
+    item_type_scope: Optional[ItemType] = None,
+    general_only: bool = False,
     status_filter: Optional[str] = Query(None, alias="status"),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
@@ -119,12 +122,13 @@ async def list_docs(
         q = q.where(InvStockDoc.doc_type == doc_type)
     if status_filter:
         q = q.where(InvStockDoc.status == status_filter)
+    if general_only:
+        q = q.where(InvStockDoc.item_type_scope.is_(None))
+    elif item_type_scope is not None:
+        q = q.where(InvStockDoc.item_type_scope == item_type_scope)
 
     total_result = await db.execute(select(func.count()).select_from(
-        select(InvStockDoc).where(
-            *([InvStockDoc.doc_type == doc_type] if doc_type else []),
-            *([InvStockDoc.status == status_filter] if status_filter else []),
-        ).subquery()
+        q.subquery()
     ))
     total = total_result.scalar()
 
@@ -153,11 +157,13 @@ async def create_doc(
             detail="doc_type must be 'IN' or 'OUT'"
         )
 
+    validate_document_scope(data.doc_type, data.item_type_scope)
     doc_number = await generate_doc_number(db, data.doc_type)
 
     doc = InvStockDoc(
         doc_number=doc_number,
         doc_type=data.doc_type,
+        item_type_scope=data.item_type_scope,
         status=InvDocStatus.DRAFT,
         location_id=data.location_id,
         ref_number=data.ref_number,
@@ -177,6 +183,7 @@ async def create_doc(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Item {line_data.item_id} not found"
             )
+        validate_document_scope(data.doc_type, data.item_type_scope, item)
         lot_id = await _resolve_line_lot(db, item, line_data, data.doc_type)
         line = InvStockLine(
             doc_id=doc.id,
@@ -232,6 +239,10 @@ async def update_doc(
             detail="Only Draft documents can be edited",
         )
 
+    if "item_type_scope" in data.model_fields_set:
+        doc.item_type_scope = data.item_type_scope
+    validate_document_scope(doc.doc_type, doc.item_type_scope)
+
     # Update header fields
     if data.ref_number is not None:
         doc.ref_number = data.ref_number or None
@@ -253,6 +264,7 @@ async def update_doc(
                 detail=f"Item {line_data.item_id} not found",
             )
         doc_type = doc.doc_type.value if hasattr(doc.doc_type, "value") else doc.doc_type
+        validate_document_scope(doc_type, doc.item_type_scope, item)
         lot_id = await _resolve_line_lot(db, item, line_data, doc_type)
         line = InvStockLine(
             doc_id=doc.id,

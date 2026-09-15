@@ -1063,6 +1063,7 @@ CREATE TABLE IF NOT EXISTS inv_stock_docs (
     id               SERIAL PRIMARY KEY,
     doc_number       VARCHAR(30)         UNIQUE NOT NULL,
     doc_type         inv_doc_type_enum   NOT NULL,
+    item_type_scope  item_type_enum,
     status           inv_doc_status_enum NOT NULL DEFAULT 'Draft',
     location_id      INTEGER REFERENCES inv_locations(id),
     receiving_log_id INTEGER REFERENCES receiving_logs(id),
@@ -1077,6 +1078,7 @@ CREATE TABLE IF NOT EXISTS inv_stock_docs (
 );
 
 -- Document lines (明細)
+CREATE INDEX IF NOT EXISTS ix_inv_stock_docs_item_type_scope ON inv_stock_docs(item_type_scope);
 CREATE TABLE IF NOT EXISTS inv_stock_lines (
     id          SERIAL PRIMARY KEY,
     doc_id      INTEGER NOT NULL REFERENCES inv_stock_docs(id) ON DELETE CASCADE,

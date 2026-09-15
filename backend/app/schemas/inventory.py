@@ -141,6 +141,7 @@ class InvStockLineResponse(BaseModel):
 
 class InvStockDocCreate(BaseModel):
     doc_type: str = Field(..., description="IN or OUT")
+    item_type_scope: Optional[ItemType] = None
     location_id: Optional[int] = None
     ref_number: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = None
@@ -148,6 +149,7 @@ class InvStockDocCreate(BaseModel):
 
 
 class InvStockDocUpdate(BaseModel):
+    item_type_scope: Optional[ItemType] = None
     ref_number: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = None
     lines: List[InvStockLineCreate] = Field(..., min_length=1)
@@ -163,6 +165,7 @@ class InvStockDocResponse(BaseModel):
     id: int
     doc_number: str
     doc_type: str
+    item_type_scope: Optional[ItemType] = None
     status: str
     location_id: Optional[int] = None
     location_name: Optional[str] = None

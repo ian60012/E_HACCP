@@ -8,6 +8,7 @@ import ErrorCard from '@/components/ErrorCard';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import Bi, { bi } from '@/components/Bi';
 import RoleGate from '@/components/RoleGate';
+import { stockDocLabel } from './stockDocScopes';
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString('zh-TW', {
@@ -90,7 +91,7 @@ export default function InventoryStockDocDetailPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-800">{doc.doc_number}</h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              {doc.doc_type === 'IN' ? <Bi k="label.stockIn" /> : <Bi k="label.stockOut" />}
+              <span className="rounded-full bg-blue-50 px-2 py-1"><Bi label={stockDocLabel(doc.doc_type, doc.item_type_scope)} /></span>
               {doc.ref_number && ` — Ref: ${doc.ref_number}`}
             </p>
           </div>

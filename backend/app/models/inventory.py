@@ -76,6 +76,7 @@ class InvStockDoc(Base):
     id = Column(Integer, primary_key=True, index=True)
     doc_number = Column(VARCHAR(30), unique=True, nullable=False)
     doc_type = Column(InvDocTypeType, nullable=False)
+    item_type_scope = Column(ItemTypeType, nullable=True, index=True)
     status = Column(InvDocStatusType, nullable=False, server_default="Draft")
     location_id = Column(Integer, ForeignKey("inv_locations.id"), nullable=True)
     receiving_log_id = Column(Integer, ForeignKey("receiving_logs.id"), nullable=True)

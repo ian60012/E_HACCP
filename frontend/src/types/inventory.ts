@@ -108,6 +108,7 @@ export interface InvStockDoc {
   id: number;
   doc_number: string;
   doc_type: InvDocType;
+  item_type_scope: ItemType | null;
   status: InvDocStatus;
   location_id: number | null;
   location_name: string | null;
@@ -125,6 +126,7 @@ export interface InvStockDoc {
 
 export interface InvStockDocCreate {
   doc_type: InvDocType;
+  item_type_scope?: ItemType | null;
   location_id?: number;
   ref_number?: string;
   notes?: string;

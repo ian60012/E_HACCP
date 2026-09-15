@@ -19,7 +19,29 @@ from app.models.inventory import (
     InvStocktake, InvStocktakeLine, InvLot,
 )
 from app.models.receiving_log import ReceivingLog
-from app.models.enums import InvDocType, InvDocStatus, InvStocktakeStatus
+from app.models.enums import InvDocType, InvDocStatus, InvStocktakeStatus, ItemType
+
+
+def validate_document_scope(
+    doc_type: InvDocType | str,
+    scope: ItemType | str | None,
+    item: InvItem | None = None,
+) -> None:
+    """Shared classification rule for manual document creation, editing and posting."""
+    direction = getattr(doc_type, "value", doc_type)
+    scope = getattr(scope, "value", scope)
+    allowed = {
+        "IN": {"raw", "packaging", "intermediate", "finished"},
+        "OUT": {"intermediate", "finished"},
+    }
+    if direction not in allowed or (scope is not None and scope not in allowed[direction]):
+        raise HTTPException(422, "無效的單據方向／品項範圍 Invalid document direction/item scope")
+    if scope is None or item is None:
+        return
+    primary = getattr(item.item_type, "value", item.item_type)
+    dual_use = primary == "raw" and scope in ("intermediate", "finished") and item.meat_output_type == scope
+    if primary != scope and not dual_use:
+        raise HTTPException(422, f"品項 '{item.code}' 不屬於此單據的 {scope} 範圍 Item does not match document scope")
 
 
 async def generate_doc_number(session: AsyncSession, doc_type: str) -> str:
@@ -72,6 +94,10 @@ async def post_document(session: AsyncSession, doc_id: int, operator_id: int) ->
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot post a document with no lines"
         )
+
+    validate_document_scope(doc.doc_type, doc.item_type_scope)
+    for line in doc.lines:
+        validate_document_scope(doc.doc_type, doc.item_type_scope, line.item)
 
     is_out = doc.doc_type == InvDocType.OUT
     delta_sign = Decimal("-1") if is_out else Decimal("1")

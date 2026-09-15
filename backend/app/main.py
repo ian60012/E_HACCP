@@ -589,6 +589,9 @@ async def lifespan(app: FastAPI):
     await migrate_meat(engine)
     from app.core.inventory_lot_migration import migrate_inventory_lots
     await migrate_inventory_lots(engine)
+    async with engine.begin() as conn:
+        await conn.execute(text("ALTER TABLE inv_stock_docs ADD COLUMN IF NOT EXISTS item_type_scope item_type_enum"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_inv_stock_docs_item_type_scope ON inv_stock_docs(item_type_scope)"))
     # Production Helper data directory (plans/recipes/purchase_status JSON files)
     production_helper.init_data_dir()
 

@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { invDocsApi, invItemsApi, invLocationsApi, invLotsApi } from '@/api/inventory';
-import { InvItem, InvLocation, InvDocType, InvStockLineCreate, InvLot } from '@/types/inventory';
+import { InvItem, InvLocation, InvDocType, InvStockLineCreate, InvLot, ItemType } from '@/types/inventory';
+import { STOCK_DOC_SCOPES } from './stockDocScopes';
+import { t } from '@/i18n/labels';
 import FormField from '@/components/FormField';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
@@ -20,14 +22,18 @@ interface LineRow {
   use_new_lot: boolean;
 }
 
+const emptyLine = (): LineRow => ({ item_id: '', location_id: '', quantity: '', unit: 'PCS', unit_cost: '', notes: '', lot_id: '', new_lot_code: '', use_new_lot: false });
+
 export default function InventoryStockDocFormPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
-  const defaultType = (searchParams.get('type') as InvDocType) || 'IN';
+  const defaultType: InvDocType = searchParams.get('type') === 'OUT' ? 'OUT' : 'IN';
+  const requestedScope = searchParams.get('item_type') as ItemType;
 
   const [docType, setDocType] = useState<InvDocType>(defaultType);
+  const [itemScope, setItemScope] = useState<ItemType | ''>(STOCK_DOC_SCOPES[defaultType].includes(requestedScope) ? requestedScope : '');
   const [refNumber, setRefNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<LineRow[]>([
@@ -35,10 +41,13 @@ export default function InventoryStockDocFormPage() {
   ]);
 
   const [items, setItems] = useState<InvItem[]>([]);
+  const [existingItems, setExistingItems] = useState<InvItem[]>([]);
+  const [loadingItems, setLoadingItems] = useState(true);
+  const itemMetadata = [...items, ...existingItems];
   const [allLocations, setAllLocations] = useState<InvLocation[]>([]);
   const [lotOptions, setLotOptions] = useState<Record<string, InvLot[]>>({});
   const [saving, setSaving] = useState(false);
-  const [loadingDoc, setLoadingDoc] = useState(false);
+  const [loadingDoc, setLoadingDoc] = useState(isEdit);
   const [error, setError] = useState('');
 
   const loadExistingDoc = useCallback(async () => {
@@ -51,6 +60,8 @@ export default function InventoryStockDocFormPage() {
         return;
       }
       setDocType(doc.doc_type as InvDocType);
+      setItemScope(doc.item_type_scope || '');
+      setExistingItems(await Promise.all([...new Set(doc.lines.map((line) => line.item_id))].map((itemId) => invItemsApi.get(itemId))));
       setRefNumber(doc.ref_number || '');
       setNotes(doc.notes || '');
       setLines(
@@ -74,14 +85,41 @@ export default function InventoryStockDocFormPage() {
   }, [id, navigate]);
 
   useEffect(() => {
-    invItemsApi.list({ limit: 500 }).then((r) => setItems(r.items));
-    invLocationsApi.list({ limit: 200 }).then((r) => setAllLocations(r.items));
+    invLocationsApi.list({ is_active: true, limit: 200 }).then((r) => setAllLocations(r.items)).catch(() => setError(bi('error.loadFailed')));
     if (isEdit) loadExistingDoc();
   }, [isEdit, loadExistingDoc]);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoadingItems(true);
+    setItems([]);
+    const load = async () => {
+      const result: InvItem[] = [];
+      let total = 0;
+      do {
+        const page = await invItemsApi.list({ skip: result.length, limit: 1000, is_active: true, item_type: itemScope || undefined });
+        total = page.total;
+        result.push(...page.items);
+        if (!page.items.length) break;
+      } while (result.length < total);
+      if (!cancelled) setItems(result);
+    };
+    load().catch(() => { if (!cancelled) setError(bi('error.loadFailed')); }).finally(() => { if (!cancelled) setLoadingItems(false); });
+    return () => { cancelled = true; };
+  }, [itemScope]);
+
+  const changeScope = (direction: InvDocType, scope: ItemType | '') => {
+    const hasInput = lines.some((line) => line.item_id || line.location_id || line.quantity || line.notes || line.unit_cost || line.new_lot_code || line.lot_id || line.unit !== 'PCS');
+    if (hasInput && !window.confirm(bi('confirm.docScopeChange'))) return;
+    setDocType(direction);
+    setItemScope(scope);
+    setLines([emptyLine()]);
+    setLotOptions({});
+  };
+
+  useEffect(() => {
     const tracked = lines.filter((line) => {
-      const item = items.find((candidate) => candidate.id === line.item_id);
+      const item = itemMetadata.find((candidate) => candidate.id === line.item_id);
       return item?.lot_tracking_enabled && line.location_id;
     });
     const keys = [...new Set(tracked.map((line) => `${line.item_id}:${line.location_id}:${docType}`))];
@@ -99,11 +137,11 @@ export default function InventoryStockDocFormPage() {
         setLotOptions((previous) => ({ ...previous, [key]: [] }));
       });
     });
-  }, [docType, items, lines, lotOptions]);
+  }, [docType, items, existingItems, lines, lotOptions]);
 
   const getAllowedLocations = (itemId: number | ''): InvLocation[] => {
     if (!itemId) return allLocations;
-    const item = items.find((i) => i.id === itemId);
+    const item = itemMetadata.find((i) => i.id === itemId);
     if (!item || !item.allowed_location_ids?.length) return [];
     return allLocations.filter((loc) => item.allowed_location_ids.includes(loc.id));
   };
@@ -156,6 +194,7 @@ export default function InventoryStockDocFormPage() {
       let doc;
       if (isEdit) {
         doc = await invDocsApi.update(Number(id), {
+          item_type_scope: itemScope || null,
           ref_number: refNumber || undefined,
           notes: notes || undefined,
           lines: docLines,
@@ -163,6 +202,7 @@ export default function InventoryStockDocFormPage() {
       } else {
         doc = await invDocsApi.create({
           doc_type: docType,
+          item_type_scope: itemScope || null,
           ref_number: refNumber || undefined,
           notes: notes || undefined,
           lines: docLines,
@@ -197,12 +237,18 @@ export default function InventoryStockDocFormPage() {
           <h2 className="text-lg font-semibold text-gray-800"><Bi k="section.docHeader" /></h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label={<Bi k="field.docType" />} required>
-              <select value={docType} onChange={(e) => {
-                setDocType(e.target.value as InvDocType);
-                setLines((previous) => previous.map((line) => ({ ...line, lot_id: '', new_lot_code: '', use_new_lot: false })));
+              <select aria-label={bi('field.docType')} value={docType} onChange={(e) => {
+                const direction = e.target.value as InvDocType;
+                changeScope(direction, itemScope && STOCK_DOC_SCOPES[direction].includes(itemScope) ? itemScope : '');
               }} className="input" disabled={isEdit}>
                 <option value="IN">{bi('label.stockIn')}</option>
                 <option value="OUT">{bi('label.stockOut')}</option>
+              </select>
+            </FormField>
+            <FormField label={<Bi k="field.itemTypeScope" />}>
+              <select aria-label={bi('field.itemTypeScope')} value={itemScope} onChange={(e) => changeScope(docType, e.target.value as ItemType | '')} className="input">
+                <option value="">{bi('label.general')}</option>
+                {STOCK_DOC_SCOPES[docType].map((scope) => <option key={scope} value={scope}>{t(`inv.itemType.${scope}`).zh} {t(`inv.itemType.${scope}`).en}</option>)}
               </select>
             </FormField>
             <FormField label={<Bi k="field.refNumber" />}>
@@ -225,7 +271,7 @@ export default function InventoryStockDocFormPage() {
           <div className="space-y-2">
             {lines.map((line, index) => {
               const allowedLocs = getAllowedLocations(line.item_id);
-              const selectedItem = items.find((item) => item.id === line.item_id);
+              const selectedItem = itemMetadata.find((item) => item.id === line.item_id);
               const isLotTracked = !!selectedItem?.lot_tracking_enabled;
               const lots = lotOptions[`${line.item_id}:${line.location_id}:${docType}`] || [];
               return (
@@ -237,9 +283,11 @@ export default function InventoryStockDocFormPage() {
                       value={line.item_id}
                       onChange={(e) => handleItemChange(index, Number(e.target.value))}
                       className="input"
+                      disabled={loadingItems}
                       required
                     >
                       <option value="">{bi('placeholder.selectItem')}</option>
+                      {selectedItem && !items.some((item) => item.id === selectedItem.id) && <option value={selectedItem.id} disabled>{selectedItem.name} ({selectedItem.code}) — 原有品項</option>}
                       {items.map((i) => (
                         <option key={i.id} value={i.id}>{i.name} ({i.code})</option>
                       ))}
@@ -347,7 +395,7 @@ export default function InventoryStockDocFormPage() {
           <button type="button" onClick={() => navigate('/inventory/docs')} className="btn btn-secondary">
             <Bi k="btn.cancel" />
           </button>
-          <button type="submit" disabled={saving} className="btn btn-primary">
+          <button type="submit" disabled={saving || loadingItems} className="btn btn-primary">
             {saving ? <Bi k="btn.saving" /> : <Bi k={isEdit ? 'btn.save' : 'btn.saveDraft'} />}
           </button>
         </div>

@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusIcon } from '@heroicons/react/24/solid';
 import { invDocsApi } from '@/api/inventory';
-import { InvStockDoc, InvDocType } from '@/types/inventory';
+import { InvStockDoc, InvDocType, ItemType, ITEM_TYPES } from '@/types/inventory';
+import StockDocNewMenu from './StockDocNewMenu';
+import { stockDocLabel } from './stockDocScopes';
+import { t } from '@/i18n/labels';
 import { usePagination } from '@/hooks/usePagination';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
@@ -29,6 +31,7 @@ export default function InventoryStockDocListPage() {
   const [error, setError] = useState('');
   const [docType, setDocType] = useState<InvDocType | ''>('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [scopeFilter, setScopeFilter] = useState<ItemType | 'general' | ''>('');
   const pagination = usePagination(20);
   const navigate = useNavigate();
 
@@ -41,6 +44,8 @@ export default function InventoryStockDocListPage() {
         limit: pagination.limit,
         doc_type: docType || undefined,
         status: statusFilter || undefined,
+        item_type_scope: scopeFilter && scopeFilter !== 'general' ? scopeFilter : undefined,
+        general_only: scopeFilter === 'general' || undefined,
       });
       setDocs(res.items);
       pagination.setTotal(res.total);
@@ -49,7 +54,7 @@ export default function InventoryStockDocListPage() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.skip, pagination.limit, docType, statusFilter]);
+  }, [pagination.skip, pagination.limit, docType, statusFilter, scopeFilter]);
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
@@ -61,28 +66,27 @@ export default function InventoryStockDocListPage() {
           <p className="text-sm text-gray-500 mt-1"><Bi k="page.invDocs.subtitle" /></p>
         </div>
         <RoleGate roles={['Admin', 'Warehouse']}>
-          <button
-            onClick={() => navigate('/inventory/docs/new')}
-            className="btn btn-primary flex items-center gap-1.5"
-          >
-            <PlusIcon className="h-5 w-5" />
-            <span className="hidden sm:inline"><Bi k="btn.newDoc" /></span>
-          </button>
+          <StockDocNewMenu />
         </RoleGate>
       </div>
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
-        <select value={docType} onChange={(e) => setDocType(e.target.value as any)} className="input w-auto">
-          <option value=""><Bi k="label.allTypes" /></option>
-          <option value="IN"><Bi k="label.stockIn" /></option>
-          <option value="OUT"><Bi k="label.stockOut" /></option>
+        <select aria-label={bi('field.itemTypeScope')} value={scopeFilter} onChange={(e) => { setScopeFilter(e.target.value as typeof scopeFilter); pagination.goToPage(1); }} className="input w-auto">
+          <option value="">{bi('label.allScopes')}</option>
+          <option value="general">{bi('label.general')}</option>
+          {ITEM_TYPES.map((scope) => <option key={scope} value={scope}>{t(`inv.itemType.${scope}`).zh} {t(`inv.itemType.${scope}`).en}</option>)}
         </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input w-auto">
-          <option value=""><Bi k="label.allStatuses" /></option>
-          <option value="Draft"><Bi k="label.draft" /></option>
-          <option value="Posted"><Bi k="label.posted" /></option>
-          <option value="Voided"><Bi k="label.voided" /></option>
+        <select aria-label={bi('field.docType')} value={docType} onChange={(e) => { setDocType(e.target.value as InvDocType | ''); pagination.goToPage(1); }} className="input w-auto">
+          <option value="">{bi('label.allTypes')}</option>
+          <option value="IN">{bi('label.stockIn')}</option>
+          <option value="OUT">{bi('label.stockOut')}</option>
+        </select>
+        <select aria-label={bi('field.isActive')} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); pagination.goToPage(1); }} className="input w-auto">
+          <option value="">{bi('label.allStatuses')}</option>
+          <option value="Draft">{bi('label.draft')}</option>
+          <option value="Posted">{bi('label.posted')}</option>
+          <option value="Voided">{bi('label.voided')}</option>
         </select>
       </div>
 
@@ -93,8 +97,6 @@ export default function InventoryStockDocListPage() {
       ) : docs.length === 0 ? (
         <EmptyState
           message={bi('empty.invDocs')}
-          actionLabel={bi('btn.newDoc')}
-          actionTo="/inventory/docs/new"
         />
       ) : (
         <div className="space-y-2">
@@ -109,7 +111,7 @@ export default function InventoryStockDocListPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-gray-800">{doc.doc_number}</span>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${doc.doc_type === 'IN' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
-                      {doc.doc_type === 'IN' ? <Bi k="label.stockIn" /> : <Bi k="label.stockOut" />}
+                      <Bi label={stockDocLabel(doc.doc_type, doc.item_type_scope)} />
                     </span>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[doc.status] || ''}`}>
                       {doc.status}

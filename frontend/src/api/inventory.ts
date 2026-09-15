@@ -108,6 +108,7 @@ export const invLocationsApi = {
 export const invDocsApi = {
   list: async (params?: {
     skip?: number; limit?: number; doc_type?: string; status?: string;
+    item_type_scope?: ItemType; general_only?: boolean;
   }): Promise<PaginatedResponse<InvStockDoc>> => {
     const res = await apiClient.get<PaginatedResponse<InvStockDoc>>('/api/v1/inventory/docs', { params });
     return res.data;
@@ -123,7 +124,7 @@ export const invDocsApi = {
     return res.data;
   },
 
-  update: async (id: number, data: { ref_number?: string; notes?: string; lines: import('@/types/inventory').InvStockLineCreate[] }): Promise<InvStockDoc> => {
+  update: async (id: number, data: { item_type_scope?: ItemType | null; ref_number?: string; notes?: string; lines: import('@/types/inventory').InvStockLineCreate[] }): Promise<InvStockDoc> => {
     const res = await apiClient.patch<InvStockDoc>(`/api/v1/inventory/docs/${id}`, data);
     return res.data;
   },

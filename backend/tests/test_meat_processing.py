@@ -30,6 +30,8 @@ from app.core.database import get_db
 from app.dependencies.auth import get_current_active_user
 from app.models.enums import UserRole
 from app.schemas.meat_processing import MeatSave, MeatStepData
+from app.services.inventory_service import validate_document_scope
+from fastapi import HTTPException
 
 ROOT = Path(__file__).resolve().parents[2]
 SIGN = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=="
@@ -52,6 +54,36 @@ def test_migration_copies_match():
     assert (ROOT / "database/migrations/20260915_inventory_lots.sql").read_text(encoding="utf-8") == lot_sql
     assert meat_sql in init_sql
     assert init_sql.endswith(lot_sql)
+
+
+@pytest.mark.parametrize("direction,scope,valid", [
+    (direction, scope, direction == "IN" or scope in (None, "intermediate", "finished"))
+    for direction in ("IN", "OUT")
+    for scope in (None, "raw", "packaging", "intermediate", "finished")
+])
+def test_document_scope_matrix(direction, scope, valid):
+    if valid:
+        validate_document_scope(direction, scope)
+    else:
+        with pytest.raises(HTTPException) as error:
+            validate_document_scope(direction, scope)
+        assert error.value.status_code == 422
+
+
+def test_document_scope_classification_and_dual_use():
+    for primary in ("raw", "packaging", "intermediate", "finished"):
+        item = SimpleNamespace(code="TEST", item_type=primary, meat_output_type=None)
+        validate_document_scope("IN", None, item)
+        validate_document_scope("IN", primary, item)
+        for scope in ("raw", "packaging", "intermediate", "finished"):
+            if scope != primary:
+                with pytest.raises(HTTPException) as error:
+                    validate_document_scope("IN", scope, item)
+                assert error.value.status_code == 422
+    for output in ("intermediate", "finished"):
+        item = SimpleNamespace(code="DUAL", item_type="raw", meat_output_type=output)
+        validate_document_scope("IN", "raw", item)
+        validate_document_scope("OUT", output, item)
 
 
 @pytest.fixture(scope="session")
@@ -77,6 +109,7 @@ def template_database():
                    ('legacy-hot','LEGACY-H','Legacy hot','2026-09-01',0),
                    ('legacy-orphan','MISSING','Unknown legacy','2026-09-01',0);
         """)
+        await conn.execute("ALTER TABLE inv_stock_docs DROP COLUMN item_type_scope")
         await conn.close()
         engine = create_async_engine((prefix + "/" + name).replace("postgresql://", "postgresql+asyncpg://"))
         original = main.engine
@@ -89,6 +122,8 @@ def template_database():
             main.engine = original
             await engine.dispose()
         conn = await asyncpg.connect(prefix + "/" + name)
+        assert await conn.fetchval("SELECT count(*) FROM information_schema.columns WHERE table_name='inv_stock_docs' AND column_name='item_type_scope'") == 1
+        assert await conn.fetchval("SELECT to_regclass('ix_inv_stock_docs_item_type_scope')") is not None
         rows = await conn.fetch("SELECT batch_code,process_type FROM prod_batches ORDER BY batch_code")
         types = {r["batch_code"]: r["process_type"] for r in rows}
         assert types["legacy-forming"] == "forming" and types["legacy-hot"] == "hot_process"
@@ -148,6 +183,65 @@ async def request(env, method, path, data=None, expected=200):
     r = await env.client.request(method, "/api/v1" + path, json=data)
     assert r.status_code == expected, r.text
     return r.json() if r.content else None
+
+
+@pytest.mark.asyncio
+async def test_scoped_stock_docs_create_edit_filter_post_and_legacy(env):
+    async with env.factory() as db:
+        loc = await db.scalar(text("INSERT INTO inv_locations(code,name) VALUES ('SCOPE-A','Scope A') RETURNING id"))
+        ids = {}
+        for code, primary, output in (("SCOPE-RAW", "raw", None), ("SCOPE-FIN", "finished", None), ("SCOPE-DUAL", "raw", "finished")):
+            ids[code] = await db.scalar(text("INSERT INTO inv_items(code,name,item_type,meat_output_type,base_unit) VALUES (:code,:code,:primary,:output,'KG') RETURNING id"), dict(code=code, primary=primary, output=output))
+            await db.execute(text("INSERT INTO inv_item_allowed_locations(item_id,location_id) VALUES (:i,:l)"), dict(i=ids[code], l=loc))
+        await db.commit()
+
+    def line(code):
+        return dict(item_id=ids[code], location_id=loc, quantity="1.000", unit="KG")
+
+    raw_line, fin_line, dual_line = [line(code) for code in ids]
+    for direction, scope, lines in (("IN", "raw", [fin_line]), ("OUT", "raw", [raw_line]), ("OUT", "packaging", [raw_line]), ("IN", "bogus", [raw_line])):
+        await request(env, "POST", "/inventory/docs", dict(doc_type=direction, item_type_scope=scope, lines=lines), 422)
+
+    general = await request(env, "POST", "/inventory/docs", dict(doc_type="IN", lines=[raw_line, fin_line, dual_line]), 201)
+    assert general["item_type_scope"] is None
+    await request(env, "POST", f'/inventory/docs/{general["id"]}/post')
+    raw_doc = await request(env, "POST", "/inventory/docs", dict(doc_type="IN", item_type_scope="raw", lines=[raw_line]), 201)
+    out_doc = await request(env, "POST", "/inventory/docs", dict(doc_type="OUT", item_type_scope="finished", lines=[fin_line, dual_line]), 201)
+    assert out_doc["item_type_scope"] == "finished"
+    await request(env, "PATCH", f'/inventory/docs/{raw_doc["id"]}', dict(lines=[fin_line]), 422)
+    unchanged = await request(env, "GET", f'/inventory/docs/{raw_doc["id"]}')
+    assert unchanged["lines"][0]["item_id"] == raw_line["item_id"]
+    updated = await request(env, "PATCH", f'/inventory/docs/{raw_doc["id"]}', dict(item_type_scope="finished", lines=[fin_line]))
+    assert updated["item_type_scope"] == "finished"
+    updated = await request(env, "PATCH", f'/inventory/docs/{raw_doc["id"]}', dict(item_type_scope=None, lines=[raw_line, fin_line]))
+    assert updated["item_type_scope"] is None
+    await request(env, "PATCH", f'/inventory/docs/{out_doc["id"]}', dict(item_type_scope="raw", lines=[raw_line]), 422)
+
+    filtered = await request(env, "GET", "/inventory/docs?doc_type=OUT&item_type_scope=finished&status=Draft")
+    assert filtered["total"] == 1 and filtered["items"][0]["id"] == out_doc["id"]
+    general_filtered = await request(env, "GET", "/inventory/docs?doc_type=IN&general_only=true")
+    assert general_filtered["total"] == 2 and all(d["item_type_scope"] is None for d in general_filtered["items"])
+    precedence = await request(env, "GET", "/inventory/docs?doc_type=IN&general_only=true&item_type_scope=finished")
+    assert precedence["total"] == 2
+
+    async with env.factory() as db:
+        await db.execute(text("UPDATE inv_stock_docs SET item_type_scope='raw' WHERE id=:id"), dict(id=out_doc["id"]))
+        await db.commit()
+    await request(env, "POST", f'/inventory/docs/{out_doc["id"]}/post', expected=422)
+    async with env.factory() as db:
+        await db.execute(text("UPDATE inv_stock_docs SET item_type_scope='finished' WHERE id=:id"), dict(id=out_doc["id"]))
+        await db.commit()
+
+    async with env.factory() as db:
+        await db.execute(text("UPDATE inv_items SET item_type='raw' WHERE id=:id"), dict(id=fin_line["item_id"]))
+        await db.commit()
+    await request(env, "POST", f'/inventory/docs/{out_doc["id"]}/post', expected=422)
+    async with env.factory() as db:
+        await db.execute(text("UPDATE inv_items SET item_type='finished' WHERE id=:id"), dict(id=fin_line["item_id"]))
+        await db.commit()
+    await request(env, "POST", f'/inventory/docs/{out_doc["id"]}/post')
+    await request(env, "POST", f'/inventory/docs/{raw_doc["id"]}/post')
+    await request(env, "PATCH", f'/inventory/docs/{out_doc["id"]}', dict(lines=[fin_line]), 400)
 
 
 async def setup_batch(env, code="MEAT"):
@@ -478,9 +572,9 @@ async def test_manual_lot_documents_split_lines_and_prevent_shortage(env):
         await db.execute(text("INSERT INTO inv_stock_balance(item_id,location_id,lot_id,quantity) VALUES (:i,:l,:lot,4)"), dict(i=item,l=loc,lot=lot2))
         await db.commit()
 
-    no_lot = {"doc_type":"OUT","lines":[{"item_id":item,"location_id":loc,"quantity":"1.000","unit":"KG"}]}
+    no_lot = {"doc_type":"OUT","item_type_scope":"intermediate","lines":[{"item_id":item,"location_id":loc,"quantity":"1.000","unit":"KG"}]}
     await request(env, "POST", "/inventory/docs", no_lot, 422)
-    out_doc = await request(env, "POST", "/inventory/docs", {"doc_type":"OUT","lines":[
+    out_doc = await request(env, "POST", "/inventory/docs", {"doc_type":"OUT","item_type_scope":"intermediate","lines":[
         {"item_id":item,"location_id":loc,"lot_id":lot1,"quantity":"6.000","unit":"KG"},
         {"item_id":item,"location_id":loc,"lot_id":lot2,"quantity":"4.000","unit":"KG"},
     ]}, 201)
@@ -490,7 +584,7 @@ async def test_manual_lot_documents_split_lines_and_prevent_shortage(env):
     ]}, 201)
     await request(env, "POST", f"/inventory/docs/{shortage['id']}/post", expected=400)
 
-    in_doc = await request(env, "POST", "/inventory/docs", {"doc_type":"IN","lines":[
+    in_doc = await request(env, "POST", "/inventory/docs", {"doc_type":"IN","item_type_scope":"raw","lines":[
         {"item_id":item,"location_id":loc,"new_lot_code":"ADJ-NEW","quantity":"1.250","unit":"KG"},
     ]}, 201)
     await request(env, "POST", f"/inventory/docs/{in_doc['id']}/post")
