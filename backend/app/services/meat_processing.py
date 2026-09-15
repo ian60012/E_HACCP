@@ -18,6 +18,23 @@ def value(v):
     return v.value if hasattr(v, "value") else v
 
 
+def is_meat_output_item(item):
+    return bool(item and item.is_active
+        and (value(item.item_type) in ("intermediate", "finished")
+             or item.meat_output_type in ("intermediate", "finished"))
+        and item.base_unit.strip().lower() in ("kg", "公斤"))
+
+
+async def validate_meat_product_link(db, item_id):
+    if item_id is None:
+        return
+    item = await db.scalar(select(InvItem).options(selectinload(InvItem.allowed_locations)).where(InvItem.id == item_id))
+    if not is_meat_output_item(item):
+        raise HTTPException(422, "預設產出須為以公斤管理的有效半成品、成品或雙用途原料 Default output must be an active kg output item")
+    if not any(loc.is_active for loc in item.allowed_locations):
+        raise HTTPException(422, "預設產出須設定有效允許庫位 Configure an active allowed location for the default output")
+
+
 async def batch_type(db, batch):
     if batch.process_type:
         return batch.process_type
@@ -116,8 +133,7 @@ async def validate_refs(db, data):
         input_refs.append((item, location, lot, supplier, source_batch, receiving_log_id))
     for row in data.outputs:
         item = await db.scalar(select(InvItem).options(selectinload(InvItem.allowed_locations)).where(InvItem.id == row.inv_item_id))
-        output_enabled = bool(item) and (value(item.item_type) in ("intermediate", "finished") or item.meat_output_type in ("intermediate", "finished"))
-        if not item or not item.is_active or not output_enabled or item.base_unit.strip().lower() not in ("kg", "公斤"):
+        if not is_meat_output_item(item):
             raise HTTPException(422, "產出須為以公斤管理的有效半成品或成品 Output must use kg")
         loc = await db.get(InvLocation, row.location_id)
         if not loc or not loc.is_active or loc.id not in {x.id for x in item.allowed_locations}:

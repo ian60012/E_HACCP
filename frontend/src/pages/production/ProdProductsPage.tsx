@@ -12,10 +12,11 @@ import EmptyState from '@/components/EmptyState';
 import Pagination from '@/components/Pagination';
 import Bi, { bi } from '@/components/Bi';
 import RoleGate from '@/components/RoleGate';
+import { isMeatOutputItem } from '@/utils/meatProcessing';
 
 export default function ProdProductsPage() {
   const [products, setProducts] = useState<ProdProduct[]>([]);
-  const [invItems, setInvItems] = useState<InvItem[]>([]); // finished only — for product-level inv_item_id
+  const [invItems, setInvItems] = useState<InvItem[]>([]);
   const [packConfigInvItems, setPackConfigInvItems] = useState<InvItem[]>([]); // finished + intermediate — for pack-config
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -80,14 +81,29 @@ export default function ProdProductsPage() {
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
   useEffect(() => {
-    // Product-level inv_item_id: finished only
-    invItemsApi.list({ item_type: 'finished', is_active: true, limit: 500 }).then(r => setInvItems(r.items));
-    // Pack-config: finished + intermediate (散裝 pack types can link to intermediate items)
-    Promise.all([
-      invItemsApi.list({ item_type: 'finished', is_active: true, limit: 500 }),
-      invItemsApi.list({ item_type: 'intermediate', is_active: true, limit: 500 }),
-    ]).then(([fin, inter]) => setPackConfigInvItems([...fin.items, ...inter.items]));
+    async function loadItems() {
+      const all: InvItem[] = [];
+      for (const is_active of [true, false]) {
+        let skip = 0;
+        while (true) {
+          const result = await invItemsApi.list({ skip, limit: 1000, is_active });
+          all.push(...result.items); skip += result.items.length;
+          if (skip >= result.total || !result.items.length) break;
+        }
+      }
+      setInvItems(all);
+      setPackConfigInvItems(all.filter(i => i.is_active && ['finished', 'intermediate'].includes(i.item_type)));
+    }
+    loadItems().catch(() => setError(bi('error.loadFailed')));
   }, []);
+
+  const linkOptions = invItems.filter(i => formProductType === 'meat_processing'
+    ? isMeatOutputItem(i) && i.allowed_location_ids.length > 0
+    : i.is_active && i.item_type === 'finished');
+  const inventoryLabel = (id: number) => {
+    const item = invItems.find(i => i.id === id);
+    return item ? `${item.code} · ${item.name}` : `#${id}`;
+  };
 
   const resetForm = () => {
     setShowForm(false);
@@ -338,7 +354,14 @@ export default function ProdProductsPage() {
               <label className="label text-xs">產品類型 Product Type</label>
               <select
                 value={formProductType}
-                onChange={(e) => setFormProductType(e.target.value as ProdProductType)}
+                onChange={(e) => {
+                  const next = e.target.value as ProdProductType;
+                  setFormProductType(next);
+                  const linked = invItems.find(i => i.id === formInvItemId);
+                  if (next === 'forming' || !linked || !(next === 'meat_processing'
+                    ? isMeatOutputItem(linked) && linked.allowed_location_ids.length > 0
+                    : linked.is_active && linked.item_type === 'finished')) setFormInvItemId('');
+                }}
                 className="input"
               >
                 <option value="forming">成型 Forming</option>
@@ -386,14 +409,15 @@ export default function ProdProductsPage() {
                 placeholder="—"
               />
             </div>
-            {/* Show single inv_item link only for hot_process — forming uses pack-config instead */}
-            {formProductType === 'hot_process' && (
+            {formProductType !== 'forming' && (
               <div>
-                <label className="label text-xs">庫存品項 Inv Item</label>
-                <select value={formInvItemId} onChange={(e) => setFormInvItemId(Number(e.target.value) || '')} className="input">
+                <label htmlFor="product-inv-item" className="label text-xs">{formProductType === 'meat_processing' ? '預設產出庫存品項 Default output item' : '庫存品項 Inv Item'}</label>
+                <select id="product-inv-item" value={formInvItemId} onChange={(e) => setFormInvItemId(Number(e.target.value) || '')} className="input">
                   <option value="">— 未連結 —</option>
-                  {invItems.map(i => <option key={i.id} value={i.id}>{i.code} {i.name}</option>)}
+                  {linkOptions.map(i => <option key={i.id} value={i.id}>{i.code} {i.name}</option>)}
+                  {formInvItemId && !linkOptions.some(i => i.id === formInvItemId) && <option value={formInvItemId} disabled>{invItems.find(i => i.id === formInvItemId)?.code ?? `#${formInvItemId}`}（不可用 Unavailable）</option>}
                 </select>
+                {formProductType === 'meat_processing' && <p className="mt-1 text-xs text-gray-600">選擇公斤管理且已設定庫位的半成品、成品或雙用途原料。批次仍可新增其他產出。 Choose a kg output item with allowed locations; batches can have additional outputs.</p>}
               </div>
             )}
           </div>
@@ -539,9 +563,9 @@ export default function ProdProductsPage() {
                         product.inv_item_id
                           ? <span className="flex items-center gap-1 text-gray-500">
                               <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
-                              {invItems.find(i => i.id === product.inv_item_id)?.code ?? `#${product.inv_item_id}`}
+                              {inventoryLabel(product.inv_item_id)}
                             </span>
-                          : <span className="text-gray-300">—</span>
+                          : <span className="text-gray-500">{product.product_type === 'meat_processing' ? '未設定預設產出' : '—'}</span>
                       )}
                     </td>
                     <td className="py-2 pr-4">

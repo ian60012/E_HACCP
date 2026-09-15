@@ -277,6 +277,51 @@ async def setup_batch(env, code="MEAT"):
     return SimpleNamespace(id=batch["id"], product=product, data=data, loc1=loc1, loc2=loc2, raw=raw, raw_lot=raw_lot, marinade=marinade, out=out, byproduct=byproduct, bad=bad)
 
 
+@pytest.mark.asyncio
+async def test_meat_product_default_links_and_saved_outputs(env):
+    b = await setup_batch(env)
+    path = f'/production/products/{b.product["id"]}'
+    linked = await request(env, "PATCH", path, dict(inv_item_id=b.out))
+    assert linked["inv_item_id"] == b.out
+    await request(env, "PUT", f'/production/batches/{b.id}/meat', b.data)
+    linked = await request(env, "PATCH", path, dict(inv_item_id=b.byproduct))
+    assert linked["inv_item_id"] == b.byproduct
+    saved = await request(env, "GET", f'/production/batches/{b.id}/meat')
+    assert [row["inv_item_id"] for row in saved["outputs"]] == [b.out, b.out, b.out, b.byproduct]
+    dual = await request(env, "POST", f'/inventory/items/{b.raw}/enable-meat-product', dict(output_type="finished"))
+    product = await request(env, "GET", f'/production/products/{dual["meat_product_id"]}')
+    assert product["inv_item_id"] == b.raw
+    linked = await request(env, "PATCH", path, dict(inv_item_id=b.raw))
+    assert linked["inv_item_id"] == b.raw
+    created = await request(env, "POST", '/production/products', dict(code="LINKED-MEAT", name="Linked", product_type="meat_processing", inv_item_id=b.raw), 201)
+    assert created["inv_item_id"] == b.raw
+    unlinked = await request(env, "PATCH", path, dict(inv_item_id=None))
+    assert unlinked["inv_item_id"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", ["unit", "raw", "inactive", "location", "missing"])
+async def test_invalid_meat_product_link_rejected_atomically(env, case):
+    b = await setup_batch(env)
+    item_id = b.out
+    if case == "unit": item_id = b.bad
+    if case == "raw": item_id = b.marinade
+    if case == "missing": item_id = 999999999
+    async with env.factory() as db:
+        if case == "inactive":
+            await db.execute(text("UPDATE inv_items SET is_active=false WHERE id=:i"), dict(i=item_id))
+        if case == "location":
+            await db.execute(text("DELETE FROM inv_item_allowed_locations WHERE item_id=:i"), dict(i=item_id))
+        await db.commit()
+    path = f'/production/products/{b.product["id"]}'
+    await request(env, "PATCH", path, dict(name="Must roll back", inv_item_id=item_id), 422)
+    unchanged = await request(env, "GET", path)
+    assert unchanged["name"] == "Meat prep" and unchanged["inv_item_id"] is None
+    await request(env, "POST", '/production/products', dict(code="INVALID-LINK", name="Invalid", product_type="meat_processing", inv_item_id=item_id), 422)
+    matches = await request(env, "GET", '/production/products?search=INVALID-LINK')
+    assert matches["total"] == 0
+
+
 async def verified(env, b):
     base = f"/production/batches/{b.id}/meat"
     env.role["role"] = "Production"

@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { meatApi, meatError } from '@/api/meatProcessing';
-import { prodBatchesApi, packTypesApi } from '@/api/production';
+import { prodBatchesApi, prodProductsApi, packTypesApi } from '@/api/production';
 import { invItemsApi, invLocationsApi, invLotsApi } from '@/api/inventory';
 import { MeatRecord, MeatSave, meatStates, meatSteps } from '@/types/meatProcessing';
 import { ProdBatch, PackTypeConfig } from '@/types/production';
@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import SignaturePad from '@/components/SignaturePad';
 import MeatLabelDialog from './MeatLabelDialog';
 import { toMelbourneInput, melbourneToUTC, formatMelbourne } from '@/utils/timezone';
+import { isMeatOutputItem } from '@/utils/meatProcessing';
 
 const empty: MeatSave = { version: 0, inputs: [], steps: [], outputs: [], losses: [], difference_reason: '' };
 const toDraft = (r: MeatRecord | null): MeatSave => r ? {
@@ -35,6 +36,7 @@ export default function MeatBatchDetailPage() {
   const [draft, setDraft] = useState<MeatSave>(empty); const [history, setHistory] = useState<MeatRecord[]>([]);
   const [items, setItems] = useState<InvItem[]>([]); const [locations, setLocations] = useState<InvLocation[]>([]);
   const [packs, setPacks] = useState<PackTypeConfig[]>([]);
+  const [defaultOutputId, setDefaultOutputId] = useState<number | null>(null);
   const [lotOptions, setLotOptions] = useState<Record<string, InvLot[] | null>>({});
   const [signature, setSignature] = useState(''); const [verifySignature, setVerifySignature] = useState('');
   const [voidReason, setVoidReason] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
@@ -51,11 +53,14 @@ export default function MeatBatchDetailPage() {
   async function reload() {
     const [b, r, h] = await Promise.all([prodBatchesApi.get(batchId), meatApi.get(batchId), meatApi.history(batchId)]);
     setBatch(b); setRecord(r); setView(r); setDraft(toDraft(r)); setHistory(h); setDirty(false);
+    return b;
   }
   useEffect(() => {
     setLoading(true);
     async function load() {
-      await reload();
+      const b = await reload();
+      const products = await prodProductsApi.list({ search: b.product_code, product_type: 'meat_processing', limit: 1000, show_inactive: true });
+      setDefaultOutputId(products.items.find(p => p.code === b.product_code)?.inv_item_id ?? null);
       // Load all pages rather than silently hiding inventory beyond the first page.
       const all: InvItem[] = []; let skip = 0;
       while (true) { const r = await invItemsApi.list({ skip, limit: 1000 }); all.push(...r.items); skip += r.items.length; if (skip >= r.total || !r.items.length) break; }
@@ -92,7 +97,7 @@ export default function MeatBatchDetailPage() {
   }
   function itemOptions(current: number, output = false) {
     return items.filter(i => i.id === current || (i.is_active && (output
-      ? (['intermediate', 'finished'].includes(i.item_type) || !!i.meat_output_type) && ['kg', '公斤'].includes(i.base_unit.trim().toLowerCase())
+      ? isMeatOutputItem(i)
       : ['raw', 'intermediate'].includes(i.item_type)))).map(i => <option key={i.id} value={i.id}>{i.code} — {i.name}</option>);
   }
   const sum = (rows: { weight_kg: string }[]) => rows.reduce((a, r) => a + Math.round((Number(r.weight_kg) || 0) * 1000), 0);
@@ -178,7 +183,10 @@ export default function MeatBatchDetailPage() {
             <TextField label="包數（選填）Pack count" type="number" min="1" step="1" value={r.pack_count} onChange={v => patch({ pack_count: v ? Number(v) : null })} />
             <Field label="包裝方式（選填）Pack type"><select className="input" value={r.pack_type || ''} onChange={e => patch({ pack_type: e.target.value || null })}><option value="">未指定 None</option>{packs.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}{r.pack_type && !packs.some(p => p.code === r.pack_type) && <option value={r.pack_type}>{r.pack_type}</option>}</select></Field>
           </div><button type="button" className="text-red-700" onClick={() => change({ ...draft, outputs: draft.outputs.filter((_, n) => n !== i) })}>移除此列 Remove output {i + 1}</button></div>; })}
-          <button type="button" className="btn btn-secondary" onClick={() => change({ ...draft, outputs: [...draft.outputs, { inv_item_id: 0, weight_kg: '', location_id: 0, pack_count: null, pack_type: null }] })}>＋ 產出 Add output</button>
+          <button type="button" className="btn btn-secondary" onClick={() => {
+            const item = !draft.outputs.length ? items.find(i => i.id === defaultOutputId && isMeatOutputItem(i) && i.allowed_location_ids.length > 0) : undefined;
+            change({ ...draft, outputs: [...draft.outputs, { inv_item_id: item?.id ?? 0, weight_kg: '', location_id: 0, pack_count: null, pack_type: null }] });
+          }}>＋ 產出 Add output</button>
         </section>
         <section className="card space-y-4"><h2 className="text-lg font-semibold">4. 損耗 Losses</h2>
           {draft.losses.map((r, i) => { const patch = (v: Partial<typeof r>) => change({ ...draft, losses: draft.losses.map((x, n) => n === i ? { ...x, ...v } : x) }); return <div key={i} className="border rounded-lg p-3 space-y-3"><div className={grid}>

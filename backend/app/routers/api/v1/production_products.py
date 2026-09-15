@@ -22,6 +22,7 @@ from app.schemas.production import (
 )
 from app.schemas.common import PaginatedResponse
 from app.dependencies.auth import get_current_active_user, require_role
+from app.services.meat_processing import validate_meat_product_link, value
 
 router = APIRouter(prefix="/production/products", tags=["Production Products"])
 
@@ -123,6 +124,8 @@ async def create_product(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Product code '{data.code}' already exists",
         )
+    if data.product_type == "meat_processing":
+        await validate_meat_product_link(db, data.inv_item_id)
     product = ProdProduct(**data.model_dump())
     db.add(product)
     await db.flush()
@@ -325,8 +328,13 @@ async def update_product(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
         )
-    for field, value in data.model_dump(exclude_unset=True).items():
-        setattr(product, field, value)
+    changes = data.model_dump(exclude_unset=True)
+    if changes.get("product_type", value(product.product_type)) == "meat_processing" and (
+        "inv_item_id" in changes or "product_type" in changes
+    ):
+        await validate_meat_product_link(db, changes.get("inv_item_id", product.inv_item_id))
+    for field, field_value in changes.items():
+        setattr(product, field, field_value)
     await db.flush()
     await db.commit()
     await db.refresh(product)
