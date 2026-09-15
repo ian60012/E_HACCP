@@ -32,6 +32,7 @@ export default function ReceivingLogFormPage() {
   // Form state
   const [supplierId, setSupplierId] = useState<number>(prefilledSupplierId);
   const [poNumber, setPoNumber] = useState('');
+  const [supplierBatchNo, setSupplierBatchNo] = useState('');
   const [productName, setProductName] = useState(prefilledInvItemName);
   const [quantity, setQuantity] = useState('');
   const [quantityUnit, setQuantityUnit] = useState<string>(QUANTITY_UNITS[0]);
@@ -69,6 +70,7 @@ export default function ReceivingLogFormPage() {
   const populateForm = (log: ReceivingLog) => {
     setSupplierId(log.supplier_id);
     setPoNumber(log.po_number || '');
+    setSupplierBatchNo(log.supplier_batch_no || '');
     setProductName(log.product_name || '');
     setQuantity(log.quantity || '');
     setQuantityUnit(log.quantity_unit || QUANTITY_UNITS[0]);
@@ -112,6 +114,7 @@ export default function ReceivingLogFormPage() {
           acceptance_status: acceptanceStatus,
           corrective_action: correctiveAction || undefined,
           notes: notes || undefined,
+          supplier_batch_no: supplierBatchNo || undefined,
         };
         await receivingLogsApi.update(Number(id), updateData);
         navigate(`/receiving-logs/${id}`);
@@ -130,6 +133,7 @@ export default function ReceivingLogFormPage() {
           corrective_action: correctiveAction || undefined,
           notes: notes || undefined,
           inv_item_id: prefilledInvItemId,
+          supplier_batch_no: supplierBatchNo || undefined,
         };
         const created = await receivingLogsApi.create(createData);
         navigate(`/receiving-logs/${created.id}`);
@@ -197,6 +201,17 @@ export default function ReceivingLogFormPage() {
               className="input"
               placeholder="PO-2024-001"
               disabled={isEdit}
+            />
+          </FormField>
+
+          <FormField label="供應商批號 Supplier lot">
+            <input
+              type="text"
+              value={supplierBatchNo}
+              onChange={(e) => setSupplierBatchNo(e.target.value)}
+              className="input"
+              maxLength={100}
+              placeholder="未填時，批號管理品項會使用 RCV-收貨記錄號"
             />
           </FormField>
 

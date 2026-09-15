@@ -38,6 +38,10 @@ class MeatInput(Base):
     source_batch = Column(String(100), nullable=False)
     receiving_log_id = Column(Integer, ForeignKey("receiving_logs.id"))
     weight_kg = Column(Numeric(12, 3), nullable=False)
+    source_location_id = Column(Integer, ForeignKey("inv_locations.id", ondelete="RESTRICT"), nullable=True)
+    source_lot_id = Column(Integer, ForeignKey("inv_lots.id", ondelete="RESTRICT"), nullable=True)
+    source_location_name = Column(String(200), nullable=True)
+    source_lot_code = Column(String(100), nullable=True)
 
 
 class MeatStep(Base):

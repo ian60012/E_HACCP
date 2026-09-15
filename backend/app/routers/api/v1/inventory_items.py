@@ -6,16 +6,18 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_, update
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.enums import ItemType
-from app.models.inventory import InvItem, InvLocation
+from app.models.inventory import InvItem, InvLocation, InvLot, InvStockBalance
+from app.models.production import ProdProduct
 from app.models.user import User
 from app.schemas.inventory import (
     InvItemCreate, InvItemUpdate, InvItemResponse,
     InvAllowedLocationsUpdate, InvItemBulkUpdate,
+    EnableMeatProductRequest,
 )
 from app.schemas.common import PaginatedResponse
 from app.dependencies.auth import get_current_active_user, require_role
@@ -45,6 +47,7 @@ def _parse_item_type(value: str) -> Optional[ItemType]:
 
 
 def _to_response(item: InvItem) -> InvItemResponse:
+    meat_product = next((p for p in item.production_products if (p.product_type.value if hasattr(p.product_type, "value") else p.product_type) == "meat_processing"), None)
     return InvItemResponse(
         id=item.id,
         code=item.code,
@@ -57,6 +60,9 @@ def _to_response(item: InvItem) -> InvItemResponse:
         supplier_id=item.supplier_id,
         supplier_name=item.supplier.name if item.supplier else None,
         is_active=item.is_active,
+        lot_tracking_enabled=item.lot_tracking_enabled,
+        meat_output_type=item.meat_output_type,
+        meat_product_id=meat_product.id if meat_product else None,
         created_at=item.created_at,
         allowed_location_ids=[loc.id for loc in item.allowed_locations],
     )
@@ -66,6 +72,7 @@ def _base_item_query():
     return select(InvItem).options(
         selectinload(InvItem.supplier),
         selectinload(InvItem.allowed_locations),
+        selectinload(InvItem.production_products),
     )
 
 
@@ -114,7 +121,10 @@ async def list_items(
             InvItem.name.ilike(f"%{search}%") | InvItem.code.ilike(f"%{search}%")
         )
     if item_type is not None:
-        q = q.where(InvItem.item_type == item_type)
+        if item_type.value in ("intermediate", "finished"):
+            q = q.where(or_(InvItem.item_type == item_type, InvItem.meat_output_type == item_type.value))
+        else:
+            q = q.where(InvItem.item_type == item_type)
     if category:
         q = q.where(InvItem.category == category)
 
@@ -329,6 +339,65 @@ async def import_items(
     return {"created": created, "skipped": skipped, "errors": errors}
 
 
+@router.post("/{item_id}/enable-meat-product", response_model=InvItemResponse)
+async def enable_meat_product(
+    item_id: int,
+    data: EnableMeatProductRequest,
+    current_user: User = Depends(require_role("Admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Enable lot tracking and create/link the same-SKU meat production product."""
+    result = await db.execute(_base_item_query().where(InvItem.id == item_id).with_for_update())
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if not item.is_active:
+        raise HTTPException(status_code=422, detail="停用品項不可啟用肉品加工 Inactive item cannot be enabled")
+    if item.base_unit.strip().lower() not in ("kg", "公斤"):
+        raise HTTPException(status_code=422, detail="肉品加工產品基本單位必須為 KG Base unit must be KG")
+    if not item.allowed_locations:
+        raise HTTPException(status_code=422, detail="請先設定至少一個允許儲位 Configure an allowed location first")
+
+    product = await db.scalar(select(ProdProduct).where(ProdProduct.code == item.code).with_for_update())
+    if product:
+        product_type = product.product_type.value if hasattr(product.product_type, "value") else product.product_type
+        if product_type != "meat_processing" or product.inv_item_id not in (None, item.id):
+            raise HTTPException(status_code=409, detail=f"生產產品代碼 '{item.code}' 已被其他產品使用 Product code conflict")
+        product.inv_item_id = item.id
+        product.name = item.name
+        product.is_active = True
+    else:
+        product = ProdProduct(code=item.code, name=item.name, product_type="meat_processing", inv_item_id=item.id)
+        db.add(product)
+
+    legacy_lot = await db.scalar(select(InvLot).where(InvLot.item_id == item.id, InvLot.origin_type == "legacy"))
+    if not legacy_lot:
+        date_code = await db.scalar(
+            select(func.to_char(func.timezone("Australia/Melbourne", func.now()), "YYYYMMDD"))
+        )
+        legacy_lot = InvLot(
+            item_id=item.id,
+            lot_code=f"LEGACY-{item.code}-{date_code}"[:100],
+            origin_type="legacy",
+            is_system_generated=True,
+        )
+        db.add(legacy_lot)
+        await db.flush()
+
+    await db.execute(
+        update(InvStockBalance)
+        .where(InvStockBalance.item_id == item.id, InvStockBalance.lot_id.is_(None))
+        .values(lot_id=legacy_lot.id)
+    )
+    item.lot_tracking_enabled = True
+    item.meat_output_type = data.output_type
+    await db.commit()
+    refreshed = await db.execute(
+        _base_item_query().where(InvItem.id == item.id).execution_options(populate_existing=True)
+    )
+    return _to_response(refreshed.scalar_one())
+
+
 @router.get("/{item_id}", response_model=InvItemResponse)
 async def get_item(
     item_id: int,
@@ -355,6 +424,8 @@ async def update_item(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
 
     dump = data.model_dump(exclude_unset=True, exclude={"allowed_location_ids"})
+    if item.lot_tracking_enabled and data.base_unit is not None and data.base_unit.strip().lower() not in ("kg", "公斤"):
+        raise HTTPException(status_code=422, detail="批號肉品加工品項的基本單位必須維持 KG Base unit must remain KG")
     for field, value in dump.items():
         setattr(item, field, value)
 
@@ -378,6 +449,8 @@ async def bulk_update_items(
     items = result.scalars().all()
 
     for item in items:
+        if item.lot_tracking_enabled and data.base_unit is not None and data.base_unit.strip().lower() not in ("kg", "公斤"):
+            raise HTTPException(status_code=422, detail=f"批號肉品加工品項 '{item.code}' 的基本單位必須維持 KG")
         if data.item_type is not None:
             item.item_type = data.item_type
         if data.category is not None:

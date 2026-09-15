@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -51,6 +51,9 @@ class InvItemResponse(BaseModel):
     supplier_id: Optional[int] = None
     supplier_name: Optional[str] = None
     is_active: bool
+    lot_tracking_enabled: bool = False
+    meat_output_type: Optional[Literal["intermediate", "finished"]] = None
+    meat_product_id: Optional[int] = None
     created_at: datetime
     allowed_location_ids: List[int] = []
 
@@ -66,6 +69,10 @@ class InvItemBulkUpdate(BaseModel):
     base_unit: Optional[str] = Field(None, max_length=20)
     usage_unit: Optional[str] = Field(None, max_length=20)
     is_active: Optional[bool] = None
+
+
+class EnableMeatProductRequest(BaseModel):
+    output_type: Literal["intermediate", "finished"]
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +112,8 @@ class InvStockLineCreate(BaseModel):
     unit: str = Field(..., max_length=20)
     unit_cost: Optional[Decimal] = Field(None, ge=0)
     notes: Optional[str] = None
+    lot_id: Optional[int] = Field(None, gt=0)
+    new_lot_code: Optional[str] = Field(None, min_length=1, max_length=100)
 
 
 class InvStockLineResponse(BaseModel):
@@ -121,6 +130,9 @@ class InvStockLineResponse(BaseModel):
     unit: str
     unit_cost: Optional[Decimal] = None
     notes: Optional[str] = None
+    lot_id: Optional[int] = None
+    lot_code: Optional[str] = None
+    lot_origin_type: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +182,14 @@ class InvStockDocResponse(BaseModel):
 # Balance (庫存)
 # ---------------------------------------------------------------------------
 
+class InvLotBalance(BaseModel):
+    lot_id: int
+    lot_code: str
+    origin_type: str
+    is_system_generated: bool
+    quantity: Decimal
+
+
 class InvStockBalanceResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -182,6 +202,26 @@ class InvStockBalanceResponse(BaseModel):
     location_code: Optional[str] = None
     location_name: Optional[str] = None
     quantity: Decimal
+    lot_tracking_enabled: bool = False
+    lots: List[InvLotBalance] = Field(default_factory=list)
+
+
+class InvLotResponse(BaseModel):
+    id: int
+    item_id: int
+    item_code: Optional[str] = None
+    item_name: Optional[str] = None
+    lot_code: str
+    origin_type: str
+    is_system_generated: bool
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
+    receiving_log_id: Optional[int] = None
+    prod_batch_id: Optional[int] = None
+    location_id: Optional[int] = None
+    location_name: Optional[str] = None
+    quantity: Decimal = Decimal("0")
+    created_at: datetime
 
 
 # ---------------------------------------------------------------------------
@@ -200,6 +240,8 @@ class InvStockMovementResponse(BaseModel):
     delta: Decimal
     balance_after: Decimal
     created_at: datetime
+    lot_id: Optional[int] = None
+    lot_code: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +279,15 @@ class InvStocktakeLineResponse(BaseModel):
     system_qty: Decimal
     physical_qty: Optional[Decimal] = None
     variance: Optional[Decimal] = None
+    notes: Optional[str] = None
+    lot_id: Optional[int] = None
+    lot_code: Optional[str] = None
+
+
+class InvStocktakeDiscoveredLotCreate(BaseModel):
+    item_id: int = Field(gt=0)
+    lot_code: str = Field(min_length=1, max_length=100)
+    physical_qty: Decimal = Field(gt=0)
     notes: Optional[str] = None
 
 

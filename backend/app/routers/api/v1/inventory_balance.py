@@ -1,18 +1,18 @@
 """Inventory balance and movements router (庫存查詢)."""
 
+from collections import defaultdict
 from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, outerjoin
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.inventory import InvStockBalance, InvStockMovement, InvItem, InvLocation
 from app.models.user import User
-from sqlalchemy.orm import selectinload
-from app.schemas.inventory import InvStockBalanceResponse, InvStockMovementResponse
+from app.schemas.inventory import InvStockBalanceResponse, InvStockMovementResponse, InvLotBalance
 from app.schemas.common import PaginatedResponse
 from app.dependencies.auth import get_current_active_user
 
@@ -31,23 +31,20 @@ async def list_balance(
     q = select(InvStockBalance).options(
         selectinload(InvStockBalance.item),
         selectinload(InvStockBalance.location),
+        selectinload(InvStockBalance.lot),
     )
     if item_id:
         q = q.where(InvStockBalance.item_id == item_id)
     if location_id:
         q = q.where(InvStockBalance.location_id == location_id)
 
-    total_result = await db.execute(select(func.count()).select_from(q.subquery()))
-    total = total_result.scalar()
-
-    rows_result = await db.execute(
-        q.order_by(InvStockBalance.item_id, InvStockBalance.location_id)
-        .offset(skip).limit(limit)
-    )
+    rows_result = await db.execute(q.order_by(InvStockBalance.item_id, InvStockBalance.location_id, InvStockBalance.lot_id))
     rows = rows_result.scalars().all()
-
-    items = [
-        InvStockBalanceResponse(
+    grouped = {}
+    for r in rows:
+        key = (r.item_id, r.location_id)
+        if key not in grouped:
+            grouped[key] = InvStockBalanceResponse(
             item_id=r.item_id,
             item_code=r.item.code if r.item else None,
             item_name=r.item.name if r.item else None,
@@ -56,12 +53,18 @@ async def list_balance(
             location_id=r.location_id,
             location_code=r.location.code if r.location else None,
             location_name=r.location.name if r.location else None,
-            quantity=r.quantity,
+            quantity=Decimal("0"),
+            lot_tracking_enabled=bool(r.item and r.item.lot_tracking_enabled),
+            lots=[],
         )
-        for r in rows
-    ]
-
-    return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
+        grouped[key].quantity += r.quantity
+        if r.lot:
+            grouped[key].lots.append(InvLotBalance(
+                lot_id=r.lot.id, lot_code=r.lot.lot_code, origin_type=r.lot.origin_type,
+                is_system_generated=r.lot.is_system_generated, quantity=r.quantity,
+            ))
+    all_items = list(grouped.values())
+    return PaginatedResponse(items=all_items[skip:skip + limit], total=len(all_items), skip=skip, limit=limit)
 
 
 @router.get("/by-location", response_model=PaginatedResponse[InvStockBalanceResponse])
@@ -85,14 +88,13 @@ async def list_balance_by_location(
     all_items = items_result.scalars().all()
 
     # Fetch all existing balance rows in one query
-    bal_q = select(InvStockBalance)
+    bal_q = select(InvStockBalance).options(selectinload(InvStockBalance.lot))
     if location_id:
         bal_q = bal_q.where(InvStockBalance.location_id == location_id)
     bal_result = await db.execute(bal_q)
-    bal_map: dict[tuple[int, int], Decimal] = {
-        (r.item_id, r.location_id): r.quantity
-        for r in bal_result.scalars().all()
-    }
+    bal_map = defaultdict(list)
+    for balance in bal_result.scalars().all():
+        bal_map[(balance.item_id, balance.location_id)].append(balance)
 
     rows = []
     for item in all_items:
@@ -102,7 +104,8 @@ async def list_balance_by_location(
         if location_id:
             allowed = [loc for loc in allowed if loc.id == location_id]
         for loc in sorted(allowed, key=lambda l: l.code):
-            qty = bal_map.get((item.id, loc.id), Decimal("0"))
+            balances = bal_map.get((item.id, loc.id), [])
+            qty = sum((b.quantity for b in balances), Decimal("0"))
             rows.append(InvStockBalanceResponse(
                 item_id=item.id,
                 item_code=item.code,
@@ -113,6 +116,11 @@ async def list_balance_by_location(
                 location_code=loc.code,
                 location_name=loc.name,
                 quantity=qty,
+                lot_tracking_enabled=item.lot_tracking_enabled,
+                lots=[InvLotBalance(
+                    lot_id=b.lot.id, lot_code=b.lot.lot_code, origin_type=b.lot.origin_type,
+                    is_system_generated=b.lot.is_system_generated, quantity=b.quantity,
+                ) for b in balances if b.lot],
             ))
 
     return PaginatedResponse(items=rows, total=len(rows), skip=0, limit=len(rows))
@@ -131,6 +139,7 @@ async def list_movements(
     q = select(InvStockMovement).options(
         selectinload(InvStockMovement.item),
         selectinload(InvStockMovement.location),
+        selectinload(InvStockMovement.lot),
     )
     if item_id:
         q = q.where(InvStockMovement.item_id == item_id)
@@ -158,6 +167,8 @@ async def list_movements(
             delta=r.delta,
             balance_after=r.balance_after,
             created_at=r.created_at,
+            lot_id=r.lot_id,
+            lot_code=r.lot.lot_code if r.lot else None,
         )
         for r in rows
     ]

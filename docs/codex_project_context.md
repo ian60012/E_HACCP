@@ -68,7 +68,7 @@ Core routers:
 - Auth/users/admin: `auth.py`, `users.py`, `admin.py`.
 - Reference data: `suppliers.py`, `equipment.py`, `areas.py`.
 - HACCP logs: `receiving_logs.py`, `cooking_logs.py`, `cooling_logs.py`, `sanitising_logs.py`, `deviation_logs.py`, `ppe_compliance_logs.py`, `mixing_logs.py`, `assembly_packing_logs.py`.
-- Inventory: `inventory_items.py`, `inventory_locations.py`, `inventory_docs.py`, `inventory_balance.py`, `inventory_stocktake.py`.
+- Inventory: `inventory_items.py`, `inventory_locations.py`, `inventory_docs.py`, `inventory_balance.py`, `inventory_lots.py`, `inventory_stocktake.py`.
 - Production: `production_products.py`, `production_pack_types.py`, `production_batches.py`, `production_repack.py`, `batch_sheets.py`.
 - Production Helper: `production_helper.py`.
 - LabelMaker: `labelmaker.py`.
@@ -108,7 +108,7 @@ Base schema includes:
 - CAPA/deviation: `deviation_logs`.
 - Audit: `audit_log`.
 - Production: `prod_products`, `prod_pack_types`, `prod_product_pack_config`, `prod_batches`, `prod_forming_trolleys`, `prod_packing_records`, `prod_packing_trim`, `prod_repack_*`, `prod_hot_inputs`, `prod_daily_batch_sheets`, `prod_batch_sheet_lines`.
-- Inventory: `inv_items`, `inv_locations`, `inv_stock_docs`, `inv_stock_lines`, `inv_item_allowed_locations`, `inv_stock_balance`, `inv_stock_movements`, `inv_stocktakes`, `inv_stocktake_lines`.
+- Inventory: `inv_items`, `inv_locations`, `inv_lots`, `inv_stock_docs`, `inv_stock_lines`, `inv_item_allowed_locations`, `inv_stock_balance`, `inv_stock_movements`, `inv_stocktakes`, `inv_stocktake_lines`.
 - LabelMaker: `label_templates`.
 
 Important compliance behavior:
@@ -203,19 +203,27 @@ Key frontend files:
 - Workflow: `draft -> submitted -> verified -> stocked`. Saving a submitted revision creates a new unsigned draft. Verification locks the aggregate; corrections after verification require voiding and recreation. Shared `prod_batches.status` stays `open` until stock entry sets `closed`.
 - API: `/api/v1/production/batches/{batch_id}/meat` supports GET and PUT; `/history` GET, `/complete` POST, `/verify` POST and `/enter-stock` POST. Writes include the currently loaded `version`; a stale revision returns 409. Batch list supports `product_type=meat_processing` and `meat_state` filtering with summaries.
 - Services: `backend/app/services/meat_processing.py` centralizes validation, decimal totals, signatures, revision checks, batch row locking, audit entries and kg stock posting. New detail rows are protected by append-only database triggers; verified batch metadata is protected too.
-- Inputs record item, supplier/internal source, source batch, optional matching receiving record, and measured kg. No automatic raw-material deduction. All added processing steps need start/end times before submission; optional temperature and measurement time must be supplied together. No automatic temperature compliance judgment.
-- Outputs must link active intermediate/finished inventory items with base unit `kg` (case-insensitive) or `公斤` and valid allowed locations. Multiple outputs are grouped by item/location into one posted stock document `IN-MEAT-{batch_id}` using measured weight, never bag count. Reusable by-products are outputs, not losses. Nonzero input-output-loss differences require an explanation before completion.
+- Inputs record item, source location, measured kg and either a selected source lot or supplier/source-batch details for an untracked item. Lot-tracked inputs derive supplier, source batch and receiving reference from the lot and retain snapshots on the revision. All added processing steps need start/end times before submission; optional temperature and measurement time must be supplied together. No automatic temperature compliance judgment.
+- Outputs may link active intermediate/finished items or raw items enabled as dual-use meat outputs. They must use `kg` (case-insensitive) or `公斤` and a valid allowed location. Stock entry atomically posts `OUT-MEAT-{batch_id}` for measured inputs and `IN-MEAT-{batch_id}` for measured outputs. Lot-tracked outputs use one production lot per batch and SKU across all locations. Reusable by-products are outputs, not losses. Nonzero input-output-loss differences require an explanation before completion.
 - Create/edit/complete: Admin or Production; verify: Admin or QA; stock: Admin, Production or Warehouse; void: Admin. Captain retains all permissions. Completion and QA signatures are separate from batch-creation signatures.
 - Legacy batch mutations (packing, trolley, hot inputs, generic updates/stock entry, batch-sheet writes) reject meat batches. Meat batches are excluded from the daily batch-sheet list. Inventory documents linked to meat batches must be voided through the batch flow so workflow and inventory stay consistent.
 - Shared inventory posting, voiding and stocktake confirmation acquire a transaction-scoped `SHARE ROW EXCLUSIVE` lock on `inv_stock_balance` before reading balances. This serializes stock writers, including legacy writers, to prevent lost increments; read-only balance queries remain available.
 - UI: meat processing is entered from the `/production` dashboard, then uses `/production/meat` and `/production/meat/:id` for responsive inputs, steps, outputs/losses, summaries, history and signing. Creation reuses `/production/batches/new?type=meat_processing`. Existing detail and packing URLs redirect meat batches to their dedicated page. Warehouse can enter the production dashboard but sees only the meat processing card and matching production navigation.
 - Packaging `both` continues to mean forming plus hot process only. Meat packaging must explicitly use `applicable_type=meat_processing`.
-- Migration source packaged with backend: `backend/app/core/meat_processing.sql`; identical SQL is in `database/migrations/20260915_meat_processing.sql` and appended to `database/init.sql`. Startup calls `migrate_meat` after older migrations, committing enum additions separately. Keep the three copies synchronized; tests enforce this.
+- Migration sources packaged with backend: `backend/app/core/meat_processing.sql` and `backend/app/core/inventory_lots.sql`; identical SQL is in the corresponding `database/migrations/20260915_*.sql` files and appended to `database/init.sql`. Startup calls `migrate_meat` and then `migrate_inventory_lots`. Keep each set of copies synchronized; tests enforce this.
 - Verification and rollout instructions: `docs/meat_processing_rollout.md`; PostgreSQL integration coverage: `backend/tests/test_meat_processing.py`.
 
 ### Inventory
 
-Inventory supports item master data, locations, stock documents, posted/voided stock movement, balances, receiving-log conversion to stock-in, allowed locations, and stocktake adjustment docs.
+Inventory supports item master data, locations, lot-aware stock documents, posted/voided stock movement, balances, receiving-log conversion to stock-in, allowed locations, and stocktake adjustment docs.
+
+- `inv_items.lot_tracking_enabled` opts a SKU into lot stock. `meat_output_type` lets a raw SKU also appear as a meat-produced intermediate or finished item while preserving its `raw` classification for receiving and Batch Sheets.
+- Admin/Captain can call `POST /api/v1/inventory/items/{item_id}/enable-meat-product`. It requires a KG item and an allowed location, creates or links the same-code `meat_processing` production product, and moves existing location balances to one generated `LEGACY-{SKU}-{date}` lot without changing quantities. A conflicting production product code aborts the transaction.
+- `inv_lots` records receiving, meat-processing, legacy and manual-adjustment sources. Balance rows use a surrogate key plus partial uniqueness for untracked item/location and tracked item/location/lot. Default balance responses remain aggregated by SKU/location and include optional lot expansion. `GET /api/v1/inventory/lots` filters availability by item, location and positive balance.
+- Receiving stores the supplier batch number. Conversion creates a receiving lot; a missing supplier batch becomes system lot `RCV-{receiving_log_id}`. The locked-record trigger permits only the one-time stock-document link needed after QA lock.
+- General lot-tracked OUT lines require an explicit existing lot. General IN lines may select an existing lot or create a manual-adjustment lot. Lot-aware quantities use KG with three decimal places. Movement `balance_after` is the balance of that exact lot.
+- Stocktakes snapshot each tracked lot separately and allow Warehouse to add a discovered lot. Adjustment documents retain the selected lot. Historical lines and movements with `lot_id = NULL` remain readable.
+- Meat batch void reverses output lots before restoring input lots. It refuses the void if a produced lot has been consumed and no longer has enough stock for reversal. Direct voiding of either linked meat stock document is blocked.
 
 Key backend files:
 
@@ -223,6 +231,7 @@ Key backend files:
 - `inventory_locations.py`
 - `inventory_docs.py`
 - `inventory_balance.py`
+- `inventory_lots.py`
 - `inventory_stocktake.py`
 - `inventory_service.py`
 - `backend/app/models/inventory.py`

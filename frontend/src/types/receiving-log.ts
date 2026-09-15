@@ -21,6 +21,7 @@ export interface ReceivingLog extends ALCOAFields {
   inv_item_id: number | null;
   inv_item_name: string | null;
   inv_stock_doc_id: number | null;
+  supplier_batch_no: string | null;
 }
 
 export interface ReceivingLogCreate {
@@ -37,10 +38,12 @@ export interface ReceivingLogCreate {
   corrective_action?: string;
   notes?: string;
   inv_item_id?: number; // Pre-link from 原料管理 page
+  supplier_batch_no?: string;
 }
 
 export interface ReceivingLogUpdate {
   acceptance_status?: 'Accept' | 'Reject' | 'Hold';
   corrective_action?: string;
   notes?: string;
+  supplier_batch_no?: string;
 }

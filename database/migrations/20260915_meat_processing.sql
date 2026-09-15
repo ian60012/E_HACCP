@@ -107,8 +107,8 @@ BEGIN
     END IF;
     IF OLD.process_type = 'meat_processing' AND (OLD.is_voided OR EXISTS (
         SELECT 1 FROM prod_meat_records WHERE batch_id = OLD.id AND state IN ('verified','stocked')
-    )) AND (to_jsonb(NEW) - ARRAY['status','inv_stock_doc_id','is_voided','void_reason','voided_at','voided_by'])
-         IS DISTINCT FROM (to_jsonb(OLD) - ARRAY['status','inv_stock_doc_id','is_voided','void_reason','voided_at','voided_by']) THEN
+    )) AND (to_jsonb(NEW) - ARRAY['status','inv_stock_doc_id','input_stock_doc_id','is_voided','void_reason','voided_at','voided_by'])
+         IS DISTINCT FROM (to_jsonb(OLD) - ARRAY['status','inv_stock_doc_id','input_stock_doc_id','is_voided','void_reason','voided_at','voided_by']) THEN
         RAISE EXCEPTION 'Verified meat batch is immutable';
     END IF;
     RETURN NEW;

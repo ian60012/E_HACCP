@@ -1,6 +1,6 @@
 """Inventory module models (出入庫管理)."""
 
-from sqlalchemy import Column, Integer, Numeric, Text, Date, ForeignKey, VARCHAR, Boolean
+from sqlalchemy import Column, Integer, BigInteger, Numeric, Text, Date, ForeignKey, VARCHAR, Boolean
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -29,6 +29,8 @@ class InvItem(Base):
     description = Column(Text, nullable=True)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
     is_active = Column(Boolean, nullable=False, server_default="true")
+    lot_tracking_enabled = Column(Boolean, nullable=False, server_default="false")
+    meat_output_type = Column(VARCHAR(20), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
 
     supplier = relationship("Supplier", lazy="raise", foreign_keys=[supplier_id])
@@ -38,6 +40,24 @@ class InvItem(Base):
         secondary="inv_item_allowed_locations",
         lazy="raise",
     )
+    production_products = relationship("ProdProduct", lazy="raise", foreign_keys="ProdProduct.inv_item_id")
+
+
+class InvLot(Base):
+    __tablename__ = "inv_lots"
+
+    id = Column(Integer, primary_key=True)
+    item_id = Column(Integer, ForeignKey("inv_items.id", ondelete="RESTRICT"), nullable=False, index=True)
+    lot_code = Column(VARCHAR(100), nullable=False)
+    origin_type = Column(VARCHAR(30), nullable=False)
+    is_system_generated = Column(Boolean, nullable=False, server_default="false")
+    supplier_id = Column(Integer, ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True)
+    receiving_log_id = Column(Integer, ForeignKey("receiving_logs.id", ondelete="RESTRICT"), nullable=True)
+    prod_batch_id = Column(Integer, ForeignKey("prod_batches.id", ondelete="RESTRICT"), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+    item = relationship("InvItem", lazy="raise", foreign_keys=[item_id])
+    supplier = relationship("Supplier", lazy="raise", foreign_keys=[supplier_id])
 
 
 class InvLocation(Base):
@@ -86,21 +106,26 @@ class InvStockLine(Base):
     unit = Column(VARCHAR(20), nullable=False)
     unit_cost = Column(Numeric(12, 2), nullable=True)
     notes = Column(Text, nullable=True)
+    lot_id = Column(Integer, ForeignKey("inv_lots.id", ondelete="RESTRICT"), nullable=True)
 
     doc = relationship("InvStockDoc", back_populates="lines", lazy="raise")
     item = relationship("InvItem", back_populates="lines", lazy="raise")
     location = relationship("InvLocation", lazy="raise", foreign_keys=[location_id])
+    lot = relationship("InvLot", lazy="raise", foreign_keys=[lot_id])
 
 
 class InvStockBalance(Base):
     __tablename__ = "inv_stock_balance"
 
-    item_id = Column(Integer, ForeignKey("inv_items.id"), primary_key=True)
-    location_id = Column(Integer, ForeignKey("inv_locations.id"), primary_key=True)
+    id = Column(BigInteger, primary_key=True)
+    item_id = Column(Integer, ForeignKey("inv_items.id"), nullable=False)
+    location_id = Column(Integer, ForeignKey("inv_locations.id"), nullable=False)
+    lot_id = Column(Integer, ForeignKey("inv_lots.id", ondelete="RESTRICT"), nullable=True)
     quantity = Column(Numeric(12, 3), nullable=False, server_default="0")
 
     item = relationship("InvItem", lazy="raise", foreign_keys=[item_id])
     location = relationship("InvLocation", lazy="raise", foreign_keys=[location_id])
+    lot = relationship("InvLot", lazy="raise", foreign_keys=[lot_id])
 
 
 class InvStockMovement(Base):
@@ -112,10 +137,12 @@ class InvStockMovement(Base):
     location_id = Column(Integer, ForeignKey("inv_locations.id"), nullable=False)
     delta = Column(Numeric(12, 3), nullable=False)
     balance_after = Column(Numeric(12, 3), nullable=False)
+    lot_id = Column(Integer, ForeignKey("inv_lots.id", ondelete="RESTRICT"), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
 
     item = relationship("InvItem", lazy="raise", foreign_keys=[item_id])
     location = relationship("InvLocation", lazy="raise", foreign_keys=[location_id])
+    lot = relationship("InvLot", lazy="raise", foreign_keys=[lot_id])
 
 
 class InvStocktake(Base):
@@ -151,8 +178,10 @@ class InvStocktakeLine(Base):
     system_qty = Column(Numeric(12, 3), nullable=False, server_default="0")
     physical_qty = Column(Numeric(12, 3), nullable=True)
     notes = Column(Text, nullable=True)
+    lot_id = Column(Integer, ForeignKey("inv_lots.id", ondelete="RESTRICT"), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
 
     stocktake = relationship("InvStocktake", back_populates="lines", lazy="raise")
     item = relationship("InvItem", lazy="raise", foreign_keys=[item_id])
     location = relationship("InvLocation", lazy="raise", foreign_keys=[location_id])
+    lot = relationship("InvLot", lazy="raise", foreign_keys=[lot_id])

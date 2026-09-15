@@ -56,6 +56,7 @@ def _to_response(log: ReceivingLog) -> ReceivingLogResponse:
         inv_item_id=log.inv_item_id,
         inv_item_name=log.inv_item.name if log.inv_item else None,
         inv_stock_doc_id=log.inv_stock_doc_id,
+        supplier_batch_no=log.supplier_batch_no,
         operator_id=log.operator_id,
         operator_name=log.operator.full_name if log.operator else None,
         verified_by=log.verified_by,
@@ -154,6 +155,7 @@ async def create_receiving_log(
         notes=data.notes,
         operator_id=current_user.id,
         inv_item_id=data.inv_item_id,
+        supplier_batch_no=data.supplier_batch_no,
     )
     db.add(log)
     await db.flush()
@@ -279,6 +281,8 @@ async def convert_to_stock_in(
         .options(
             selectinload(InvStockDoc.location),
             selectinload(InvStockDoc.lines).selectinload(InvStockLine.item),
+            selectinload(InvStockDoc.lines).selectinload(InvStockLine.location),
+            selectinload(InvStockDoc.lines).selectinload(InvStockLine.lot),
         )
         .where(InvStockDoc.id == doc.id)
     )
@@ -306,10 +310,15 @@ async def convert_to_stock_in(
                 item_id=l.item_id,
                 item_code=l.item.code if l.item else None,
                 item_name=l.item.name if l.item else None,
+                location_id=l.location_id,
+                location_name=l.location.name if l.location else None,
                 quantity=l.quantity,
                 unit=l.unit,
                 unit_cost=l.unit_cost,
                 notes=l.notes,
+                lot_id=l.lot_id,
+                lot_code=l.lot.lot_code if l.lot else None,
+                lot_origin_type=l.lot.origin_type if l.lot else None,
             )
             for l in loaded.lines
         ],

@@ -190,6 +190,7 @@ export default function InventoryStockDocDetailPage() {
               <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
                 <th className="pb-2 pr-4"><Bi k="field.item" /></th>
                 <th className="pb-2 pr-4"><Bi k="field.location" /></th>
+                <th className="pb-2 pr-4">批號 Lot</th>
                 <th className="pb-2 pr-4"><Bi k="field.quantity" /></th>
                 <th className="pb-2 pr-4"><Bi k="field.unit" /></th>
                 <th className="pb-2"><Bi k="field.unitCost" /></th>
@@ -203,7 +204,8 @@ export default function InventoryStockDocDetailPage() {
                     <span className="text-xs text-gray-400 ml-1">{line.item_code}</span>
                   </td>
                   <td className="py-2 pr-4 text-gray-600">{line.location_name || '—'}</td>
-                  <td className="py-2 pr-4 font-medium">{Math.round(Number(line.quantity))}</td>
+                  <td className="py-2 pr-4 text-gray-600 font-mono text-xs">{line.lot_code || '—'}</td>
+                  <td className="py-2 pr-4 font-medium">{Number(line.quantity).toFixed(3)}</td>
                   <td className="py-2 pr-4 text-gray-500">{line.unit}</td>
                   <td className="py-2 text-gray-500">{line.unit_cost || '—'}</td>
                 </tr>

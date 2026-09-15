@@ -9,11 +9,11 @@ from sqlalchemy.orm import selectinload
 from decimal import Decimal
 
 from app.core.database import get_db
-from app.models.inventory import InvStocktake, InvStocktakeLine, InvLocation
+from app.models.inventory import InvStocktake, InvStocktakeLine, InvLocation, InvItem, InvLot
 from app.models.user import User
 from app.schemas.inventory import (
     InvStocktakeCreate, InvStocktakeLineUpdate,
-    InvStocktakeLineResponse, InvStocktakeResponse,
+    InvStocktakeLineResponse, InvStocktakeResponse, InvStocktakeDiscoveredLotCreate,
 )
 from app.schemas.common import PaginatedResponse
 from app.dependencies.auth import get_current_active_user, require_role
@@ -37,6 +37,8 @@ def _line_response(line: InvStocktakeLine) -> InvStocktakeLineResponse:
         physical_qty=line.physical_qty,
         variance=variance,
         notes=line.notes,
+        lot_id=line.lot_id,
+        lot_code=line.lot.lot_code if line.lot else None,
     )
 
 
@@ -63,6 +65,7 @@ def _base_query():
     return select(InvStocktake).options(
         selectinload(InvStocktake.location),
         selectinload(InvStocktake.lines).selectinload(InvStocktakeLine.item),
+        selectinload(InvStocktake.lines).selectinload(InvStocktakeLine.lot),
     )
 
 
@@ -174,7 +177,10 @@ async def update_stocktake_line(
     # Reload with item
     result = await db.execute(
         select(InvStocktakeLine)
-        .options(selectinload(InvStocktakeLine.item))
+        .options(
+            selectinload(InvStocktakeLine.item),
+            selectinload(InvStocktakeLine.lot),
+        )
         .where(InvStocktakeLine.id == line_id)
     )
     line = result.scalar_one()
@@ -190,4 +196,49 @@ async def confirm_stocktake_endpoint(
     await confirm_stocktake(db, stocktake_id, current_user.id)
     await db.commit()
     result = await db.execute(_base_query().where(InvStocktake.id == stocktake_id))
+    return _to_response(result.scalar_one())
+
+
+@router.post("/{stocktake_id}/discovered-lots", response_model=InvStocktakeResponse)
+async def add_discovered_lot(
+    stocktake_id: int,
+    data: InvStocktakeDiscoveredLotCreate,
+    current_user: User = Depends(require_role("Admin", "Warehouse")),
+    db: AsyncSession = Depends(get_db),
+):
+    stocktake = await db.scalar(select(InvStocktake).where(InvStocktake.id == stocktake_id).with_for_update())
+    if not stocktake:
+        raise HTTPException(404, "Stocktake not found")
+    st_status = stocktake.status.value if hasattr(stocktake.status, "value") else stocktake.status
+    if st_status != "draft":
+        raise HTTPException(409, "Cannot add a lot to a confirmed stocktake")
+    item = await db.scalar(
+        select(InvItem).options(selectinload(InvItem.allowed_locations)).where(InvItem.id == data.item_id)
+    )
+    if not item or not item.is_active or not item.lot_tracking_enabled:
+        raise HTTPException(422, "品項未啟用批號管理 Item is not lot tracked")
+    if stocktake.location_id not in {loc.id for loc in item.allowed_locations}:
+        raise HTTPException(422, "品項不允許存放於盤點庫位 Item is not allowed at this location")
+    lot_code = data.lot_code.strip()
+    if not lot_code:
+        raise HTTPException(422, "批號不可為空 Lot code cannot be blank")
+    lot = InvLot(
+        item_id=item.id,
+        lot_code=lot_code,
+        origin_type="manual_adjustment",
+        is_system_generated=False,
+    )
+    db.add(lot)
+    await db.flush()
+    db.add(InvStocktakeLine(
+        stocktake_id=stocktake.id,
+        item_id=item.id,
+        location_id=stocktake.location_id,
+        lot_id=lot.id,
+        system_qty=Decimal("0"),
+        physical_qty=data.physical_qty,
+        notes=data.notes,
+    ))
+    await db.commit()
+    result = await db.execute(_base_query().where(InvStocktake.id == stocktake.id))
     return _to_response(result.scalar_one())

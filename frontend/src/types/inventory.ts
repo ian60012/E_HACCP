@@ -16,6 +16,9 @@ export interface InvItem {
   supplier_id: number | null;
   supplier_name: string | null;
   is_active: boolean;
+  lot_tracking_enabled: boolean;
+  meat_output_type: 'intermediate' | 'finished' | null;
+  meat_product_id: number | null;
   created_at: string;
   allowed_location_ids: number[];
 }
@@ -80,6 +83,9 @@ export interface InvStockLine {
   unit: string;
   unit_cost: string | null;
   notes: string | null;
+  lot_id: number | null;
+  lot_code: string | null;
+  lot_origin_type: string | null;
 }
 
 export interface InvStockLineCreate {
@@ -89,6 +95,8 @@ export interface InvStockLineCreate {
   unit: string;
   unit_cost?: string;
   notes?: string;
+  lot_id?: number | null;
+  new_lot_code?: string;
 }
 
 // ─── Stock document ────────────────────────────────────────────────────────
@@ -135,6 +143,34 @@ export interface InvStockBalance {
   location_code: string | null;
   location_name: string | null;
   quantity: string;
+  lot_tracking_enabled: boolean;
+  lots: InvLotBalance[];
+}
+
+export interface InvLotBalance {
+  lot_id: number;
+  lot_code: string;
+  origin_type: string;
+  is_system_generated: boolean;
+  quantity: string;
+}
+
+export interface InvLot {
+  id: number;
+  item_id: number;
+  item_code: string | null;
+  item_name: string | null;
+  lot_code: string;
+  origin_type: string;
+  is_system_generated: boolean;
+  supplier_id: number | null;
+  supplier_name: string | null;
+  receiving_log_id: number | null;
+  prod_batch_id: number | null;
+  location_id: number | null;
+  location_name: string | null;
+  quantity: string;
+  created_at: string;
 }
 
 // ─── Movement ──────────────────────────────────────────────────────────────
@@ -149,6 +185,8 @@ export interface InvStockMovement {
   delta: string;
   balance_after: string;
   created_at: string;
+  lot_id: number | null;
+  lot_code: string | null;
 }
 
 // ─── Stocktake (盤點) ──────────────────────────────────────────────────────
@@ -164,6 +202,8 @@ export interface InvStocktakeLine {
   physical_qty: string | null;
   variance: string | null;
   notes: string | null;
+  lot_id: number | null;
+  lot_code: string | null;
 }
 
 export interface InvStocktake {

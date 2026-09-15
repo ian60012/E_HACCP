@@ -219,6 +219,7 @@ def _to_response(batch: ProdBatch) -> ProdBatchResponse:
         contamination_found=batch.contamination_found,
         change_over=batch.change_over,
         inv_stock_doc_id=batch.inv_stock_doc_id,
+        input_stock_doc_id=batch.input_stock_doc_id,
         is_voided=batch.is_voided,
         void_reason=batch.void_reason,
         voided_at=batch.voided_at,

@@ -2,10 +2,10 @@ import { ReactNode, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { meatApi, meatError } from '@/api/meatProcessing';
 import { prodBatchesApi, packTypesApi } from '@/api/production';
-import { invItemsApi, invLocationsApi } from '@/api/inventory';
+import { invItemsApi, invLocationsApi, invLotsApi } from '@/api/inventory';
 import { MeatRecord, MeatSave, meatStates, meatSteps } from '@/types/meatProcessing';
 import { ProdBatch, PackTypeConfig } from '@/types/production';
-import { InvItem, InvLocation } from '@/types/inventory';
+import { InvItem, InvLocation, InvLot } from '@/types/inventory';
 import { useAuth } from '@/hooks/useAuth';
 import SignaturePad from '@/components/SignaturePad';
 import { toMelbourneInput, melbourneToUTC, formatMelbourne } from '@/utils/timezone';
@@ -34,6 +34,7 @@ export default function MeatBatchDetailPage() {
   const [draft, setDraft] = useState<MeatSave>(empty); const [history, setHistory] = useState<MeatRecord[]>([]);
   const [items, setItems] = useState<InvItem[]>([]); const [locations, setLocations] = useState<InvLocation[]>([]);
   const [packs, setPacks] = useState<PackTypeConfig[]>([]);
+  const [lotOptions, setLotOptions] = useState<Record<string, InvLot[] | null>>({});
   const [signature, setSignature] = useState(''); const [verifySignature, setVerifySignature] = useState('');
   const [voidReason, setVoidReason] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
   const [error, setError] = useState(''); const [message, setMessage] = useState(''); const [dirty, setDirty] = useState(false);
@@ -64,6 +65,18 @@ export default function MeatBatchDetailPage() {
     load().catch(e => setError(meatError(e))).finally(() => setLoading(false));
   }, [batchId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
+    draft.inputs.forEach((row) => {
+      const item = items.find((x) => x.id === row.inv_item_id);
+      if (!item?.lot_tracking_enabled || !row.source_location_id) return;
+      const key = `${item.id}:${row.source_location_id}`;
+      if (lotOptions[key] !== undefined) return;
+      setLotOptions((old) => ({ ...old, [key]: null }));
+      invLotsApi.list({ item_id: item.id, location_id: row.source_location_id, positive_only: true, limit: 1000 })
+        .then((result) => setLotOptions((old) => ({ ...old, [key]: result.items })))
+        .catch(() => setLotOptions((old) => ({ ...old, [key]: [] })));
+    });
+  }, [draft.inputs, items, lotOptions]);
+  useEffect(() => {
     const guard = (e: BeforeUnloadEvent) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
     window.addEventListener('beforeunload', guard); return () => window.removeEventListener('beforeunload', guard);
   }, [dirty]);
@@ -77,7 +90,7 @@ export default function MeatBatchDetailPage() {
   }
   function itemOptions(current: number, output = false) {
     return items.filter(i => i.id === current || (i.is_active && (output
-      ? ['intermediate', 'finished'].includes(i.item_type) && ['kg', '公斤'].includes(i.base_unit.trim().toLowerCase())
+      ? (['intermediate', 'finished'].includes(i.item_type) || !!i.meat_output_type) && ['kg', '公斤'].includes(i.base_unit.trim().toLowerCase())
       : ['raw', 'intermediate'].includes(i.item_type)))).map(i => <option key={i.id} value={i.id}>{i.code} — {i.name}</option>);
   }
   const sum = (rows: { weight_kg: string }[]) => rows.reduce((a, r) => a + Math.round((Number(r.weight_kg) || 0) * 1000), 0);
@@ -106,17 +119,36 @@ export default function MeatBatchDetailPage() {
     <form onSubmit={e => { e.preventDefault(); act(() => meatApi.save(batchId, draft), '已儲存新版本 New revision saved'); }} className="space-y-6">
       <fieldset disabled={!editable || busy} className="space-y-6">
         <section className="card space-y-4"><h2 className="text-lg font-semibold">1. 原料投入 Inputs</h2>
-          {draft.inputs.map((r, i) => { const patch = (v: Partial<typeof r>) => change({ ...draft, inputs: draft.inputs.map((x, n) => n === i ? { ...x, ...v } : x) }); return <div key={i} className="border rounded-lg p-3 space-y-3">
-            <div className={grid}><Field label="原料／半成品 Item"><select className="input" value={r.inv_item_id || ''} required onChange={e => {
-              const selected = items.find(x => x.id === Number(e.target.value)); patch({ inv_item_id: Number(e.target.value), item_name: selected?.name, supplier: selected?.supplier_name || '', receiving_log_id: null });
-            }}><option value="">請選擇 Select</option>{itemOptions(r.inv_item_id)}{!items.some(x => x.id === r.inv_item_id) && r.inv_item_id > 0 && <option value={r.inv_item_id}>{r.item_name || `#${r.inv_item_id}`}</option>}</select></Field>
-              <TextField label="供應商／內部來源 Supplier / internal source" value={r.supplier} required maxLength={200} onChange={supplier => patch({ supplier })} />
-              <TextField label="來源批號 Source batch" value={r.source_batch} required maxLength={100} onChange={source_batch => patch({ source_batch })} />
-              <TextField label="投入 kg" type="number" min="0.001" step="0.001" required value={r.weight_kg} onChange={weight_kg => patch({ weight_kg })} />
-              <TextField label="收貨記錄 ID（選填）Receiving ID" type="number" min="1" step="1" value={r.receiving_log_id} onChange={v => patch({ receiving_log_id: v ? Number(v) : null })} />
-            </div><button type="button" className="text-red-700" onClick={() => change({ ...draft, inputs: draft.inputs.filter((_, n) => n !== i) })}>移除此列 Remove input {i + 1}</button>
-          </div>; })}
-          <button type="button" className="btn btn-secondary" onClick={() => change({ ...draft, inputs: [...draft.inputs, { inv_item_id: 0, supplier: '', source_batch: '', receiving_log_id: null, weight_kg: '' }] })}>＋ 原料 Add input</button>
+          {draft.inputs.map((r, i) => {
+            const patch = (v: Partial<typeof r>) => change({ ...draft, inputs: draft.inputs.map((x, n) => n === i ? { ...x, ...v } : x) });
+            const item = items.find((x) => x.id === r.inv_item_id);
+            const key = `${r.inv_item_id}:${r.source_location_id || 0}`;
+            const lots = lotOptions[key];
+            return <div key={i} className="border rounded-lg p-3 space-y-3">
+              <div className={grid}>
+                <Field label="原料／半成品 Item"><select className="input" value={r.inv_item_id || ''} required onChange={e => {
+                  const selected = items.find(x => x.id === Number(e.target.value));
+                  patch({ inv_item_id: Number(e.target.value), item_name: selected?.name, supplier: selected?.supplier_name || '', source_batch: '', receiving_log_id: null, source_location_id: null, source_lot_id: null });
+                }}><option value="">請選擇 Select</option>{itemOptions(r.inv_item_id)}{!items.some(x => x.id === r.inv_item_id) && r.inv_item_id > 0 && <option value={r.inv_item_id}>{r.item_name || `#${r.inv_item_id}`}</option>}</select></Field>
+                <Field label="來源庫位 Source location"><select className="input" required value={r.source_location_id || ''} onChange={e => patch({ source_location_id: Number(e.target.value) || null, source_lot_id: null, source_batch: '' })}>
+                  <option value="">請選擇 Select</option>
+                  {locations.filter((loc) => loc.id === r.source_location_id || (loc.is_active && item?.allowed_location_ids.includes(loc.id))).map((loc) => <option key={loc.id} value={loc.id}>{loc.code} — {loc.name}</option>)}
+                </select></Field>
+                {item?.lot_tracking_enabled ? <Field label="來源批號 Source lot"><select className="input" required value={r.source_lot_id || ''} disabled={!r.source_location_id || lots === null} onChange={e => {
+                  const lot = lots?.find((x) => x.id === Number(e.target.value));
+                  patch({ source_lot_id: lot?.id || null, source_batch: lot?.lot_code || '', supplier: lot?.supplier_name || '內部來源 Internal', receiving_log_id: lot?.receiving_log_id || null });
+                }}><option value="">{lots === null ? '載入中 Loading…' : '請選擇 Select'}</option>{lots?.map((lot) => <option key={lot.id} value={lot.id}>{lot.lot_code} · {lot.quantity} kg</option>)}</select></Field> : <>
+                  <TextField label="供應商／內部來源 Supplier / internal source" value={r.supplier} required maxLength={200} onChange={supplier => patch({ supplier })} />
+                  <TextField label="來源批號 Source batch" value={r.source_batch} required maxLength={100} onChange={source_batch => patch({ source_batch })} />
+                </>}
+                <TextField label="投入 kg" type="number" min="0.001" step="0.001" required value={r.weight_kg} onChange={weight_kg => patch({ weight_kg })} />
+                {item?.lot_tracking_enabled && <div className="text-sm text-gray-600 self-end pb-2">{r.supplier || '—'} · {r.source_batch || '—'}</div>}
+                {!item?.lot_tracking_enabled && <TextField label="收貨記錄 ID（選填）Receiving ID" type="number" min="1" step="1" value={r.receiving_log_id} onChange={v => patch({ receiving_log_id: v ? Number(v) : null })} />}
+              </div>
+              <button type="button" className="text-red-700" onClick={() => change({ ...draft, inputs: draft.inputs.filter((_, n) => n !== i) })}>移除此列 Remove input {i + 1}</button>
+            </div>;
+          })}
+          <button type="button" className="btn btn-secondary" onClick={() => change({ ...draft, inputs: [...draft.inputs, { inv_item_id: 0, supplier: '', source_batch: '', receiving_log_id: null, weight_kg: '', source_location_id: null, source_lot_id: null }] })}>＋ 原料 Add input</button>
         </section>
         <section className="card space-y-4"><h2 className="text-lg font-semibold">2. 加工工序 Processing steps</h2><p className="text-sm text-gray-600">時間採澳洲墨爾本時區；溫度僅記錄實測值。 Times: Australia/Melbourne. Temperatures are observations.</p>
           {draft.steps.map((r, i) => { const patch = (v: Partial<typeof r>) => change({ ...draft, steps: draft.steps.map((x, n) => n === i ? { ...x, ...v } : x) }); return <div key={i} className="border rounded-lg p-3 space-y-3"><h3>工序 Step {i + 1}</h3><div className={grid}>
@@ -167,9 +199,12 @@ export default function MeatBatchDetailPage() {
         {canVerify && record?.state === 'submitted' && <><SignaturePad value={verifySignature} onChange={setVerifySignature} required disabled={busy || dirty} label="QA 覆核簽名 Verification signature" />
           <p>覆核將鎖定此版本；更正須作廢重建。 Verification locks this revision.</p>
           <button className="btn btn-primary" disabled={busy || dirty || !verifySignature} onClick={() => act(() => meatApi.verify(batchId, record.version, verifySignature), '已覆核並鎖定 Verified and locked')}>覆核並鎖定 Verify</button></>}
-        {canStock && record?.state === 'verified' && <button className="btn btn-primary" disabled={busy} onClick={() => act(() => meatApi.enterStock(batchId, record.version), '產出已按公斤入庫 Outputs entered in kg')}>產出入庫 Enter stock</button>}
+        {canStock && record?.state === 'verified' && <button className="btn btn-primary" disabled={busy} onClick={() => act(() => meatApi.enterStock(batchId, record.version), '原料已扣料且產出已按公斤入庫 Inputs consumed and outputs stocked')}>扣料並入庫 Post conversion</button>}
       </>}
-      {batch.inv_stock_doc_id && <Link className="text-blue-700" to={`/inventory/docs/${batch.inv_stock_doc_id}`}>查看入庫單 View stock document #{batch.inv_stock_doc_id}</Link>}
+      <div className="flex flex-wrap gap-4 text-sm">
+        {batch.input_stock_doc_id && <Link className="text-blue-700" to={`/inventory/docs/${batch.input_stock_doc_id}`}>查看投入出庫單 View input OUT #{batch.input_stock_doc_id}</Link>}
+        {batch.inv_stock_doc_id && <Link className="text-blue-700" to={`/inventory/docs/${batch.inv_stock_doc_id}`}>查看產出入庫單 View output IN #{batch.inv_stock_doc_id}</Link>}
+      </div>
       {canVoid && !batch.is_voided && !historical && <div className="border-t pt-4 space-y-2"><TextField label="作廢理由 Void reason" value={voidReason} onChange={setVoidReason} />
         <button className="btn btn-secondary text-red-700" disabled={busy || !voidReason.trim()} onClick={() => {
           if (window.confirm('作廢此批次並沖回已入庫數量？ Void batch and reverse its stock entry?')) act(() => prodBatchesApi.void(batchId, voidReason), '批次已作廢 Batch voided');

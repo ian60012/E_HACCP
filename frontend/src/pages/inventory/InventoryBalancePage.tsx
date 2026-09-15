@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { Fragment, useState, useEffect, useCallback } from 'react';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { invBalanceApi, invLocationsApi } from '@/api/inventory';
 import { InvStockBalance, InvLocation } from '@/types/inventory';
@@ -147,21 +147,35 @@ export default function InventoryBalancePage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map((row) => (
-                <tr
-                  key={`${row.item_id}-${row.location_id}`}
-                  className={Number(row.quantity) <= 0 ? 'text-gray-300' : ''}
-                >
-                  <td className="py-2 pr-4 font-mono text-xs">{row.item_code}</td>
-                  <td className="py-2 pr-4 font-medium">{row.item_name}</td>
-                  <td className="py-2 pr-4">{row.item_category || '—'}</td>
-                  <td className="py-2 pr-4">{row.location_name}</td>
-                  <td className="py-2 text-right font-semibold">
-                    <span className={Number(row.quantity) < 0 ? 'text-red-600' : ''}>
-                      {Math.round(Number(row.quantity))}
-                    </span>
-                  </td>
-                  <td className="py-2 pl-2 text-gray-400">{row.base_unit}</td>
-                </tr>
+                <Fragment key={`${row.item_id}-${row.location_id}`}>
+                  <tr
+                    className={Number(row.quantity) <= 0 ? 'text-gray-300' : ''}
+                  >
+                    <td className="py-2 pr-4 font-mono text-xs">{row.item_code}</td>
+                    <td className="py-2 pr-4 font-medium">
+                      {row.item_name}
+                      {row.lot_tracking_enabled && <span className="ml-2 rounded bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-700">批號管理</span>}
+                    </td>
+                    <td className="py-2 pr-4">{row.item_category || '—'}</td>
+                    <td className="py-2 pr-4">{row.location_name}</td>
+                    <td className="py-2 text-right font-semibold">
+                      <span className={Number(row.quantity) < 0 ? 'text-red-600' : ''}>
+                        {Number(row.quantity).toFixed(3)}
+                      </span>
+                    </td>
+                    <td className="py-2 pl-2 text-gray-400">{row.base_unit}</td>
+                  </tr>
+                  {row.lot_tracking_enabled && row.lots.map((lot) => (
+                    <tr key={`${row.item_id}-${row.location_id}-${lot.lot_id}`} className="bg-gray-50/70 text-xs text-gray-600">
+                      <td className="py-1.5 pr-4" />
+                      <td className="py-1.5 pr-4 font-mono">↳ {lot.lot_code}</td>
+                      <td className="py-1.5 pr-4">{lot.origin_type}</td>
+                      <td className="py-1.5 pr-4">{lot.is_system_generated ? '系統批號' : '人工批號'}</td>
+                      <td className="py-1.5 text-right font-medium">{Number(lot.quantity).toFixed(3)}</td>
+                      <td className="py-1.5 pl-2">{row.base_unit}</td>
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>

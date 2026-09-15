@@ -16,7 +16,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.inventory import (
     InvStockDoc, InvStockLine, InvStockBalance, InvStockMovement, InvItem,
-    InvStocktake, InvStocktakeLine,
+    InvStocktake, InvStocktakeLine, InvLot,
 )
 from app.models.receiving_log import ReceivingLog
 from app.models.enums import InvDocType, InvDocStatus, InvStocktakeStatus
@@ -79,6 +79,15 @@ async def post_document(session: AsyncSession, doc_id: int, operator_id: int) ->
     for line in doc.lines:
         location_id = line.location_id
 
+        if line.item.lot_tracking_enabled and not line.lot_id:
+            raise HTTPException(status_code=422, detail=f"批號品項 '{line.item.code}' 必須指定 lot")
+        if not line.item.lot_tracking_enabled and line.lot_id:
+            raise HTTPException(status_code=422, detail=f"品項 '{line.item.code}' 未啟用批號管理")
+        if line.lot_id:
+            lot = await session.get(InvLot, line.lot_id)
+            if not lot or lot.item_id != line.item_id:
+                raise HTTPException(status_code=422, detail=f"品項 '{line.item.code}' 與 lot 不符")
+
         # Whitelist validation
         allowed_ids = {loc.id for loc in line.item.allowed_locations}
         if not allowed_ids:
@@ -99,6 +108,7 @@ async def post_document(session: AsyncSession, doc_id: int, operator_id: int) ->
             select(InvStockBalance).where(
                 InvStockBalance.item_id == line.item_id,
                 InvStockBalance.location_id == location_id,
+                InvStockBalance.lot_id == line.lot_id,
             )
         )
         bal = bal_result.scalar_one_or_none()
@@ -112,6 +122,7 @@ async def post_document(session: AsyncSession, doc_id: int, operator_id: int) ->
             bal = InvStockBalance(
                 item_id=line.item_id,
                 location_id=location_id,
+                lot_id=line.lot_id,
                 quantity=Decimal("0"),
             )
             session.add(bal)
@@ -131,6 +142,7 @@ async def post_document(session: AsyncSession, doc_id: int, operator_id: int) ->
             doc_id=doc.id,
             item_id=line.item_id,
             location_id=location_id,
+            lot_id=line.lot_id,
             delta=delta,
             balance_after=new_qty,
         )
@@ -177,6 +189,7 @@ async def void_document(
             select(InvStockBalance).where(
                 InvStockBalance.item_id == line.item_id,
                 InvStockBalance.location_id == location_id,
+                InvStockBalance.lot_id == line.lot_id,
             )
         )
         bal = bal_result.scalar_one_or_none()
@@ -184,17 +197,24 @@ async def void_document(
             bal = InvStockBalance(
                 item_id=line.item_id,
                 location_id=location_id,
+                lot_id=line.lot_id,
                 quantity=Decimal("0"),
             )
             session.add(bal)
 
         new_qty = bal.quantity + reverse_delta
+        if new_qty < 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="產出 lot 已被使用，無法沖回 Output lot has been consumed and cannot be reversed",
+            )
         bal.quantity = new_qty
 
         movement = InvStockMovement(
             doc_id=doc.id,
             item_id=line.item_id,
             location_id=location_id,
+            lot_id=line.lot_id,
             delta=reverse_delta,
             balance_after=new_qty,
         )
@@ -249,16 +269,29 @@ async def create_stocktake(
     bal_result = await session.execute(
         select(InvStockBalance).where(InvStockBalance.location_id == location_id)
     )
-    bal_map = {b.item_id: b.quantity for b in bal_result.scalars().all()}
+    bal_map = {}
+    for balance in bal_result.scalars().all():
+        bal_map.setdefault(balance.item_id, []).append(balance)
 
     for item in items:
-        line = InvStocktakeLine(
-            stocktake_id=stocktake.id,
-            item_id=item.id,
-            location_id=location_id,
-            system_qty=bal_map.get(item.id, Decimal("0")),
-        )
-        session.add(line)
+        balances = bal_map.get(item.id, [])
+        if item.lot_tracking_enabled:
+            for balance in balances:
+                if balance.lot_id is not None:
+                    session.add(InvStocktakeLine(
+                        stocktake_id=stocktake.id,
+                        item_id=item.id,
+                        location_id=location_id,
+                        lot_id=balance.lot_id,
+                        system_qty=balance.quantity,
+                    ))
+        else:
+            session.add(InvStocktakeLine(
+                stocktake_id=stocktake.id,
+                item_id=item.id,
+                location_id=location_id,
+                system_qty=sum((b.quantity for b in balances if b.lot_id is None), Decimal("0")),
+            ))
 
     await session.flush()
     return stocktake
@@ -334,6 +367,7 @@ async def confirm_stocktake(
                 location_id=ln.location_id,
                 quantity=variance,
                 unit=unit,
+                lot_id=ln.lot_id,
             )
             session.add(ln_obj)
             # Update balance
@@ -341,16 +375,17 @@ async def confirm_stocktake(
                 select(InvStockBalance).where(
                     InvStockBalance.item_id == ln.item_id,
                     InvStockBalance.location_id == ln.location_id,
+                    InvStockBalance.lot_id == ln.lot_id,
                 )
             )
             bal = bal_res.scalar_one_or_none()
             if bal is None:
-                bal = InvStockBalance(item_id=ln.item_id, location_id=ln.location_id, quantity=Decimal("0"))
+                bal = InvStockBalance(item_id=ln.item_id, location_id=ln.location_id, lot_id=ln.lot_id, quantity=Decimal("0"))
                 session.add(bal)
             bal.quantity = bal.quantity + variance
             session.add(InvStockMovement(
                 doc_id=in_doc.id, item_id=ln.item_id, location_id=ln.location_id,
-                delta=variance, balance_after=bal.quantity,
+                lot_id=ln.lot_id, delta=variance, balance_after=bal.quantity,
             ))
 
     if losses:
@@ -365,22 +400,30 @@ async def confirm_stocktake(
                 location_id=ln.location_id,
                 quantity=variance,
                 unit=unit,
+                lot_id=ln.lot_id,
             )
             session.add(ln_obj)
             bal_res = await session.execute(
                 select(InvStockBalance).where(
                     InvStockBalance.item_id == ln.item_id,
                     InvStockBalance.location_id == ln.location_id,
+                    InvStockBalance.lot_id == ln.lot_id,
                 )
             )
             bal = bal_res.scalar_one_or_none()
             if bal is None:
-                bal = InvStockBalance(item_id=ln.item_id, location_id=ln.location_id, quantity=Decimal("0"))
+                bal = InvStockBalance(item_id=ln.item_id, location_id=ln.location_id, lot_id=ln.lot_id, quantity=Decimal("0"))
                 session.add(bal)
-            bal.quantity = bal.quantity - variance
+            new_qty = bal.quantity - variance
+            if new_qty < 0:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"盤點期間庫存已變動，品項 '{ln.item.code}' 可用數量不足 Stock changed during count",
+                )
+            bal.quantity = new_qty
             session.add(InvStockMovement(
                 doc_id=out_doc.id, item_id=ln.item_id, location_id=ln.location_id,
-                delta=-variance, balance_after=bal.quantity,
+                lot_id=ln.lot_id, delta=-variance, balance_after=bal.quantity,
             ))
 
     stocktake.status = InvStocktakeStatus.CONFIRMED
@@ -439,12 +482,35 @@ async def create_from_receiving_log(
 
     qty = log.quantity or Decimal("1")
     unit = log.quantity_unit or "PCS"
+    item = await session.get(InvItem, log.inv_item_id)
+    lot_id = None
+    if item and item.lot_tracking_enabled:
+        if unit.strip().lower() not in ("kg", "公斤"):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="批號管理品項的收貨入庫單位必須為 KG Lot-tracked receiving unit must be KG",
+            )
+        lot = await session.scalar(select(InvLot).where(InvLot.receiving_log_id == log.id))
+        if not lot:
+            lot_code = (log.supplier_batch_no or "").strip() or f"RCV-{log.id}"
+            lot = InvLot(
+                item_id=item.id,
+                lot_code=lot_code,
+                origin_type="receiving",
+                is_system_generated=not bool(log.supplier_batch_no and log.supplier_batch_no.strip()),
+                supplier_id=log.supplier_id,
+                receiving_log_id=log.id,
+            )
+            session.add(lot)
+            await session.flush()
+        lot_id = lot.id
     line = InvStockLine(
         doc_id=doc.id,
         item_id=log.inv_item_id,
         location_id=location_id,
         quantity=qty,
         unit=unit,
+        lot_id=lot_id,
     )
     session.add(line)
 

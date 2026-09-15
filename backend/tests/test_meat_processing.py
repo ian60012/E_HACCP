@@ -45,9 +45,13 @@ def test_schema_rejects_precision_and_invalid_step_times():
 
 
 def test_migration_copies_match():
-    sql = (ROOT / "backend/app/core/meat_processing.sql").read_text(encoding="utf-8")
-    assert (ROOT / "database/migrations/20260915_meat_processing.sql").read_text(encoding="utf-8") == sql
-    assert (ROOT / "database/init.sql").read_text(encoding="utf-8").endswith(sql)
+    meat_sql = (ROOT / "backend/app/core/meat_processing.sql").read_text(encoding="utf-8")
+    lot_sql = (ROOT / "backend/app/core/inventory_lots.sql").read_text(encoding="utf-8")
+    init_sql = (ROOT / "database/init.sql").read_text(encoding="utf-8")
+    assert (ROOT / "database/migrations/20260915_meat_processing.sql").read_text(encoding="utf-8") == meat_sql
+    assert (ROOT / "database/migrations/20260915_inventory_lots.sql").read_text(encoding="utf-8") == lot_sql
+    assert meat_sql in init_sql
+    assert init_sql.endswith(lot_sql)
 
 
 @pytest.fixture(scope="session")
@@ -153,25 +157,28 @@ async def setup_batch(env, code="MEAT"):
     async with env.factory() as db:
         loc1 = await db.scalar(text("INSERT INTO inv_locations(code,name) VALUES ('MEAT-A','A') RETURNING id"))
         loc2 = await db.scalar(text("INSERT INTO inv_locations(code,name) VALUES ('MEAT-B','B') RETURNING id"))
-        raw = await db.scalar(text("INSERT INTO inv_items(code,name,item_type,base_unit) VALUES ('RAW-M','Pork','raw','kg') RETURNING id"))
+        raw = await db.scalar(text("INSERT INTO inv_items(code,name,item_type,base_unit,lot_tracking_enabled) VALUES ('RAW-M','Pork','raw','kg',true) RETURNING id"))
         marinade = await db.scalar(text("INSERT INTO inv_items(code,name,item_type,base_unit) VALUES ('MAR-M','Marinade','raw','kg') RETURNING id"))
         out = await db.scalar(text("INSERT INTO inv_items(code,name,item_type,base_unit) VALUES ('OUT-M','Sliced pork','intermediate','kg') RETURNING id"))
         byproduct = await db.scalar(text("INSERT INTO inv_items(code,name,item_type,base_unit) VALUES ('BY-M','Trim for mince','intermediate','kg') RETURNING id"))
         bad = await db.scalar(text("INSERT INTO inv_items(code,name,item_type,base_unit) VALUES ('BAG-M','Bag product','finished','包') RETURNING id"))
-        for item in (out, byproduct, bad):
+        for item in (raw, marinade, out, byproduct, bad):
             for loc in (loc1, loc2):
                 await db.execute(text("INSERT INTO inv_item_allowed_locations(item_id,location_id) VALUES (:i,:l)"), dict(i=item,l=loc))
+        raw_lot = await db.scalar(text("INSERT INTO inv_lots(item_id,lot_code,origin_type) VALUES (:i,'RAW-LOT-001','manual_adjustment') RETURNING id"), dict(i=raw))
+        await db.execute(text("INSERT INTO inv_stock_balance(item_id,location_id,lot_id,quantity) VALUES (:i,:l,:lot,500)"), dict(i=raw,l=loc1,lot=raw_lot))
+        await db.execute(text("INSERT INTO inv_stock_balance(item_id,location_id,quantity) VALUES (:i,:l,50)"), dict(i=marinade,l=loc1))
         await db.commit()
     data = dict(version=0, difference_reason="", inputs=[
-        dict(inv_item_id=raw, supplier="Farm", source_batch="RAW-001", weight_kg="100.000"),
-        dict(inv_item_id=marinade, supplier="Kitchen", source_batch="MAR-001", weight_kg="10.000"),
+        dict(inv_item_id=raw, supplier="Farm", source_batch="RAW-001", source_location_id=loc1, source_lot_id=raw_lot, weight_kg="100.000"),
+        dict(inv_item_id=marinade, supplier="Kitchen", source_batch="MAR-001", source_location_id=loc1, weight_kg="10.000"),
     ], steps=[dict(kind="slice", operator="Operator", start_time="2026-09-15T00:00:00Z", end_time="2026-09-15T01:00:00Z", temperature_c="4.20", measured_at="2026-09-15T00:30:00Z")], outputs=[
         dict(inv_item_id=out, weight_kg="60.000", location_id=loc1),
         dict(inv_item_id=out, weight_kg="20.000", location_id=loc1),
         dict(inv_item_id=out, weight_kg="20.000", location_id=loc2),
         dict(inv_item_id=byproduct, weight_kg="5.000", location_id=loc2),
     ], losses=[dict(kind="discard", weight_kg="5.000", notes="Unusable trim")])
-    return SimpleNamespace(id=batch["id"], product=product, data=data, loc1=loc1, loc2=loc2, raw=raw, out=out, byproduct=byproduct, bad=bad)
+    return SimpleNamespace(id=batch["id"], product=product, data=data, loc1=loc1, loc2=loc2, raw=raw, raw_lot=raw_lot, marinade=marinade, out=out, byproduct=byproduct, bad=bad)
 
 
 async def verified(env, b):
@@ -194,12 +201,15 @@ async def test_full_flow_revision_stock_void_and_snapshot(env):
     await request(env, "POST", base + "/enter-stock", dict(version=1))
     batch = await request(env, "GET", f"/production/batches/{b.id}")
     doc_id = batch["inv_stock_doc_id"]
+    input_doc_id = batch["input_stock_doc_id"]
     async with env.factory() as db:
         lines = (await db.execute(text("SELECT item_id,location_id,quantity,unit FROM inv_stock_lines WHERE doc_id=:d ORDER BY item_id,location_id"),dict(d=doc_id))).all()
         assert len(lines) == 3
         assert all(x.unit == "kg" for x in lines)
         assert {(x.item_id,x.location_id): str(x.quantity) for x in lines} == {(b.out,b.loc1):"80.000",(b.out,b.loc2):"20.000",(b.byproduct,b.loc2):"5.000"}
-        assert await db.scalar(text("SELECT count(*) FROM inv_stock_movements WHERE item_id=:i"),dict(i=b.raw)) == 0
+        assert await db.scalar(text("SELECT count(*) FROM inv_stock_movements WHERE item_id=:i AND lot_id=:lot"),dict(i=b.raw,lot=b.raw_lot)) == 1
+        assert await db.scalar(text("SELECT quantity FROM inv_stock_balance WHERE item_id=:i AND lot_id=:lot"),dict(i=b.raw,lot=b.raw_lot)) == 400
+        assert await db.scalar(text("SELECT count(*) FROM inv_stock_lines WHERE doc_id=:d"),dict(d=input_doc_id)) == 2
     env.role["role"] = "Admin"
     await request(env, "PATCH", f'/production/products/{b.product["id"]}', dict(product_type="hot_process"))
     listing = await request(env, "GET", "/production/batches?product_type=meat_processing&meat_state=stocked")
@@ -210,7 +220,7 @@ async def test_full_flow_revision_stock_void_and_snapshot(env):
         assert await db.scalar(text("SELECT sum(quantity) FROM inv_stock_balance WHERE item_id IN (:i,:j)"),dict(i=b.out,j=b.byproduct)) == 0
         assert await db.scalar(text("SELECT count(*) FROM audit_log WHERE table_name='prod_meat_records'")) == 5
     history = await request(env, "GET", base + "/history")
-    assert history[0]["inputs"][0]["source_batch"] == "RAW-001"
+    assert history[0]["inputs"][0]["source_batch"] == "RAW-LOT-001"
     await request(env, "POST", base + "/enter-stock", dict(version=1),409)
 
 
@@ -241,7 +251,7 @@ async def test_validation(env, case):
     b=await setup_batch(env); data=copy.deepcopy(b.data)
     if case=="unit": data["outputs"][0]["inv_item_id"]=b.bad
     if case=="location": data["outputs"][0]["location_id"]=999999
-    if case=="receipt": data["inputs"][0]["receiving_log_id"]=999999
+    if case=="receipt": data["inputs"][1]["receiving_log_id"]=999999
     if case=="pack": data["outputs"][0]["pack_type"]="NONEXISTENT"
     if case=="zero": data["outputs"][0]["weight_kg"]="0"
     if case=="precision": data["outputs"][0]["weight_kg"]="1.0001"
@@ -321,6 +331,7 @@ async def test_posting_failure_rolls_back_lines_movements_and_state(env, monkeyp
         await env.client.post(f"/api/v1/production/batches/{b.id}/meat/enter-stock", json=dict(version=1))
     async with env.factory() as db:
         assert await db.scalar(text("SELECT count(*) FROM inv_stock_docs WHERE doc_number=:n"), dict(n=f"IN-MEAT-{b.id}")) == 0
+        assert await db.scalar(text("SELECT count(*) FROM inv_stock_docs WHERE doc_number=:n"), dict(n=f"OUT-MEAT-{b.id}")) == 0
         assert await db.scalar(text("SELECT count(*) FROM inv_stock_movements WHERE item_id=:i"), dict(i=b.out)) == 0
         assert await db.scalar(text("SELECT inv_stock_doc_id FROM prod_batches WHERE id=:b"), dict(b=b.id)) is None
         assert await db.scalar(text("SELECT state FROM prod_meat_records WHERE batch_id=:b"), dict(b=b.id)) == "verified"
@@ -341,6 +352,7 @@ async def test_two_batches_posting_same_item_preserve_both_increments(env):
     assert [r.status_code for r in responses] == [200, 200], [r.text for r in responses]
     async with env.factory() as db:
         assert await db.scalar(text("SELECT quantity FROM inv_stock_balance WHERE item_id=:i AND location_id=:l"), dict(i=b.out,l=b.loc1)) == 160
+        assert await db.scalar(text("SELECT quantity FROM inv_stock_balance WHERE item_id=:i AND lot_id=:lot"), dict(i=b.raw,lot=b.raw_lot)) == 300
 
 
 @pytest.mark.asyncio
@@ -373,3 +385,192 @@ async def test_product_import_meat(env):
     assert r.json()['created']==1,r.text
     products=await request(env,"GET","/production/products?search=IMPORT-M")
     assert products['items'][0]['product_type']=='meat_processing'
+
+
+@pytest.mark.asyncio
+async def test_enable_dual_use_item_moves_legacy_balance_and_is_idempotent(env):
+    async with env.factory() as db:
+        loc = await db.scalar(text("INSERT INTO inv_locations(code,name) VALUES ('DUAL-L','Dual location') RETURNING id"))
+        item = await db.scalar(text("INSERT INTO inv_items(code,name,item_type,base_unit) VALUES ('DUAL-PORK','Dual pork','raw','KG') RETURNING id"))
+        await db.execute(text("INSERT INTO inv_item_allowed_locations(item_id,location_id) VALUES (:i,:l)"), dict(i=item,l=loc))
+        await db.execute(text("INSERT INTO inv_stock_balance(item_id,location_id,quantity) VALUES (:i,:l,12.345)"), dict(i=item,l=loc))
+        await db.commit()
+
+    enabled = await request(env, "POST", f"/inventory/items/{item}/enable-meat-product", {"output_type": "intermediate"})
+    assert enabled["item_type"] == "raw"
+    assert enabled["lot_tracking_enabled"] is True
+    assert enabled["meat_output_type"] == "intermediate"
+    assert enabled["meat_product_id"]
+    async with env.factory() as db:
+        row = (await db.execute(text("""
+            SELECT l.lot_code,l.origin_type,b.quantity
+            FROM inv_stock_balance b JOIN inv_lots l ON l.id=b.lot_id
+            WHERE b.item_id=:i AND b.location_id=:l
+        """), dict(i=item,l=loc))).one()
+        assert row.origin_type == "legacy" and row.lot_code.startswith("LEGACY-DUAL-PORK-")
+        assert str(row.quantity) == "12.345"
+        assert await db.scalar(text("SELECT count(*) FROM prod_products WHERE code='DUAL-PORK'")) == 1
+
+    updated = await request(env, "POST", f"/inventory/items/{item}/enable-meat-product", {"output_type": "finished"})
+    assert updated["meat_output_type"] == "finished" and updated["meat_product_id"] == enabled["meat_product_id"]
+    async with env.factory() as db:
+        assert await db.scalar(text("SELECT count(*) FROM inv_lots WHERE item_id=:i AND origin_type='legacy'"), dict(i=item)) == 1
+        assert str(await db.scalar(text("SELECT sum(quantity) FROM inv_stock_balance WHERE item_id=:i"), dict(i=item))) == "12.345"
+
+    async with env.factory() as db:
+        bad = await db.scalar(text("INSERT INTO inv_items(code,name,item_type,base_unit) VALUES ('DUAL-BAD','Bad unit','raw','包') RETURNING id"))
+        await db.execute(text("INSERT INTO inv_item_allowed_locations(item_id,location_id) VALUES (:i,:l)"), dict(i=bad,l=loc))
+        conflict = await db.scalar(text("INSERT INTO inv_items(code,name,item_type,base_unit) VALUES ('DUAL-CONFLICT','Conflict','raw','KG') RETURNING id"))
+        await db.execute(text("INSERT INTO inv_item_allowed_locations(item_id,location_id) VALUES (:i,:l)"), dict(i=conflict,l=loc))
+        await db.execute(text("INSERT INTO prod_products(code,name,product_type) VALUES ('DUAL-CONFLICT','Other','forming')"))
+        await db.commit()
+    await request(env, "POST", f"/inventory/items/{bad}/enable-meat-product", {"output_type": "finished"}, 422)
+    await request(env, "POST", f"/inventory/items/{conflict}/enable-meat-product", {"output_type": "finished"}, 409)
+
+
+@pytest.mark.asyncio
+async def test_manual_lot_documents_split_lines_and_prevent_shortage(env):
+    async with env.factory() as db:
+        loc = await db.scalar(text("INSERT INTO inv_locations(code,name) VALUES ('LOT-L','Lot location') RETURNING id"))
+        item = await db.scalar(text("INSERT INTO inv_items(code,name,item_type,base_unit,lot_tracking_enabled,meat_output_type) VALUES ('LOT-PORK','Lot pork','raw','KG',true,'intermediate') RETURNING id"))
+        await db.execute(text("INSERT INTO inv_item_allowed_locations(item_id,location_id) VALUES (:i,:l)"), dict(i=item,l=loc))
+        lot1 = await db.scalar(text("INSERT INTO inv_lots(item_id,lot_code,origin_type) VALUES (:i,'LOT-A','manual_adjustment') RETURNING id"), dict(i=item))
+        lot2 = await db.scalar(text("INSERT INTO inv_lots(item_id,lot_code,origin_type) VALUES (:i,'LOT-B','manual_adjustment') RETURNING id"), dict(i=item))
+        await db.execute(text("INSERT INTO inv_stock_balance(item_id,location_id,lot_id,quantity) VALUES (:i,:l,:lot,6)"), dict(i=item,l=loc,lot=lot1))
+        await db.execute(text("INSERT INTO inv_stock_balance(item_id,location_id,lot_id,quantity) VALUES (:i,:l,:lot,4)"), dict(i=item,l=loc,lot=lot2))
+        await db.commit()
+
+    no_lot = {"doc_type":"OUT","lines":[{"item_id":item,"location_id":loc,"quantity":"1.000","unit":"KG"}]}
+    await request(env, "POST", "/inventory/docs", no_lot, 422)
+    out_doc = await request(env, "POST", "/inventory/docs", {"doc_type":"OUT","lines":[
+        {"item_id":item,"location_id":loc,"lot_id":lot1,"quantity":"6.000","unit":"KG"},
+        {"item_id":item,"location_id":loc,"lot_id":lot2,"quantity":"4.000","unit":"KG"},
+    ]}, 201)
+    await request(env, "POST", f"/inventory/docs/{out_doc['id']}/post")
+    shortage = await request(env, "POST", "/inventory/docs", {"doc_type":"OUT","lines":[
+        {"item_id":item,"location_id":loc,"lot_id":lot1,"quantity":"0.001","unit":"KG"},
+    ]}, 201)
+    await request(env, "POST", f"/inventory/docs/{shortage['id']}/post", expected=400)
+
+    in_doc = await request(env, "POST", "/inventory/docs", {"doc_type":"IN","lines":[
+        {"item_id":item,"location_id":loc,"new_lot_code":"ADJ-NEW","quantity":"1.250","unit":"KG"},
+    ]}, 201)
+    await request(env, "POST", f"/inventory/docs/{in_doc['id']}/post")
+    lots = await request(env, "GET", f"/inventory/lots?item_id={item}&location_id={loc}&positive_only=true")
+    assert [(lot["lot_code"], lot["quantity"]) for lot in lots["items"]] == [("ADJ-NEW", "1.250")]
+    balances = await request(env, "GET", f"/inventory/balance?item_id={item}&location_id={loc}")
+    assert balances["items"][0]["quantity"] == "1.250"
+    assert {lot["lot_code"]: lot["quantity"] for lot in balances["items"][0]["lots"]}["ADJ-NEW"] == "1.250"
+    movements = await request(env, "GET", f"/inventory/balance/movements?doc_id={in_doc['id']}")
+    assert movements["items"][0]["lot_code"] == "ADJ-NEW" and movements["items"][0]["balance_after"] == "1.250"
+    async with env.factory() as db:
+        with pytest.raises(Exception, match="immutable"):
+            await db.execute(text("UPDATE inv_lots SET lot_code='CHANGED' WHERE id=:lot"), dict(lot=in_doc["lines"][0]["lot_id"]))
+        await db.rollback()
+
+
+@pytest.mark.asyncio
+async def test_receiving_creates_supplier_and_generated_lots(env):
+    async with env.factory() as db:
+        supplier = await db.scalar(text("INSERT INTO suppliers(name) VALUES ('Lot Supplier') RETURNING id"))
+        loc = await db.scalar(text("INSERT INTO inv_locations(code,name) VALUES ('RCV-L','Receiving lot location') RETURNING id"))
+        item = await db.scalar(text("INSERT INTO inv_items(code,name,item_type,base_unit,lot_tracking_enabled,meat_output_type) VALUES ('RCV-PORK','Received pork','raw','KG',true,'intermediate') RETURNING id"))
+        await db.execute(text("INSERT INTO inv_item_allowed_locations(item_id,location_id) VALUES (:i,:l)"), dict(i=item,l=loc))
+        await db.commit()
+
+    async def receive(batch_no):
+        payload = dict(supplier_id=supplier, product_name="Received pork", quantity="3.500", quantity_unit="KG",
+            temp_frozen="-20", vehicle_cleanliness="Pass", packaging_integrity="Pass", acceptance_status="Accept",
+            inv_item_id=item, supplier_batch_no=batch_no)
+        log = await request(env, "POST", "/receiving-logs", payload, 201)
+        await request(env, "POST", f"/receiving-logs/{log['id']}/lock")
+        doc = await request(env, "POST", f"/receiving-logs/{log['id']}/convert-to-stock-in", {"location_id":loc})
+        await request(env, "POST", f"/inventory/docs/{doc['id']}/post")
+        return log, doc
+
+    explicit, explicit_doc = await receive("SUP-LOT-88")
+    generated, generated_doc = await receive(None)
+    assert explicit_doc["lines"][0]["lot_code"] == "SUP-LOT-88"
+    assert generated_doc["lines"][0]["lot_code"] == f"RCV-{generated['id']}"
+    async with env.factory() as db:
+        rows = (await db.execute(text("SELECT lot_code,is_system_generated,receiving_log_id FROM inv_lots WHERE item_id=:i ORDER BY id"), dict(i=item))).all()
+        assert [(r.lot_code, r.is_system_generated, r.receiving_log_id) for r in rows] == [
+            ("SUP-LOT-88", False, explicit["id"]),
+            (f"RCV-{generated['id']}", True, generated["id"]),
+        ]
+
+
+@pytest.mark.asyncio
+async def test_same_sku_conversion_uses_distinct_production_lot_and_blocks_void_after_consumption(env):
+    b = await setup_batch(env)
+    async with env.factory() as db:
+        await db.execute(text("UPDATE inv_items SET meat_output_type='intermediate' WHERE id=:i"), dict(i=b.raw))
+        await db.commit()
+    b.data["outputs"] = [
+        dict(inv_item_id=b.raw, weight_kg="80.000", location_id=b.loc1),
+        dict(inv_item_id=b.raw, weight_kg="25.000", location_id=b.loc2),
+    ]
+    await verified(env, b)
+    env.role["role"] = "Warehouse"
+    await request(env, "POST", f"/production/batches/{b.id}/meat/enter-stock", {"version":1})
+    batch = await request(env, "GET", f"/production/batches/{b.id}")
+    async with env.factory() as db:
+        prod_lot = await db.scalar(text("SELECT id FROM inv_lots WHERE item_id=:i AND prod_batch_id=:b"), dict(i=b.raw,b=b.id))
+        assert prod_lot and prod_lot != b.raw_lot
+        assert await db.scalar(text("SELECT sum(quantity) FROM inv_stock_balance WHERE item_id=:i AND lot_id=:lot"), dict(i=b.raw,lot=prod_lot)) == 105
+    consume = await request(env, "POST", "/inventory/docs", {"doc_type":"OUT","lines":[
+        {"item_id":b.raw,"location_id":b.loc1,"lot_id":prod_lot,"quantity":"1.000","unit":"KG"},
+    ]}, 201)
+    await request(env, "POST", f"/inventory/docs/{consume['id']}/post")
+    env.role["role"] = "Admin"
+    await request(env, "POST", f"/production/batches/{b.id}/void", {"void_reason":"Cannot reverse consumed output"}, 409)
+    batch_after = await request(env, "GET", f"/production/batches/{b.id}")
+    assert batch_after["is_voided"] is False and batch_after["input_stock_doc_id"] == batch["input_stock_doc_id"]
+
+
+@pytest.mark.asyncio
+async def test_meat_stock_rejects_insufficient_source_lot_without_partial_documents(env):
+    b = await setup_batch(env)
+    await verified(env, b)
+    async with env.factory() as db:
+        await db.execute(text("UPDATE inv_stock_balance SET quantity=99 WHERE item_id=:i AND lot_id=:lot"), dict(i=b.raw,lot=b.raw_lot))
+        await db.commit()
+    env.role["role"] = "Warehouse"
+    await request(env, "POST", f"/production/batches/{b.id}/meat/enter-stock", {"version":1}, 400)
+    async with env.factory() as db:
+        assert await db.scalar(text("SELECT count(*) FROM inv_stock_docs WHERE doc_number IN (:out,:inn)"), dict(out=f"OUT-MEAT-{b.id}",inn=f"IN-MEAT-{b.id}")) == 0
+        assert await db.scalar(text("SELECT quantity FROM inv_stock_balance WHERE item_id=:i AND lot_id=:lot"), dict(i=b.raw,lot=b.raw_lot)) == 99
+
+
+@pytest.mark.asyncio
+async def test_stocktake_counts_each_lot_and_adds_discovered_lot(env):
+    async with env.factory() as db:
+        loc = await db.scalar(text("INSERT INTO inv_locations(code,name) VALUES ('COUNT-L','Count location') RETURNING id"))
+        item = await db.scalar(text("INSERT INTO inv_items(code,name,item_type,base_unit,lot_tracking_enabled,meat_output_type) VALUES ('COUNT-PORK','Count pork','raw','KG',true,'intermediate') RETURNING id"))
+        await db.execute(text("INSERT INTO inv_item_allowed_locations(item_id,location_id) VALUES (:i,:l)"), dict(i=item,l=loc))
+        lot1 = await db.scalar(text("INSERT INTO inv_lots(item_id,lot_code,origin_type) VALUES (:i,'COUNT-A','manual_adjustment') RETURNING id"), dict(i=item))
+        lot2 = await db.scalar(text("INSERT INTO inv_lots(item_id,lot_code,origin_type) VALUES (:i,'COUNT-B','manual_adjustment') RETURNING id"), dict(i=item))
+        await db.execute(text("INSERT INTO inv_stock_balance(item_id,location_id,lot_id,quantity) VALUES (:i,:l,:lot,2)"), dict(i=item,l=loc,lot=lot1))
+        await db.execute(text("INSERT INTO inv_stock_balance(item_id,location_id,lot_id,quantity) VALUES (:i,:l,:lot,3)"), dict(i=item,l=loc,lot=lot2))
+        await db.commit()
+
+    env.role["role"] = "Warehouse"
+    stocktake = await request(env, "POST", "/inventory/stocktakes", {"location_id":loc,"count_date":"2026-09-15"}, 201)
+    rows = {line["lot_code"]:line for line in stocktake["lines"] if line["item_id"] == item}
+    assert set(rows) == {"COUNT-A", "COUNT-B"}
+    await request(env, "PATCH", f"/inventory/stocktakes/{stocktake['id']}/lines/{rows['COUNT-A']['id']}", {"physical_qty":"1.500"})
+    await request(env, "PATCH", f"/inventory/stocktakes/{stocktake['id']}/lines/{rows['COUNT-B']['id']}", {"physical_qty":"4.000"})
+    stocktake = await request(env, "POST", f"/inventory/stocktakes/{stocktake['id']}/discovered-lots", {
+        "item_id":item,"lot_code":"COUNT-FOUND","physical_qty":"1.250"
+    })
+    assert any(line["lot_code"] == "COUNT-FOUND" for line in stocktake["lines"])
+    confirmed = await request(env, "POST", f"/inventory/stocktakes/{stocktake['id']}/confirm")
+    assert confirmed["status"] == "confirmed" and confirmed["adj_in_doc_id"] and confirmed["adj_out_doc_id"]
+    async with env.factory() as db:
+        balances = (await db.execute(text("""
+            SELECT l.lot_code,b.quantity FROM inv_stock_balance b
+            JOIN inv_lots l ON l.id=b.lot_id WHERE b.item_id=:i ORDER BY l.lot_code
+        """), dict(i=item))).all()
+        assert [(row.lot_code, str(row.quantity)) for row in balances] == [
+            ("COUNT-A", "1.500"), ("COUNT-B", "4.000"), ("COUNT-FOUND", "1.250")
+        ]

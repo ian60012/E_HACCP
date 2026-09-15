@@ -8,7 +8,7 @@ from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.models.inventory import InvStockDoc, InvStockLine, InvItem, InvLocation
+from app.models.inventory import InvStockDoc, InvStockLine, InvItem, InvLocation, InvLot
 from app.models.enums import InvDocType, InvDocStatus
 from app.models.user import User
 from app.schemas.inventory import (
@@ -37,6 +37,9 @@ def _line_response(line: InvStockLine) -> InvStockLineResponse:
         unit=line.unit,
         unit_cost=line.unit_cost,
         notes=line.notes,
+        lot_id=line.lot_id,
+        lot_code=line.lot.lot_code if line.lot else None,
+        lot_origin_type=line.lot.origin_type if line.lot else None,
     )
 
 
@@ -66,7 +69,40 @@ def _base_query():
         selectinload(InvStockDoc.location),
         selectinload(InvStockDoc.lines).selectinload(InvStockLine.item),
         selectinload(InvStockDoc.lines).selectinload(InvStockLine.location),
+        selectinload(InvStockDoc.lines).selectinload(InvStockLine.lot),
     )
+
+
+async def _resolve_line_lot(db: AsyncSession, item: InvItem, line_data, doc_type: str) -> int | None:
+    if not item.lot_tracking_enabled:
+        if line_data.lot_id or line_data.new_lot_code:
+            raise HTTPException(422, "非批號品項不得指定 lot Lot is not enabled for this item")
+        return None
+    if line_data.unit.strip().lower() not in ("kg", "公斤"):
+        raise HTTPException(422, "批號管理品項的庫存單位必須為 KG Lot-tracked stock unit must be KG")
+    if line_data.lot_id and line_data.new_lot_code:
+        raise HTTPException(422, "lot_id 與新批號只能擇一 Choose an existing or new lot")
+    if doc_type == "OUT" and not line_data.lot_id:
+        raise HTTPException(422, "批號品項出庫必須選擇 lot Select a lot for stock OUT")
+    if doc_type == "IN" and not line_data.lot_id and not line_data.new_lot_code:
+        raise HTTPException(422, "批號品項入庫必須選擇或建立 lot Select or create a lot")
+    if line_data.lot_id:
+        lot = await db.get(InvLot, line_data.lot_id)
+        if not lot or lot.item_id != item.id:
+            raise HTTPException(422, "lot 與品項不符 Lot does not belong to the item")
+        return lot.id
+    lot_code = line_data.new_lot_code.strip()
+    if not lot_code:
+        raise HTTPException(422, "新批號不可為空 New lot code cannot be blank")
+    lot = InvLot(
+        item_id=item.id,
+        lot_code=lot_code,
+        origin_type="manual_adjustment",
+        is_system_generated=False,
+    )
+    db.add(lot)
+    await db.flush()
+    return lot.id
 
 
 @router.get("", response_model=PaginatedResponse[InvStockDocResponse])
@@ -135,11 +171,13 @@ async def create_doc(
     for line_data in data.lines:
         # Validate item exists
         item_result = await db.execute(select(InvItem).where(InvItem.id == line_data.item_id))
-        if not item_result.scalar_one_or_none():
+        item = item_result.scalar_one_or_none()
+        if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Item {line_data.item_id} not found"
             )
+        lot_id = await _resolve_line_lot(db, item, line_data, data.doc_type)
         line = InvStockLine(
             doc_id=doc.id,
             item_id=line_data.item_id,
@@ -148,6 +186,7 @@ async def create_doc(
             unit=line_data.unit,
             unit_cost=line_data.unit_cost,
             notes=line_data.notes,
+            lot_id=lot_id,
         )
         db.add(line)
 
@@ -207,11 +246,14 @@ async def update_doc(
     # Insert new lines
     for line_data in data.lines:
         item_result = await db.execute(select(InvItem).where(InvItem.id == line_data.item_id))
-        if not item_result.scalar_one_or_none():
+        item = item_result.scalar_one_or_none()
+        if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Item {line_data.item_id} not found",
             )
+        doc_type = doc.doc_type.value if hasattr(doc.doc_type, "value") else doc.doc_type
+        lot_id = await _resolve_line_lot(db, item, line_data, doc_type)
         line = InvStockLine(
             doc_id=doc.id,
             item_id=line_data.item_id,
@@ -220,6 +262,7 @@ async def update_doc(
             unit=line_data.unit,
             unit_cost=line_data.unit_cost,
             notes=line_data.notes,
+            lot_id=lot_id,
         )
         db.add(line)
 
@@ -250,7 +293,10 @@ async def void_doc(
     db: AsyncSession = Depends(get_db),
 ):
     from app.models.production import ProdBatch
-    meat_batch = await db.scalar(select(ProdBatch.id).where(ProdBatch.inv_stock_doc_id == doc_id, ProdBatch.process_type == "meat_processing"))
+    meat_batch = await db.scalar(select(ProdBatch.id).where(
+        (ProdBatch.inv_stock_doc_id == doc_id) | (ProdBatch.input_stock_doc_id == doc_id),
+        ProdBatch.process_type == "meat_processing",
+    ))
     if meat_batch:
         raise HTTPException(409, "請從肉品批次作廢並沖回庫存 Void the meat batch to reverse this document")
     # Warehouse can only void Draft docs; Admin can void any status

@@ -26,6 +26,7 @@ class ReceivingLogCreate(BaseModel):
     acceptance_status: str = Field(default="Accept", description="Accept, Reject, or Hold")
     corrective_action: Optional[str] = None
     notes: Optional[str] = None
+    supplier_batch_no: Optional[str] = Field(None, max_length=100)
     inv_item_id: Optional[int] = Field(None, description="Link to inventory item at creation (from 原料管理)")
 
     @model_validator(mode="after")
@@ -41,6 +42,7 @@ class ReceivingLogUpdate(BaseModel):
     corrective_action: Optional[str] = None
     notes: Optional[str] = None
     inv_item_id: Optional[int] = None
+    supplier_batch_no: Optional[str] = Field(None, max_length=100)
 
 
 class ReceivingLogResponse(ALCOAResponseMixin):
@@ -64,3 +66,4 @@ class ReceivingLogResponse(ALCOAResponseMixin):
     inv_item_id: Optional[int] = None
     inv_item_name: Optional[str] = None
     inv_stock_doc_id: Optional[int] = None
+    supplier_batch_no: Optional[str] = None

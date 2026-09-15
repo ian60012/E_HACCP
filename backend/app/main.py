@@ -33,6 +33,7 @@ from app.routers.api.v1 import inventory_items
 from app.routers.api.v1 import inventory_locations
 from app.routers.api.v1 import inventory_docs
 from app.routers.api.v1 import inventory_balance
+from app.routers.api.v1 import inventory_lots
 from app.routers.api.v1 import production_products
 from app.routers.api.v1 import production_pack_types
 from app.routers.api.v1 import meat_processing
@@ -586,6 +587,8 @@ async def lifespan(app: FastAPI):
         ))
     from app.core.meat_migration import migrate_meat
     await migrate_meat(engine)
+    from app.core.inventory_lot_migration import migrate_inventory_lots
+    await migrate_inventory_lots(engine)
     # Production Helper data directory (plans/recipes/purchase_status JSON files)
     production_helper.init_data_dir()
 
@@ -637,6 +640,7 @@ app.include_router(inventory_items.router, prefix="/api/v1")
 app.include_router(inventory_locations.router, prefix="/api/v1")
 app.include_router(inventory_docs.router, prefix="/api/v1")
 app.include_router(inventory_balance.router, prefix="/api/v1")
+app.include_router(inventory_lots.router, prefix="/api/v1")
 
 # Production module
 app.include_router(production_products.router, prefix="/api/v1")

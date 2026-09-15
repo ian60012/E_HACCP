@@ -38,6 +38,8 @@ export default function InventoryItemsPage({ defaultItemType, basePath = '/inven
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [enablingMeatId, setEnablingMeatId] = useState<number | null>(null);
+  const [meatChoices, setMeatChoices] = useState<Record<number, 'intermediate' | 'finished'>>({});
   const [importResult, setImportResult] = useState<{
     created: number; skipped: number; errors: { row: number; code: string; message: string }[];
   } | null>(null);
@@ -167,6 +169,19 @@ export default function InventoryItemsPage({ defaultItemType, basePath = '/inven
   const newUrl = () => {
     const returnTo = basePath !== '/inventory/items' ? `?returnTo=${encodeURIComponent(basePath)}` : '';
     return `/inventory/items/new${returnTo}`;
+  };
+
+  const enableMeatProduct = async (item: InvItem) => {
+    setEnablingMeatId(item.id);
+    setError('');
+    try {
+      await invItemsApi.enableMeatProduct(item.id, meatChoices[item.id] || item.meat_output_type || 'intermediate');
+      await fetchItems();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || '啟用肉品加工產品失敗');
+    } finally {
+      setEnablingMeatId(null);
+    }
   };
 
   const titleKey: Record<ItemType, string> = {
@@ -357,7 +372,7 @@ export default function InventoryItemsPage({ defaultItemType, basePath = '/inven
               key={item.id}
               className={`card transition-shadow ${!item.is_active ? 'opacity-50' : ''} ${selectedIds.has(item.id) ? 'border-blue-300 bg-blue-50/40' : ''}`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 {/* Checkbox */}
                 <input
                   type="checkbox"
@@ -383,6 +398,11 @@ export default function InventoryItemsPage({ defaultItemType, basePath = '/inven
                     {item.category && (
                       <span className="text-xs text-gray-500">{item.category}</span>
                     )}
+                    {item.meat_output_type && (
+                      <span className="text-xs bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded">
+                        外購＋肉品{item.meat_output_type === 'intermediate' ? '半成品' : '成品'} · 批號管理
+                      </span>
+                    )}
                   </div>
                   {item.supplier_name && (
                     <p className="text-sm text-gray-500 mt-0.5">{item.supplier_name}</p>
@@ -390,13 +410,35 @@ export default function InventoryItemsPage({ defaultItemType, basePath = '/inven
                 </div>
 
                 {/* Right side */}
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-shrink-0">
                   <span className="text-sm text-gray-400">
                     {item.base_unit}
                     {item.usage_unit && item.usage_unit !== item.base_unit && (
                       <span className="ml-1 text-blue-500">→ {item.usage_unit}</span>
                     )}
                   </span>
+                  {item.item_type === 'raw' && item.is_active && (
+                    <RoleGate roles={['Admin']}>
+                      <div className="flex flex-wrap items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          className="input text-xs py-1 w-24"
+                          value={meatChoices[item.id] || item.meat_output_type || 'intermediate'}
+                          onChange={(e) => setMeatChoices((old) => ({ ...old, [item.id]: e.target.value as 'intermediate' | 'finished' }))}
+                        >
+                          <option value="intermediate">肉品半成品</option>
+                          <option value="finished">肉品成品</option>
+                        </select>
+                        <button
+                          type="button"
+                          className="btn btn-secondary text-xs py-1 px-2"
+                          disabled={enablingMeatId === item.id}
+                          onClick={() => enableMeatProduct(item)}
+                        >
+                          {enablingMeatId === item.id ? '處理中…' : item.meat_output_type ? '更新' : '啟用肉品產出'}
+                        </button>
+                      </div>
+                    </RoleGate>
+                  )}
                   {defaultItemType === 'raw' && item.is_active && (
                     <button
                       onClick={(e) => {

@@ -185,6 +185,10 @@ export default function ReceivingLogDetailPage() {
             <p className="text-xs text-gray-400"><Bi k="field.productName" /></p>
             <p className="font-medium text-gray-800">{log.product_name || '—'}</p>
           </div>
+          <div>
+            <p className="text-xs text-gray-400">供應商批號 Supplier lot</p>
+            <p className="font-medium text-gray-800">{log.supplier_batch_no || `RCV-${log.id}（入庫時自動產生）`}</p>
+          </div>
           {log.quantity && (
             <div>
               <p className="text-xs text-gray-400"><Bi k="field.receivingQuantity" /></p>

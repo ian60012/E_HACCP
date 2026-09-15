@@ -88,10 +88,13 @@ async def void_batch(
                 reason=cascade_reason,
             )
 
-    if batch.inv_stock_doc_id:
-        stock_doc = await db.get(InvStockDoc, batch.inv_stock_doc_id)
+    # Reverse meat outputs before restoring inputs. The output reversal refuses
+    # to create a negative lot when downstream stock has already been consumed.
+    for stock_doc_id in (batch.inv_stock_doc_id, batch.input_stock_doc_id):
+        if not stock_doc_id:
+            continue
+        stock_doc = await db.get(InvStockDoc, stock_doc_id)
         if stock_doc and stock_doc.status == InvDocStatus.POSTED:
-            # Reverse stock balances + movements via existing inventory service
             await void_stock_doc(db, stock_doc.id, cascade_reason)
             await create_audit_entry(
                 db=db,

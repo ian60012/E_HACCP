@@ -4,7 +4,7 @@ import {
   InvLocation, InvLocationCreate, InvLocationUpdate,
   InvStockDoc, InvStockDocCreate,
   InvStockBalance, InvStockMovement,
-  InvStocktake, InvStocktakeCreate, InvStocktakeLineUpdate, InvStocktakeLine,
+  InvStocktake, InvStocktakeCreate, InvStocktakeLineUpdate, InvStocktakeLine, InvLot,
 } from '@/types/inventory';
 import { PaginatedResponse } from '@/types/common';
 
@@ -35,6 +35,11 @@ export const invItemsApi = {
     return res.data;
   },
 
+  enableMeatProduct: async (id: number, output_type: 'intermediate' | 'finished'): Promise<InvItem> => {
+    const res = await apiClient.post<InvItem>(`/api/v1/inventory/items/${id}/enable-meat-product`, { output_type });
+    return res.data;
+  },
+
   bulkUpdate: async (data: {
     ids: number[];
     item_type?: ItemType;
@@ -61,6 +66,13 @@ export const invItemsApi = {
     const res = await apiClient.post('/api/v1/inventory/items/import', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    return res.data;
+  },
+};
+
+export const invLotsApi = {
+  list: async (params?: { skip?: number; limit?: number; item_id?: number; location_id?: number; positive_only?: boolean }): Promise<PaginatedResponse<InvLot>> => {
+    const res = await apiClient.get<PaginatedResponse<InvLot>>('/api/v1/inventory/lots', { params });
     return res.data;
   },
 };
@@ -179,6 +191,11 @@ export const invStocktakeApi = {
 
   confirm: async (id: number): Promise<InvStocktake> => {
     const res = await apiClient.post<InvStocktake>(`/api/v1/inventory/stocktakes/${id}/confirm`);
+    return res.data;
+  },
+
+  addDiscoveredLot: async (id: number, data: { item_id: number; lot_code: string; physical_qty: string; notes?: string }): Promise<InvStocktake> => {
+    const res = await apiClient.post<InvStocktake>(`/api/v1/inventory/stocktakes/${id}/discovered-lots`, data);
     return res.data;
   },
 };

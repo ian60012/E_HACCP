@@ -211,6 +211,7 @@ export interface ProdBatch {
   contamination_found: boolean;
   change_over: boolean;
   inv_stock_doc_id: number | null;
+  input_stock_doc_id: number | null;
   is_voided: boolean;
   void_reason: string | null;
   voided_at: string | null;

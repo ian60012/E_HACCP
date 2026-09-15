@@ -26,6 +26,7 @@ class ReceivingLog(ALCOAMixin, Base):
     acceptance_status = Column(AcceptanceType, nullable=False, server_default="Accept")
     corrective_action = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
+    supplier_batch_no = Column(VARCHAR(100), nullable=True)
 
     # Inventory integration links (optional)
     inv_item_id = Column(Integer, ForeignKey("inv_items.id"), nullable=True)

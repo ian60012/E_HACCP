@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
-import { invStocktakeApi, invLocationsApi } from '@/api/inventory';
-import { InvStocktake, InvStocktakeLine, InvLocation } from '@/types/inventory';
+import { invStocktakeApi, invLocationsApi, invItemsApi } from '@/api/inventory';
+import { InvStocktake, InvStocktakeLine, InvLocation, InvItem } from '@/types/inventory';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorCard from '@/components/ErrorCard';
 import RoleGate from '@/components/RoleGate';
@@ -30,6 +30,11 @@ export default function InventoryStocktakePage() {
   // Local edits: lineId → input value string
   const [localQty, setLocalQty] = useState<Record<number, string>>({});
   const [savingLine, setSavingLine] = useState<number | null>(null);
+  const [trackedItems, setTrackedItems] = useState<InvItem[]>([]);
+  const [discoveredItemId, setDiscoveredItemId] = useState('');
+  const [discoveredLotCode, setDiscoveredLotCode] = useState('');
+  const [discoveredQty, setDiscoveredQty] = useState('');
+  const [addingLot, setAddingLot] = useState(false);
 
   useEffect(() => {
     invLocationsApi.list({ is_active: true, limit: 100 }).then((r) => setLocations(r.items)).catch(() => {});
@@ -56,6 +61,15 @@ export default function InventoryStocktakePage() {
   }, [id]);
 
   useEffect(() => { fetchStocktake(); }, [fetchStocktake]);
+
+  useEffect(() => {
+    if (!stocktake || stocktake.status !== 'draft') return;
+    invItemsApi.list({ is_active: true, limit: 500 }).then((response) => {
+      setTrackedItems(response.items.filter((item) =>
+        item.lot_tracking_enabled && item.allowed_location_ids.includes(stocktake.location_id)
+      ));
+    }).catch(() => setTrackedItems([]));
+  }, [stocktake?.id, stocktake?.location_id, stocktake?.status]);
 
   // ── Create new stocktake ────────────────────────────────────────────────
   const handleCreate = async () => {
@@ -116,6 +130,30 @@ export default function InventoryStocktakePage() {
       setError(err?.response?.data?.detail || '確認失敗');
     } finally {
       setConfirming(false);
+    }
+  };
+
+  const handleAddDiscoveredLot = async () => {
+    if (!stocktake || !discoveredItemId || !discoveredLotCode.trim() || !discoveredQty) return;
+    setAddingLot(true);
+    setError('');
+    try {
+      const updated = await invStocktakeApi.addDiscoveredLot(stocktake.id, {
+        item_id: Number(discoveredItemId),
+        lot_code: discoveredLotCode.trim(),
+        physical_qty: discoveredQty,
+      });
+      setStocktake(updated);
+      const init: Record<number, string> = {};
+      updated.lines.forEach((line) => { init[line.id] = line.physical_qty ?? ''; });
+      setLocalQty(init);
+      setDiscoveredItemId('');
+      setDiscoveredLotCode('');
+      setDiscoveredQty('');
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || '新增現場批號失敗');
+    } finally {
+      setAddingLot(false);
     }
   };
 
@@ -280,6 +318,40 @@ export default function InventoryStocktakePage() {
         </div>
       )}
 
+      {isDraft && canEdit && (
+        <div className="card space-y-3">
+          <div>
+            <h2 className="font-semibold text-gray-800">新增現場發現批號</h2>
+            <p className="text-xs text-gray-500 mt-1">僅適用已啟用批號管理，且允許存放於此儲位的品項。</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+            <div>
+              <label className="label text-xs">品項</label>
+              <select className="input" value={discoveredItemId} onChange={(e) => setDiscoveredItemId(e.target.value)}>
+                <option value="">— 選擇品項 —</option>
+                {trackedItems.map((item) => <option key={item.id} value={item.id}>{item.code} — {item.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label text-xs">批號 Lot</label>
+              <input className="input" value={discoveredLotCode} onChange={(e) => setDiscoveredLotCode(e.target.value)} placeholder="輸入現場批號" />
+            </div>
+            <div>
+              <label className="label text-xs">實盤數量 KG</label>
+              <input className="input" type="number" step="0.001" min="0.001" value={discoveredQty} onChange={(e) => setDiscoveredQty(e.target.value)} />
+            </div>
+            <button
+              type="button"
+              onClick={handleAddDiscoveredLot}
+              disabled={addingLot || !discoveredItemId || !discoveredLotCode.trim() || !discoveredQty}
+              className="btn btn-secondary disabled:opacity-40"
+            >
+              {addingLot ? '新增中…' : '加入盤點'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Lines table */}
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
@@ -287,6 +359,7 @@ export default function InventoryStocktakePage() {
             <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
               <th className="pb-2 pr-3">品項代碼</th>
               <th className="pb-2 pr-3">品項名稱</th>
+              <th className="pb-2 pr-3">批號 Lot</th>
               <th className="pb-2 pr-3 text-right">系統數量</th>
               <th className="pb-2 pr-3 text-right">實盤數量</th>
               <th className="pb-2 pr-3 text-right">差異</th>
@@ -300,15 +373,16 @@ export default function InventoryStocktakePage() {
                 <tr key={line.id} className={savingLine === line.id ? 'opacity-60' : ''}>
                   <td className="py-2 pr-3 font-mono text-xs text-gray-500">{line.item_code}</td>
                   <td className="py-2 pr-3 text-gray-700">{line.item_name}</td>
+                  <td className="py-2 pr-3 font-mono text-xs text-gray-600">{line.lot_code || '—'}</td>
                   <td className="py-2 pr-3 text-right text-gray-600">
-                    {Math.round(Number(line.system_qty))} {line.item_unit}
+                    {Number(line.system_qty).toFixed(3)} {line.item_unit}
                   </td>
                   <td className="py-2 pr-3 text-right">
                     {isDraft ? (
                       canEdit ? (
                         <input
                           type="number"
-                          step="1"
+                          step="0.001"
                           min="0"
                           value={localQty[line.id] ?? ''}
                           onChange={(e) => setLocalQty((prev) => ({ ...prev, [line.id]: e.target.value }))}
@@ -318,20 +392,20 @@ export default function InventoryStocktakePage() {
                         />
                       ) : (
                         <span className="text-gray-700">
-                          {localQty[line.id] ? `${Math.round(Number(localQty[line.id]))}` : <span className="text-gray-400">未盤</span>}
+                          {localQty[line.id] ? `${Number(localQty[line.id]).toFixed(3)}` : <span className="text-gray-400">未盤</span>}
                         </span>
                       )
                     ) : (
                       <span className="text-gray-700">
                         {line.physical_qty !== null
-                          ? `${Math.round(Number(line.physical_qty))} ${line.item_unit}`
+                          ? `${Number(line.physical_qty).toFixed(3)} ${line.item_unit}`
                           : <span className="text-gray-400">未盤</span>}
                       </span>
                     )}
                   </td>
                   <td className={`py-2 pr-3 text-right ${varianceClass(variance)}`}>
                     {variance !== null
-                      ? `${Number(variance) > 0 ? '+' : ''}${Math.round(Number(variance))}`
+                      ? `${Number(variance) > 0 ? '+' : ''}${Number(variance).toFixed(3)}`
                       : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="py-2 pr-3 text-gray-400 text-xs">{line.notes || '—'}</td>
@@ -340,7 +414,7 @@ export default function InventoryStocktakePage() {
             })}
             {stocktake.lines.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-gray-400">此儲位無庫存品項</td>
+                <td colSpan={7} className="py-8 text-center text-gray-400">此儲位無庫存品項</td>
               </tr>
             )}
           </tbody>

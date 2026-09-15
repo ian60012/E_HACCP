@@ -78,6 +78,7 @@ class ProdBatch(Base):
     contamination_found = Column(Boolean, nullable=False, server_default="false")
     change_over = Column(Boolean, nullable=False, server_default="false")
     inv_stock_doc_id = Column(Integer, ForeignKey("inv_stock_docs.id", ondelete="SET NULL"), nullable=True)
+    input_stock_doc_id = Column(Integer, ForeignKey("inv_stock_docs.id", ondelete="SET NULL"), nullable=True)
     is_voided = Column(Boolean, nullable=False, default=False, server_default="false")
     void_reason = Column(Text, nullable=True)
     voided_at = Column(TIMESTAMP(timezone=True), nullable=True)

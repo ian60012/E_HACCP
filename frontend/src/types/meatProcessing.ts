@@ -10,6 +10,8 @@ export const meatSteps = {
 export interface MeatInput {
   inv_item_id: number; supplier: string; source_batch: string;
   receiving_log_id: number | null; weight_kg: string; item_name?: string;
+  source_location_id: number | null; source_lot_id: number | null;
+  source_location_name?: string | null; source_lot_code?: string | null;
 }
 export interface MeatStep {
   kind: keyof typeof meatSteps; start_time: string | null; end_time: string | null;

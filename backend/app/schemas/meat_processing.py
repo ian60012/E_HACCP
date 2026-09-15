@@ -14,10 +14,12 @@ class Detail(BaseModel):
 
 class MeatInputData(Detail):
     inv_item_id: int = Field(gt=0)
-    supplier: Name
-    source_batch: str = Field(min_length=1, max_length=100)
+    supplier: str = Field(default="", max_length=200)
+    source_batch: str = Field(default="", max_length=100)
     receiving_log_id: int | None = Field(None, gt=0)
     weight_kg: Weight
+    source_location_id: int | None = Field(None, gt=0)
+    source_lot_id: int | None = Field(None, gt=0)
 
 
 class MeatStepData(Detail):
@@ -75,6 +77,8 @@ class MeatVerify(MeatVersion):
 
 class MeatInputRead(MeatInputData):
     item_name: str
+    source_location_name: str | None = None
+    source_lot_code: str | None = None
 
 
 class MeatOutputRead(MeatOutputData):

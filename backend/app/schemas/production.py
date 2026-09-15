@@ -291,6 +291,7 @@ class ProdBatchResponse(BaseModel):
     contamination_found: bool = False
     change_over: bool = False
     inv_stock_doc_id: Optional[int] = None
+    input_stock_doc_id: Optional[int] = None
     is_voided: bool = False
     void_reason: Optional[str] = None
     voided_at: Optional[datetime] = None
