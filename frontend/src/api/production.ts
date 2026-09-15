@@ -13,6 +13,7 @@ import {
   FormingOption, FormingTotals, PackingTotals, RepackTotals, HotProcessBalance,
   PackTypeConfig, PackTypeConfigCreate, PackTypeConfigUpdate,
   ProdProductPackConfig, ProdProductPackConfigUpsert,
+  ProdProductType,
 } from '@/types/production';
 import { PaginatedResponse } from '@/types/common';
 
@@ -21,6 +22,7 @@ import { PaginatedResponse } from '@/types/common';
 export const prodProductsApi = {
   list: async (params?: {
     skip?: number; limit?: number; search?: string; show_inactive?: boolean;
+    product_type?: ProdProductType;
     sort_by?: string; sort_order?: string;
   }): Promise<PaginatedResponse<ProdProduct>> => {
     const res = await apiClient.get<PaginatedResponse<ProdProduct>>('/api/v1/production/products', { params });
@@ -38,8 +40,10 @@ export const prodProductsApi = {
     const res = await apiClient.patch<ProdProduct>(`/api/v1/production/products/${id}`, data);
     return res.data;
   },
-  formingOptions: async (): Promise<FormingOption[]> => {
-    const res = await apiClient.get<FormingOption[]>('/api/v1/production/products/forming-options');
+  formingOptions: async (productType?: ProdProductType): Promise<FormingOption[]> => {
+    const res = await apiClient.get<FormingOption[]>('/api/v1/production/products/forming-options', {
+      params: { product_type: productType },
+    });
     return res.data;
   },
   downloadTemplate: async (): Promise<Blob> => {

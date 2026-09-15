@@ -103,7 +103,7 @@ function LegacyBatchListPage() {
 
   useEffect(() => {
     if (productType === 'hot_process') {
-      prodProductsApi.list({ show_inactive: false }).then(res => setProducts(res.items)).catch(() => {});
+      prodProductsApi.list({ show_inactive: false, product_type: 'hot_process' }).then(res => setProducts(res.items)).catch(() => {});
     }
   }, [productType]);
 
@@ -131,13 +131,13 @@ function LegacyBatchListPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">{pageTitle}</h1>
+          <h1 className={`text-2xl font-bold ${productType === 'hot_process' ? 'text-orange-800' : 'text-gray-800'}`}>{pageTitle}</h1>
           <p className="text-sm text-gray-500 mt-1">{pageSubtitle}</p>
         </div>
         <RoleGate roles={['Admin', 'Production']}>
           <button
             onClick={() => navigate(newBatchTo)}
-            className="btn btn-primary flex items-center gap-1.5"
+            className={`btn flex items-center gap-1.5 ${productType === 'hot_process' ? 'bg-orange-600 text-white hover:bg-orange-700' : 'btn-primary'}`}
           >
             <PlusIcon className="h-5 w-5" />
             <span className="hidden sm:inline">{newBtnLabel}</span>
@@ -177,7 +177,7 @@ function LegacyBatchListPage() {
             className="input w-auto"
           >
             <option value="">全部產品</option>
-            {products.filter(p => p.product_type === 'hot_process').map(p => (
+            {products.map(p => (
               <option key={p.code} value={p.code}>{p.code} — {p.name}</option>
             ))}
           </select>

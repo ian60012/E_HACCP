@@ -517,7 +517,13 @@ export default function ProdProductsPage() {
                     <td className="py-2 pr-4 font-medium text-gray-800">{product.code}</td>
                     <td className="py-2 pr-4 text-gray-700">{product.name}</td>
                     <td className="py-2 pr-4">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${product.product_type === 'forming' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset ${
+                        product.product_type === 'forming'
+                          ? 'bg-blue-100 text-blue-800 ring-blue-300'
+                          : product.product_type === 'hot_process'
+                            ? 'bg-orange-100 text-orange-800 ring-orange-300'
+                            : 'bg-violet-100 text-violet-800 ring-violet-300'
+                      }`}>
                         {product.product_type === 'forming' ? '成型' : product.product_type === 'hot_process' ? '熱加工' : '肉品加工'}
                       </span>
                     </td>

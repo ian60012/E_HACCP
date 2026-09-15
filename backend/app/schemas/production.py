@@ -219,6 +219,7 @@ class CartonLabelRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 class ProdBatchCreate(BaseModel):
+    process_type: Literal["forming", "hot_process", "meat_processing"]
     product_code: str = Field(..., max_length=50)
     product_name: str = Field(..., max_length=200)
     production_date: date

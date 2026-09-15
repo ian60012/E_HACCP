@@ -1,7 +1,7 @@
 """Production products router (產品管理)."""
 
 import io
-from typing import Optional, List
+from typing import Optional, List, Literal
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
@@ -54,6 +54,7 @@ async def list_products(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     search: Optional[str] = None,
+    product_type: Optional[Literal["forming", "hot_process", "meat_processing"]] = None,
     show_inactive: bool = False,
     sort_by: str = Query("code", description="code | name | product_type"),
     sort_order: str = Query("asc", description="asc | desc"),
@@ -68,6 +69,8 @@ async def list_products(
             ProdProduct.name.ilike(f"%{search}%")
             | ProdProduct.code.ilike(f"%{search}%")
         )
+    if product_type:
+        q = q.where(ProdProduct.product_type == product_type)
 
     total_result = await db.execute(
         select(func.count()).select_from(q.subquery())
@@ -267,14 +270,14 @@ async def import_products(
 
 @router.get("/forming-options", response_model=list[FormingOption])
 async def get_forming_options(
+    product_type: Optional[Literal["forming", "hot_process", "meat_processing"]] = None,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(ProdProduct)
-        .where(ProdProduct.is_active == True)  # noqa: E712
-        .order_by(ProdProduct.code)
-    )
+    query = select(ProdProduct).where(ProdProduct.is_active == True)  # noqa: E712
+    if product_type:
+        query = query.where(ProdProduct.product_type == product_type)
+    result = await db.execute(query.order_by(ProdProduct.code))
     products = result.scalars().all()
     return [
         FormingOption(

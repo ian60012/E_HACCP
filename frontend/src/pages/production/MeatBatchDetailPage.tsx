@@ -100,7 +100,7 @@ export default function MeatBatchDetailPage() {
   if (!batch) return <p role="alert">{error || '找不到批次 Batch not found'}</p>;
   return <div className="space-y-6">
     <Link to="/production/meat" className="text-blue-700" onClick={e => { if (dirty && !window.confirm('尚未儲存，確定離開？ Leave without saving?')) e.preventDefault(); }}>← 肉品加工 Meat Processing</Link>
-    <header className="card space-y-2"><h1 className="text-2xl font-bold break-words">{batch.batch_code} · 肉品加工</h1>
+    <header className="card border-l-4 border-l-violet-500 space-y-2"><h1 className="text-2xl font-bold text-violet-800 break-words">{batch.batch_code} · 肉品加工</h1>
       <p>{batch.product_name} · {batch.production_date} · {batch.shift}</p>
       <p>操作人 Operator: {batch.operator || '—'} · 開始 Start: {formatMelbourne(batch.start_time)}</p>
       <strong>{batch.is_voided ? '已作廢 Voided' : meatStates[record?.state || 'draft']}</strong>
@@ -183,7 +183,7 @@ export default function MeatBatchDetailPage() {
           <Field label="重量差額說明 Difference explanation"><textarea className="input" value={draft.difference_reason} onChange={e => change({ ...draft, difference_reason: e.target.value })} /></Field>
         </section>
       </fieldset>
-      <section className="card bg-rose-50 space-y-2"><h2 className="font-semibold">重量彙總 Weight summary</h2><div className="flex flex-wrap gap-5">
+      <section className="card bg-violet-50 border-violet-200 space-y-2"><h2 className="font-semibold text-violet-900">重量彙總 Weight summary</h2><div className="flex flex-wrap gap-5">
         <span>投入 Input {(input / 1000).toFixed(3)} kg</span><span>產出 Output {(output / 1000).toFixed(3)} kg</span><span>損耗 Loss {(loss / 1000).toFixed(3)} kg</span>
         <span>差額 Difference {(diff / 1000).toFixed(3)} kg</span><span>產出率 Yield {input ? (output / input * 100).toFixed(2) : '—'}%</span></div>
         {diff !== 0 && <p>完成前須填寫差額說明，交由 QA 覆核。 Explain the difference before completion.</p>}

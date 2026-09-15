@@ -18,7 +18,8 @@ const applicableTypeOptions: { value: PackApplicableType; labelKey: string }[] =
 
 const applicableTypeBadge: Record<string, string> = {
   forming:     'bg-blue-100 text-blue-700',
-  hot_process: 'bg-red-100 text-red-700',
+  hot_process: 'bg-orange-100 text-orange-800 ring-1 ring-inset ring-orange-300',
+  meat_processing: 'bg-violet-100 text-violet-800 ring-1 ring-inset ring-violet-300',
   both:        'bg-gray-100 text-gray-700',
 };
 

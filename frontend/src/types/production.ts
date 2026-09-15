@@ -224,6 +224,7 @@ export interface ProdBatch {
 }
 
 export interface ProdBatchCreate {
+  process_type: ProdProductType;
   product_code: string;
   product_name: string;
   production_date: string;

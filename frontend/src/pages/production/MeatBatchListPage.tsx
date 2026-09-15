@@ -13,7 +13,7 @@ export default function MeatBatchListPage() {
   const [product, setProduct] = useState(''); const [state, setState] = useState('');
   const [voided, setVoided] = useState(false); const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
-  useEffect(() => { prodProductsApi.list({ limit: 1000, show_inactive: true }).then(r => setProducts(r.items)).catch(e => setError(meatError(e))); }, []);
+  useEffect(() => { prodProductsApi.list({ limit: 1000, show_inactive: true, product_type: 'meat_processing' }).then(r => setProducts(r.items)).catch(e => setError(meatError(e))); }, []);
   useEffect(() => {
     let active = true;
     setLoading(true); setError('');
@@ -25,8 +25,8 @@ export default function MeatBatchListPage() {
   }, [from, to, product, state, voided, page]);
   function filter(fn: (v: string) => void, value: string) { fn(value); setPage(0); }
   return <div className="space-y-6">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold">肉品加工 Meat Processing</h1>
-      <RoleGate roles={['Admin', 'Production']}><Link className="btn btn-primary" to="/production/batches/new?type=meat_processing">新增批次 New batch</Link></RoleGate></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold text-violet-800">肉品加工 Meat Processing</h1>
+      <RoleGate roles={['Admin', 'Production']}><Link className="btn bg-violet-600 text-white hover:bg-violet-700" to="/production/batches/new?type=meat_processing">新增批次 New batch</Link></RoleGate></div>
     <div className="card grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <label>開始日期 From<input className="input" type="date" value={from} onChange={e => filter(setFrom, e.target.value)} /></label>
       <label>結束日期 To<input className="input" type="date" value={to} onChange={e => filter(setTo, e.target.value)} /></label>
@@ -36,7 +36,7 @@ export default function MeatBatchListPage() {
     </div>
     {error && <p role="alert" className="text-red-700">{error}</p>}
     {loading ? <p role="status">載入中 Loading…</p> : <div className="grid gap-3 lg:grid-cols-2">
-      {batches.map(b => <Link key={b.id} to={`/production/meat/${b.id}`} className="card block hover:border-rose-400 border">
+      {batches.map(b => <Link key={b.id} to={`/production/meat/${b.id}`} className="card block border border-l-4 border-l-violet-500 hover:border-violet-400 hover:bg-violet-50/40">
         <div className="flex justify-between gap-3"><strong className="min-w-0 break-all">{b.batch_code}</strong><span>{b.is_voided ? '已作廢 Voided' : meatStates[(b.meat_state || 'draft') as MeatState]}</span></div>
         <p>{b.product_name} · {b.production_date}</p><div className="mt-3 flex flex-wrap gap-4 text-sm">
           <span>投入 Input: {b.meat_totals?.input_kg ?? '—'} kg</span><span>產出 Output: {b.meat_totals?.output_kg ?? '—'} kg</span>

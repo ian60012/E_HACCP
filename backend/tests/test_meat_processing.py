@@ -152,7 +152,7 @@ async def request(env, method, path, data=None, expected=200):
 
 async def setup_batch(env, code="MEAT"):
     product = await request(env, "POST", "/production/products", dict(code=code, name="Meat prep", product_type="meat_processing"), 201)
-    batch = await request(env, "POST", "/production/batches", dict(product_code=code, product_name="client untrusted", production_date="2026-09-15", operator_signature_data_url=SIGN), 201)
+    batch = await request(env, "POST", "/production/batches", dict(process_type="meat_processing", product_code=code, product_name="client untrusted", production_date="2026-09-15", operator_signature_data_url=SIGN), 201)
     assert batch["process_type"] == "meat_processing" and batch["product_name"] == "Meat prep"
     async with env.factory() as db:
         loc1 = await db.scalar(text("INSERT INTO inv_locations(code,name) VALUES ('MEAT-A','A') RETURNING id"))
@@ -189,6 +189,44 @@ async def verified(env, b):
     env.role["role"] = "QA"
     await request(env, "POST", base + "/verify", dict(version=1,verifier_signature_data_url=SIGN))
     return record
+
+
+@pytest.mark.asyncio
+async def test_batch_creation_filters_and_enforces_product_category(env):
+    products = {
+        "forming": "TYPE-F",
+        "hot_process": "TYPE-H",
+        "meat_processing": "TYPE-M",
+    }
+    for product_type, code in products.items():
+        await request(
+            env,
+            "POST",
+            "/production/products",
+            dict(code=code, name=f"{product_type} product", product_type=product_type),
+            201,
+        )
+
+    for product_type, code in products.items():
+        options = await request(
+            env,
+            "GET",
+            f"/production/products/forming-options?product_type={product_type}",
+        )
+        assert code in {option["code"] for option in options}
+        assert all(option["product_type"] == product_type for option in options)
+
+    payload = dict(
+        process_type="hot_process",
+        product_code=products["forming"],
+        product_name="ignored",
+        production_date="2026-09-15",
+        operator_signature_data_url=SIGN,
+    )
+    await request(env, "POST", "/production/batches", payload, 422)
+    payload["product_code"] = products["hot_process"]
+    created = await request(env, "POST", "/production/batches", payload, 201)
+    assert created["process_type"] == "hot_process"
 
 
 @pytest.mark.asyncio
@@ -342,7 +380,7 @@ async def test_two_batches_posting_same_item_preserve_both_increments(env):
     b = await setup_batch(env)
     await verified(env, b)
     env.role["role"] = "Admin"
-    second = await request(env, "POST", "/production/batches", dict(product_code="MEAT", product_name="Meat prep", production_date="2026-09-15", operator_signature_data_url=SIGN), 201)
+    second = await request(env, "POST", "/production/batches", dict(process_type="meat_processing", product_code="MEAT", product_name="Meat prep", production_date="2026-09-15", operator_signature_data_url=SIGN), 201)
     other = SimpleNamespace(id=second["id"], data=copy.deepcopy(b.data))
     await verified(env, other)
     env.role["role"] = "Warehouse"
@@ -360,7 +398,7 @@ async def test_legacy_packing_and_pack_applicability(env):
     # Existing package-count workflows and the meaning of 'both' are unchanged.
     for kind in ("forming","hot_process"):
         await request(env,"POST","/production/pack-types",dict(code="BOTH-"+kind,name="Both",applicable_type="both"),201)
-        batch=await request(env,"POST","/production/batches",dict(product_code="LEGACY-F" if kind=="forming" else "LEGACY-H",product_name="Old",production_date="2026-09-15",operator_signature_data_url=SIGN),201)
+        batch=await request(env,"POST","/production/batches",dict(process_type=kind,product_code="LEGACY-F" if kind=="forming" else "LEGACY-H",product_name="Old",production_date="2026-09-15",operator_signature_data_url=SIGN),201)
         async with env.factory() as db:
             loc=await db.scalar(text("INSERT INTO inv_locations(code,name) VALUES (:c,'L') RETURNING id"),dict(c=kind))
             item=await db.scalar(text("INSERT INTO inv_items(code,name,item_type,base_unit) VALUES (:c,'Bags','finished','包') RETURNING id"),dict(c=kind))

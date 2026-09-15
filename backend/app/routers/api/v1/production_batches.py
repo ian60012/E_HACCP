@@ -334,17 +334,23 @@ async def create_batch(
     product = await db.scalar(select(ProdProduct).where(ProdProduct.code == data.product_code, ProdProduct.is_active.is_(True)))
     if not product:
         raise HTTPException(422, "Active production product required")
+    product_type = value(product.product_type)
+    if product_type != data.process_type:
+        raise HTTPException(
+            422,
+            "所選產品不屬於目前生產分類 Selected product does not belong to the requested production category",
+        )
     batch_code = await generate_batch_code(
         db, data.product_code, data.production_date
     )
     batch = ProdBatch(
-        process_type=value(product.product_type),
+        process_type=product_type,
         batch_code=batch_code,
         product_code=data.product_code,
         product_name=product.name,
         production_date=data.production_date,
         shift=data.shift,
-        spec_piece_weight_g=0 if value(product.product_type) == "meat_processing" else data.spec_piece_weight_g,
+        spec_piece_weight_g=0 if product_type == "meat_processing" else data.spec_piece_weight_g,
         start_time=data.start_time,
         operator=data.operator,
         operator_signature_data_url=data.operator_signature_data_url,

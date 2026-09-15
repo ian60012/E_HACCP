@@ -13,7 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 const prodCards = [
   {
     titleKey: 'nav.meatProcessing', descKey: 'page.meat.desc', icon: ClipboardDocumentListIcon,
-    color: 'bg-rose-50 text-rose-700 border-rose-200', listTo: '/production/meat',
+    color: 'bg-violet-50 text-violet-800 border-violet-300', listTo: '/production/meat',
     newTo: '/production/batches/new?type=meat_processing',
   },
   {
@@ -28,7 +28,7 @@ const prodCards = [
     titleKey: 'nav.hotProcessBatches',
     descKey: 'page.prodDashboard.hotProcessDesc',
     icon: FireIcon,
-    color: 'bg-red-50 text-red-600 border-red-200',
+    color: 'bg-orange-50 text-orange-800 border-orange-300',
     listTo: '/production/batches?type=hot_process',
     newTo: '/production/batches/new?type=hot_process',
   },

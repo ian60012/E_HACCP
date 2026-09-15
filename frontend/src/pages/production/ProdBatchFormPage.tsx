@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { prodBatchesApi, prodProductsApi } from '@/api/production';
-import { FormingOption, ProdShift } from '@/types/production';
+import { FormingOption, ProdProductType, ProdShift } from '@/types/production';
 import FormField from '@/components/FormField';
 import ErrorCard from '@/components/ErrorCard';
 import Bi, { bi } from '@/components/Bi';
@@ -19,13 +19,16 @@ export default function ProdBatchFormPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const typeFilter = searchParams.get('type') as 'forming' | 'hot_process' | 'meat_processing' | null;
-  const backTo = typeFilter ? `/production/batches?type=${typeFilter}` : '/production/batches';
+  const requestedType = searchParams.get('type');
+  const typeFilter: ProdProductType | null = requestedType === 'forming' || requestedType === 'hot_process' || requestedType === 'meat_processing'
+    ? requestedType
+    : null;
+  const backTo = typeFilter === 'meat_processing' ? '/production/meat' : `/production/batches?type=${typeFilter}`;
 
   const [formingOptions, setFormingOptions] = useState<FormingOption[]>([]);
   const [productCode, setProductCode] = useState('');
   const [productName, setProductName] = useState('');
-  const [selectedProductType, setSelectedProductType] = useState<string>(typeFilter || 'forming');
+  const [selectedProductType, setSelectedProductType] = useState<ProdProductType>(typeFilter || 'forming');
   const [productionDate, setProductionDate] = useState(todayStr());
   const [shift, setShift] = useState<ProdShift>('Morning');
   const [specPieceWeightG, setSpecPieceWeightG] = useState('17.5');
@@ -38,27 +41,29 @@ export default function ProdBatchFormPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    prodProductsApi.formingOptions().then((opts) => {
-      // Filter options by type if a type filter is active
-      if (typeFilter) {
-        setFormingOptions(opts.filter((o) => o.product_type === typeFilter));
-      } else {
-        setFormingOptions(opts);
-      }
-    }).catch(() => {});
+    if (!typeFilter) return;
+    setProductCode('');
+    setProductName('');
+    setSelectedProductType(typeFilter);
+    prodProductsApi.formingOptions(typeFilter).then(setFormingOptions).catch(() => setFormingOptions([]));
   }, [typeFilter]);
 
   const handleOptionChange = (code: string) => {
     setProductCode(code);
     const opt = formingOptions.find((o) => o.code === code);
     setProductName(opt?.name || '');
-    setSelectedProductType(opt?.product_type || 'forming');
+    setSelectedProductType(opt?.product_type || typeFilter || 'forming');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productCode) {
       setError(bi('error.required'));
+      return;
+    }
+    const selected = formingOptions.find((option) => option.code === productCode);
+    if (!typeFilter || selected?.product_type !== typeFilter) {
+      setError('所選產品不屬於目前生產分類 Selected product does not belong to this production category');
       return;
     }
     if (!operatorSignature) {
@@ -69,6 +74,7 @@ export default function ProdBatchFormPage() {
     setError('');
     try {
       const batch = await prodBatchesApi.create({
+        process_type: typeFilter,
         product_code: productCode,
         product_name: productName,
         production_date: productionDate,
@@ -79,13 +85,15 @@ export default function ProdBatchFormPage() {
         operator_signature_data_url: operatorSignature,
         supervisor: supervisor || undefined,
       });
-      navigate(`/production/batches/${batch.id}`);
+      navigate(typeFilter === 'meat_processing' ? `/production/meat/${batch.id}` : `/production/batches/${batch.id}`);
     } catch (err: any) {
       setError(err?.response?.data?.detail || bi('error.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
+
+  if (!typeFilter) return <Navigate to="/production" replace />;
 
   return (
     <div className="space-y-6">
@@ -102,6 +110,15 @@ export default function ProdBatchFormPage() {
               : typeFilter === 'meat_processing' ? <Bi k="page.meat.new" /> : <Bi k="page.prodBatchNew.title" />}
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">記錄人 Operator: <span className="font-medium text-gray-700">{user?.full_name}</span></p>
+          <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${
+            typeFilter === 'hot_process'
+              ? 'bg-orange-100 text-orange-800 ring-orange-300'
+              : typeFilter === 'meat_processing'
+                ? 'bg-violet-100 text-violet-800 ring-violet-300'
+                : 'bg-blue-100 text-blue-800 ring-blue-300'
+          }`}>
+            {typeFilter === 'hot_process' ? bi('label.hotProcess') : typeFilter === 'meat_processing' ? bi('label.meatProcessing') : bi('label.forming')}
+          </span>
         </div>
       </div>
 
@@ -124,6 +141,9 @@ export default function ProdBatchFormPage() {
                   </option>
                 ))}
               </select>
+              {formingOptions.length === 0 && (
+                <p className="mt-1 text-sm text-amber-700">此分類尚無可用產品 No active products in this category</p>
+              )}
             </FormField>
             <FormField label={<Bi k="field.productName" />}>
               <input type="text" value={productName} readOnly className="input bg-gray-50" />
