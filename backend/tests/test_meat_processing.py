@@ -322,6 +322,47 @@ async def test_invalid_meat_product_link_rejected_atomically(env, case):
     assert matches["total"] == 0
 
 
+@pytest.mark.asyncio
+async def test_labelmaker_output_sku_filter_and_saved_finished_label(env, monkeypatch):
+    import app.routers.api.v1.labelmaker as labels
+    b = await setup_batch(env)
+    await request(env, "PATCH", f'/production/products/{b.product["id"]}', dict(inv_item_id=b.out))
+    forming = await request(env, "POST", '/production/products', dict(code="LABEL-FORM", name="Form", product_type="forming"), 201)
+    other = await request(env, "POST", '/production/products', dict(code="LABEL-OTHER", name="Other", product_type="meat_processing", inv_item_id=b.byproduct), 201)
+    async with env.factory() as db:
+        for product in (forming, b.product):
+            for pack in ("LABEL-500", "LABEL-1000"):
+                await db.execute(text("INSERT INTO prod_product_pack_config(product_id,pack_type_code,inv_item_id) VALUES (:p,:pack,:i)"), dict(p=product["id"], pack=pack, i=b.out))
+        await db.commit()
+    payload = dict(pack_type_code="LABEL-500", product_name_zh="醃豬肉", product_name_en="Marinated pork", net_weight_g=500,
+        serving_size_g=100, servings_per_package=5, storage_conditions="Keep frozen below -18 C", customer_text="FDCS",
+        shelf_life_days=30, nutrition_per_100g=dict(proteinG=18.5), ingredients=[dict(id="pork", name="Pork"), dict(id="soy", name="Soy sauce", allergenTags=["soy"])])
+    saved = []
+    for product, pack in ((b.product, "LABEL-500"), (b.product, "LABEL-1000"), (forming, "LABEL-500"), (other, "LABEL-500")):
+        saved.append(await request(env, "POST", '/labelmaker/templates', {**payload, "prod_product_id":product["id"], "pack_type_code":pack}, 201))
+    env.role["role"] = "Warehouse"
+    candidates = await request(env, "GET", f'/labelmaker/templates?inv_item_id={b.out}')
+    assert {t["id"] for t in candidates} == {t["id"] for t in saved[:3]}
+    assert len(candidates) == 3  # Multiple direct/pack links must not duplicate templates.
+    assert len(await request(env, "GET", '/labelmaker/templates')) == 4
+    assert await request(env, "GET", f'/labelmaker/templates?inv_item_id={b.marinade}') == []
+    filtered = await request(env, "GET", f'/labelmaker/templates?inv_item_id={b.out}&prod_product_id={b.product["id"]}&pack_type_code=LABEL-500')
+    assert [t["id"] for t in filtered] == [saved[0]["id"]]
+    await request(env, "GET", '/labelmaker/templates?inv_item_id=0', expected=422)
+    before = await request(env, "GET", f'/labelmaker/templates/{saved[0]["id"]}')
+    rendered = []
+    async def render(html):
+        rendered.append(html)
+        return b'%PDF-1.4\nfinished-label-test'
+    monkeypatch.setattr(labels, '_render_label_pdf', render)
+    response = await env.client.post('/api/v1/labelmaker/render-pdf', json=dict(template_id=saved[0]["id"], production_date="2026-09-15"))
+    assert response.status_code == 200 and response.content.startswith(b'%PDF')
+    assert 'NET WT 500G' in rendered[0] and 'Pork, Soy sauce' in rendered[0] and '15/10/2026' in rendered[0]
+    assert '18.5g' in rendered[0] and 'Keep frozen below -18 C' in rendered[0]
+    unchanged = await request(env, "GET", f'/labelmaker/templates/{saved[0]["id"]}')
+    assert unchanged == before
+
+
 async def verified(env, b):
     base = f"/production/batches/{b.id}/meat"
     env.role["role"] = "Production"

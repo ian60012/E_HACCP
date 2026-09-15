@@ -42,7 +42,7 @@ export interface LabelTemplatePayload {
 }
 
 export const labelmakerApi = {
-  listTemplates: async (params?: { prod_product_id?: number; pack_type_code?: string }): Promise<LabelTemplate[]> => {
+  listTemplates: async (params?: { prod_product_id?: number; pack_type_code?: string; inv_item_id?: number }): Promise<LabelTemplate[]> => {
     const res = await apiClient.get<LabelTemplate[]>('/api/v1/labelmaker/templates', { params });
     return res.data;
   },

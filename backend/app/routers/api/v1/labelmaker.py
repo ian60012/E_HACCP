@@ -10,7 +10,7 @@ from typing import Any, Optional
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -19,7 +19,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.dependencies.auth import get_current_active_user, require_role
 from app.models.labelmaker import LabelTemplate
-from app.models.production import ProdPackTypeConfig, ProdProduct
+from app.models.production import ProdPackTypeConfig, ProdProduct, ProdProductPackConfig
 from app.models.user import User
 from app.schemas.labelmaker import (
     IngredientLabelRefinementResponse,
@@ -141,6 +141,7 @@ def _template_for_pack(
 async def list_templates(
     prod_product_id: Optional[int] = None,
     pack_type_code: Optional[str] = None,
+    inv_item_id: Optional[int] = Query(None, ge=1),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -149,6 +150,16 @@ async def list_templates(
         q = q.where(LabelTemplate.prod_product_id == prod_product_id)
     if pack_type_code:
         q = q.where(LabelTemplate.pack_type_code == pack_type_code)
+    if inv_item_id is not None:
+        direct_link = select(ProdProduct.id).where(
+            ProdProduct.id == LabelTemplate.prod_product_id,
+            ProdProduct.inv_item_id == inv_item_id,
+        ).exists()
+        packing_link = select(ProdProductPackConfig.id).where(
+            ProdProductPackConfig.product_id == LabelTemplate.prod_product_id,
+            ProdProductPackConfig.inv_item_id == inv_item_id,
+        ).exists()
+        q = q.where(or_(direct_link, packing_link))
     result = await db.execute(q)
     return [await _to_response(db, item) for item in result.scalars().all()]
 
