@@ -35,3 +35,7 @@ export interface MeatRecord extends MeatSave {
   operator_signature_data_url: string | null; verified_by: number | null; verified_at: string | null;
   verifier_signature_data_url: string | null;
 }
+export interface MeatLabelRequest {
+  version: number; output_index: number; net_weight_kg: string;
+  pack_count: number | null; packing_date: string;
+}

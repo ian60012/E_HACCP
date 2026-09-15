@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, AwareDatetime, model_validator
@@ -65,6 +65,13 @@ class MeatSave(Detail):
 
 class MeatVersion(Detail):
     version: int = Field(gt=0)
+
+
+class MeatLabelRequest(MeatVersion):
+    output_index: int = Field(ge=0)
+    net_weight_kg: Weight
+    pack_count: int | None = Field(None, gt=0)
+    packing_date: date
 
 
 class MeatComplete(MeatVersion):

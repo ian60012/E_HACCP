@@ -9,6 +9,7 @@ import io
 import os
 import tempfile
 import uuid
+from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -29,7 +30,8 @@ import app.main as main
 from app.core.database import get_db
 from app.dependencies.auth import get_current_active_user
 from app.models.enums import UserRole
-from app.schemas.meat_processing import MeatSave, MeatStepData
+from app.schemas.meat_processing import MeatSave, MeatStepData, MeatLabelRequest
+from app.services.production_labels import build_meat_label_html
 from app.services.inventory_service import validate_document_scope
 from fastapi import HTTPException
 
@@ -283,6 +285,92 @@ async def verified(env, b):
     env.role["role"] = "QA"
     await request(env, "POST", base + "/verify", dict(version=1,verifier_signature_data_url=SIGN))
     return record
+
+
+def test_meat_label_layout_uses_measured_weight_and_escapes_names():
+    batch = SimpleNamespace(batch_code="MEAT-20260915", production_date=date(2026, 9, 15))
+    output = SimpleNamespace(item_name='<script>pork & trim</script>', pack_type='Bag', location_name='A & B')
+    data = MeatLabelRequest(version=2, output_index=0, net_weight_kg="3.125", packing_date="2026-09-15")
+    label = build_meat_label_html(batch, SimpleNamespace(state="submitted", version=2), output, "PORK-01", data)
+    assert 'size: 100mm 75mm' in label and '3.125 kg' in label
+    assert '<script>' not in label and '&lt;script&gt;pork &amp; trim&lt;/script&gt;' in label
+    assert 'AWAITING QA' in label and 'NOT QA VERIFIED' in label
+    assert 'PORK-01' in label and 'Batch barcode MEAT-20260915' in label
+
+
+@pytest.mark.asyncio
+async def test_meat_output_labels_versions_states_and_validation(env, monkeypatch):
+    import app.routers.api.v1.meat_processing as labels
+    rendered = []
+    async def render(label):
+        rendered.append(label)
+        return b'%PDF-1.4\nlabel-test'
+    monkeypatch.setattr(labels, '_render_pdf', render)
+    b = await setup_batch(env)
+    b.data['outputs'][0]['pack_count'] = 12
+    base = f'/production/batches/{b.id}/meat'
+    await request(env, 'PUT', base, b.data)
+    data = dict(version=1, output_index=0, net_weight_kg='3.125', pack_count=2, packing_date='2026-09-15')
+    async def pdf(payload=data, expected=200):
+        result = await env.client.post('/api/v1' + base + '/carton-label-pdf', json=payload)
+        assert result.status_code == expected, result.text
+        if expected == 200:
+            assert result.content.startswith(b'%PDF')
+            assert result.headers['content-type'] == 'application/pdf'
+            assert result.headers['cache-control'] == 'no-store'
+        return result
+    for role in ('Admin', 'Production', 'QA', 'Warehouse', 'Captain'):
+        env.role['role'] = role
+        await pdf()
+    assert 'Sliced pork' in rendered[-1] and 'IN PROGRESS' in rendered[-1]
+    await pdf({**data, 'output_index': 3, 'pack_count': None})
+    assert 'Trim for mince' in rendered[-1] and 'BY-M' in rendered[-1]
+    for changes in ({'output_index': 4}, {'net_weight_kg': '61.000'}, {'net_weight_kg': '0'},
+                    {'net_weight_kg': '1.0001'}, {'pack_count': 13}, {'pack_count': 1.5}, {'packing_date': 'invalid'}):
+        await pdf({**data, **changes}, 422)
+    env.role['role'] = 'Production'
+    b.data['version'] = 1
+    await request(env, 'PUT', base, b.data)
+    await pdf(expected=409)
+    data['version'] = 2
+    await request(env, 'POST', base + '/complete', dict(version=2, operator_signature_data_url=SIGN))
+    env.role['role'] = 'QA'
+    await request(env, 'POST', base + '/verify', dict(version=2, verifier_signature_data_url=SIGN))
+    await pdf()
+    assert 'QA VERIFIED' in rendered[-1] and 'NOT QA VERIFIED' not in rendered[-1]
+    env.role['role'] = 'Warehouse'
+    await request(env, 'POST', base + '/enter-stock', dict(version=2))
+    await pdf()
+    assert 'QA VERIFIED / STOCKED' in rendered[-1]
+    record = await request(env, 'GET', base)
+    assert record['version'] == 2 and record['state'] == 'stocked'
+    user_override = app.dependency_overrides.pop(get_current_active_user)
+    try:
+        await pdf(expected=401)
+    finally:
+        app.dependency_overrides[get_current_active_user] = user_override
+    env.role['role'] = 'Admin'
+    await request(env, 'POST', f'/production/batches/{b.id}/void', dict(void_reason='Rebuild incorrect batch'))
+    await pdf(expected=409)
+
+
+@pytest.mark.asyncio
+async def test_legacy_carton_labels_still_render_and_reject_meat_bypass(env, monkeypatch):
+    import app.routers.api.v1.production_batches as labels
+    rendered = []
+    async def render(label):
+        rendered.append(label)
+        return b'%PDF-1.4\nlegacy-label-test'
+    monkeypatch.setattr(labels, '_render_pdf', render)
+    async with env.factory() as db:
+        legacy = await db.scalar(text("SELECT id FROM prod_batches WHERE batch_code='legacy-forming'"))
+    data = dict(bags_per_carton=4, packing_date='2026-09-15', bag_weight_kg='1.5')
+    result = await env.client.post(f'/api/v1/production/batches/{legacy}/carton-label-pdf', json=data)
+    assert result.status_code == 200 and result.content.startswith(b'%PDF')
+    assert 'Legacy forming' in rendered[-1] and '6 kg' in rendered[-1]
+    b = await setup_batch(env)
+    await request(env, 'POST', f'/production/batches/{b.id}/carton-label-pdf', data, 409)
+    await request(env, 'POST', f'/production/batches/{legacy}/meat/carton-label-pdf', dict(version=1, output_index=0, net_weight_kg='1', packing_date='2026-09-15'), 409)
 
 
 @pytest.mark.asyncio

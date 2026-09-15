@@ -1,5 +1,5 @@
 import client from './client';
-import { MeatRecord, MeatSave } from '@/types/meatProcessing';
+import { MeatRecord, MeatSave, MeatLabelRequest } from '@/types/meatProcessing';
 const url = (id: number) => `/api/v1/production/batches/${id}/meat`;
 export const meatApi = {
   get: async (id: number): Promise<MeatRecord | null> => (await client.get(url(id))).data,
@@ -15,6 +15,8 @@ export const meatApi = {
     (await client.post(`${url(id)}/verify`, { version, verifier_signature_data_url: signature })).data,
   enterStock: async (id: number, version: number): Promise<MeatRecord> =>
     (await client.post(`${url(id)}/enter-stock`, { version })).data,
+  downloadLabel: async (id: number, data: MeatLabelRequest): Promise<Blob> =>
+    (await client.post(`${url(id)}/carton-label-pdf`, data, { responseType: 'blob', timeout: 60000 })).data,
 };
 export function meatError(error: any): string {
   const detail = error?.response?.data?.detail;

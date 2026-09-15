@@ -8,6 +8,7 @@ import { ProdBatch, PackTypeConfig } from '@/types/production';
 import { InvItem, InvLocation, InvLot } from '@/types/inventory';
 import { useAuth } from '@/hooks/useAuth';
 import SignaturePad from '@/components/SignaturePad';
+import MeatLabelDialog from './MeatLabelDialog';
 import { toMelbourneInput, melbourneToUTC, formatMelbourne } from '@/utils/timezone';
 
 const empty: MeatSave = { version: 0, inputs: [], steps: [], outputs: [], losses: [], difference_reason: '' };
@@ -38,6 +39,7 @@ export default function MeatBatchDetailPage() {
   const [signature, setSignature] = useState(''); const [verifySignature, setVerifySignature] = useState('');
   const [voidReason, setVoidReason] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
   const [error, setError] = useState(''); const [message, setMessage] = useState(''); const [dirty, setDirty] = useState(false);
+  const [showLabel, setShowLabel] = useState(false);
   const role = user?.role || '';
   const canEdit = ['Admin', 'Production', 'Captain'].includes(role);
   const canVerify = ['Admin', 'QA', 'Captain'].includes(role);
@@ -107,7 +109,12 @@ export default function MeatBatchDetailPage() {
       {batch.is_voided && <p className="text-red-700">{batch.void_reason}</p>}
       <p className="text-sm text-gray-600">所有重量以公斤記錄；投入須包含醃料及水。 All weights in kg, including marinade and water.</p>
       {batch.operator_signature_data_url && <img className="h-16 border rounded" src={batch.operator_signature_data_url} alt="建立批次簽名 Batch creation signature" />}
+      <button type="button" className="btn bg-violet-600 text-white hover:bg-violet-700"
+        disabled={busy || dirty || historical || batch.is_voided || !record?.outputs.length}
+        onClick={() => setShowLabel(true)}>箱貼 PDF／列印標籤 Print label</button>
+      {!record?.outputs.length && <p className="text-xs text-gray-600">儲存產出明細後即可下載標籤。 Save output details to download labels.</p>}
     </header>
+    {showLabel && record && <MeatLabelDialog batch={batch} record={record} onClose={() => setShowLabel(false)} />}
     {error && <p role="alert" className="text-red-700 whitespace-pre-wrap">{error}</p>}
     {message && <p role="status" className="text-green-700">{message}</p>}
     <div className="flex flex-wrap gap-3 items-end"><Field label="歷史版本 Revision history"><select className="input" value={view?.version || 0} disabled={dirty || busy} onChange={e => {
