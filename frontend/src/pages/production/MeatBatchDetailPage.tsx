@@ -38,6 +38,7 @@ export default function MeatBatchDetailPage() {
   const [items, setItems] = useState<InvItem[]>([]); const [locations, setLocations] = useState<InvLocation[]>([]);
   const [packs, setPacks] = useState<PackTypeConfig[]>([]);
   const [defaultOutputId, setDefaultOutputId] = useState<number | null>(null);
+  const [productId, setProductId] = useState<number | null>(null);
   const [lotOptions, setLotOptions] = useState<Record<string, InvLot[] | null>>({});
   const [signature, setSignature] = useState(''); const [verifySignature, setVerifySignature] = useState('');
   const [voidReason, setVoidReason] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
@@ -62,7 +63,8 @@ export default function MeatBatchDetailPage() {
     async function load() {
       const b = await reload();
       const products = await prodProductsApi.list({ search: b.product_code, product_type: 'meat_processing', limit: 1000, show_inactive: true });
-      setDefaultOutputId(products.items.find(p => p.code === b.product_code)?.inv_item_id ?? null);
+      const product = products.items.find(p => p.code === b.product_code);
+      setDefaultOutputId(product?.inv_item_id ?? null); setProductId(product?.id ?? null);
       // Load all pages rather than silently hiding inventory beyond the first page.
       const all: InvItem[] = []; let skip = 0;
       while (true) { const r = await invItemsApi.list({ skip, limit: 1000 }); all.push(...r.items); skip += r.items.length; if (skip >= r.total || !r.items.length) break; }
@@ -121,13 +123,13 @@ export default function MeatBatchDetailPage() {
         disabled={busy || dirty || historical || batch.is_voided || !record?.outputs.length}
         onClick={() => setShowLabel(true)}>箱貼 PDF／列印標籤 Print label</button>
       <button type="button" className="btn btn-secondary border-violet-300 text-violet-800"
-        disabled={busy || dirty || historical || batch.is_voided || !record?.outputs.length}
+        disabled={busy || historical || batch.is_voided}
         onClick={() => setShowFinishedLabel(true)}>成品標籤 Label Maker</button>
       </div>
-      {!record?.outputs.length && <p className="text-xs text-gray-600">儲存產出明細後即可下載標籤。 Save output details to download labels.</p>}
+      {!record?.outputs.length && <p className="text-xs text-gray-600">成品標籤可先列印；箱貼須先儲存產出明細。 Finished labels can print now; save output details for carton labels.</p>}
     </header>
     {showLabel && record && <MeatLabelDialog batch={batch} record={record} onClose={() => setShowLabel(false)} />}
-    {showFinishedLabel && record && <MeatFinishedLabelDialog batch={batch} record={record} onClose={() => setShowFinishedLabel(false)} />}
+    {showFinishedLabel && <MeatFinishedLabelDialog batch={batch} record={record} productId={productId} defaultOutputId={defaultOutputId} onClose={() => setShowFinishedLabel(false)} />}
     {error && <p role="alert" className="text-red-700 whitespace-pre-wrap">{error}</p>}
     {message && <p role="status" className="text-green-700">{message}</p>}
     <div className="flex flex-wrap gap-3 items-end"><Field label="歷史版本 Revision history"><select className="input" value={view?.version || 0} disabled={dirty || busy} onChange={e => {

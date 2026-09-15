@@ -4,12 +4,13 @@ import { meatError } from '@/api/meatProcessing';
 import { MeatRecord } from '@/types/meatProcessing';
 import { ProdBatch } from '@/types/production';
 
-export default function MeatFinishedLabelDialog({ batch, record, onClose }: {
-  batch: ProdBatch; record: MeatRecord; onClose: () => void;
+export default function MeatFinishedLabelDialog({ batch, record, productId, defaultOutputId, onClose }: {
+  batch: ProdBatch; record: MeatRecord | null; productId: number | null;
+  defaultOutputId: number | null; onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [index, setIndex] = useState(0);
-  const output = record.outputs[index];
+  const [source, setSource] = useState<number | 'batch'>(record?.outputs.length ? 0 : 'batch');
+  const output = typeof source === 'number' ? record?.outputs[source] : undefined;
   const [templates, setTemplates] = useState<LabelTemplate[]>([]);
   const [templateId, setTemplateId] = useState<number | ''>('');
   const [loading, setLoading] = useState(true);
@@ -29,15 +30,21 @@ export default function MeatFinishedLabelDialog({ batch, record, onClose }: {
   useEffect(() => {
     let active = true;
     setLoading(true); setTemplates([]); setTemplateId(''); setError('');
-    labelmakerApi.listTemplates({ inv_item_id: output.inv_item_id }).then(result => {
+    async function loadTemplates() {
+      if (output) return labelmakerApi.listTemplates({ inv_item_id: output.inv_item_id });
+      const result = productId ? await labelmakerApi.listTemplates({ prod_product_id: productId }) : [];
+      if (result.length || !defaultOutputId) return result;
+      return labelmakerApi.listTemplates({ inv_item_id: defaultOutputId });
+    }
+    loadTemplates().then(result => {
       if (!active) return;
       setTemplates(result);
-      const matching = result.filter(t => t.pack_type_code === output.pack_type);
+      const matching = result.filter(t => output?.pack_type && t.pack_type_code === output.pack_type);
       setTemplateId(matching.length === 1 ? matching[0].id : result.length === 1 ? result[0].id : '');
     }).catch(e => { if (active) setError(meatError(e)); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [output.inv_item_id, output.pack_type]);
+  }, [source, output?.inv_item_id, output?.pack_type, productId, defaultOutputId]);
 
   async function download(e: React.FormEvent) {
     e.preventDefault();
@@ -48,7 +55,7 @@ export default function MeatFinishedLabelDialog({ batch, record, onClose }: {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${batch.batch_code}-output-${index + 1}-finished-label.pdf`;
+      link.download = `${batch.batch_code}-${typeof source === 'number' ? `output-${source + 1}` : 'product'}-finished-label.pdf`;
       document.body.appendChild(link); link.click(); link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e: any) {
@@ -65,15 +72,14 @@ export default function MeatFinishedLabelDialog({ batch, record, onClose }: {
     <form onSubmit={download} className="space-y-4">
       <h2 id="meat-finished-label-title" className="text-lg font-semibold text-violet-800">成品標籤 Finished label · Label Maker</h2>
       <p className="text-sm break-all">批次 Batch: {batch.batch_code}</p>
-      <label className="block text-sm">產出品項 Output item
-        <select className="input mt-1" value={index} disabled={busy} onChange={e => {
-          const next = Number(e.target.value); const row = record.outputs[next];
-          if (row.inv_item_id !== output.inv_item_id || row.pack_type !== output.pack_type) {
-            setLoading(true); setTemplates([]); setTemplateId(''); setError('');
-          }
-          setIndex(next);
+      <p className="text-sm">可在填寫加工明細前列印；標籤使用已儲存模板與批次生產日期。 Print before recording processing details using saved templates and the batch production date.</p>
+      <label className="block text-sm">標籤來源 Label source
+        <select className="input mt-1" value={source} disabled={busy} onChange={e => {
+          setLoading(true); setTemplates([]); setTemplateId(''); setError('');
+          setSource(e.target.value === 'batch' ? 'batch' : Number(e.target.value));
         }}>
-          {record.outputs.map((row, i) => <option key={i} value={i}>{i + 1}. {row.item_name} · {row.location_name}</option>)}
+          <option value="batch">批次產品 Batch product: {batch.product_name}</option>
+          {record?.outputs.map((row, i) => <option key={i} value={i}>{i + 1}. {row.item_name} · {row.location_name}</option>)}
         </select>
       </label>
       {loading ? <p role="status">載入標籤 Loading labels…</p> : templates.length ? <>
@@ -91,7 +97,9 @@ export default function MeatFinishedLabelDialog({ batch, record, onClose }: {
           <p className="whitespace-pre-wrap">{template.storage_conditions}</p>
         </div>}
         <p className="text-xs text-gray-600">沿用 Label Maker 已儲存的配料、營養與包裝淨重；請確認本次包裝規格相符。 Uses the saved ingredients, nutrition and pack weight; confirm the pack specification.</p>
-      </> : !error && <p role="status" className="text-sm">此產出品項尚無已連結的 Label Maker 標籤。請先在產品管理設定庫存連結，再於 Label Maker 儲存該產品標籤。 No linked label found; link the product to this inventory item and save its label in Label Maker.</p>}
+      </> : !error && <p role="status" className="text-sm">{output
+        ? '此產出品項尚無已連結的 Label Maker 標籤，請確認產品庫存連結與已儲存模板。 No linked output label found; check the product inventory link and saved templates.'
+        : '此批次產品與預設產出尚無已儲存標籤，請先在 Label Maker 儲存產品標籤。 No saved label for this batch product or default output; save its label in Label Maker first.'}</p>}
       <p className="text-xs text-gray-600">下載後開啟 PDF，以實際尺寸（100%）列印。 Open the PDF and print at actual size (100%).</p>
       {error && <p role="alert" className="text-sm text-red-700 whitespace-pre-wrap">{error}</p>}
       <div className="flex flex-wrap justify-end gap-2">
