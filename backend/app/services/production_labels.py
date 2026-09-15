@@ -140,4 +140,3 @@ body {{ font-family: Arial, "Microsoft YaHei", sans-serif; color: #111; backgrou
 {_code128_svg(batch.batch_code)}
 </main></body></html>"""
 
-
