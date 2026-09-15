@@ -77,6 +77,10 @@ export default function PlanDrawer(props: Props) {
     () => recipes.find((r) => String(r.product_id) === String(form.product_id)) || null,
     [recipes, form.product_id]
   );
+  const rawMaterialItems = useMemo(
+    () => inventoryItems.filter((inventoryItem) => inventoryItem.item_type === 'raw'),
+    [inventoryItems]
+  );
   const recent = useMemo(
     () =>
       batches
@@ -185,7 +189,7 @@ export default function PlanDrawer(props: Props) {
             className="mt-1 w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
           />
           <datalist id="ph-material-list">
-            {inventoryItems.map((i) => (
+            {rawMaterialItems.map((i) => (
               <option key={i.id} value={i.name}>
                 {i.code} · {i.name} ({i.base_unit || ''})
               </option>

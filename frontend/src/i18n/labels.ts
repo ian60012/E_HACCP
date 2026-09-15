@@ -110,6 +110,7 @@ const labels: Record<string, BiLabelType> = {
   'field.coreTemp': { zh: '核心溫度', en: 'Core Temperature' },
   'field.coreTempUnit': { zh: '核心溫度 (°C)', en: 'Core Temperature (°C)' },
   'field.quantity': { zh: '數量', en: 'Quantity' },
+  'field.unit': { zh: '單位', en: 'Unit' },
   'field.supplier': { zh: '供應商', en: 'Supplier' },
   'field.poNumber': { zh: '採購單號', en: 'PO Number' },
   'field.receivingQuantity': { zh: '到貨數量', en: 'Received Quantity' },

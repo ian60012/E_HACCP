@@ -133,6 +133,7 @@ async def fetch_inventory_items(db: AsyncSession) -> dict[str, Any]:
             "id": r.id,
             "code": r.code,
             "name": r.name,
+            "item_type": r.item_type.value if hasattr(r.item_type, "value") else r.item_type,
             "category": r.category,
             "base_unit": r.base_unit,
             "usage_unit": r.usage_unit,

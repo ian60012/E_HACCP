@@ -24,6 +24,7 @@ export interface PHInventoryItem {
   id: number;
   code: string;
   name: string;
+  item_type: 'raw' | 'intermediate' | 'finished' | 'packaging';
   category: string | null;
   base_unit: string;
   usage_unit: string | null;

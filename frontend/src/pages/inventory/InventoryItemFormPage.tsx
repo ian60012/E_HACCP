@@ -18,11 +18,17 @@ export default function InventoryItemFormPage() {
   const [searchParams] = useSearchParams();
   const backUrl = searchParams.get('returnTo') || '/inventory/items';
   const isEdit = Boolean(id);
+  const requestedItemType = searchParams.get('item_type') as ItemType | null;
+  const initialItemType = requestedItemType && ITEM_TYPES.includes(requestedItemType)
+    ? requestedItemType
+    : 'raw';
 
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [itemType, setItemType] = useState<ItemType>('raw');
+  const [itemType, setItemType] = useState<ItemType>(initialItemType);
   const [category, setCategory] = useState('');
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  const [customCategory, setCustomCategory] = useState(false);
   const [baseUnit, setBaseUnit] = useState('PCS');
   const [usageUnit, setUsageUnit] = useState('');
   const [description, setDescription] = useState('');
@@ -37,6 +43,17 @@ export default function InventoryItemFormPage() {
   useEffect(() => {
     invLocationsApi.list({ is_active: true, limit: 200 }).then((r) => setAllLocations(r.items));
   }, []);
+
+  useEffect(() => {
+    invItemsApi.list({ item_type: itemType, is_active: undefined, limit: 1000 })
+      .then((r) => {
+        const categories = r.items
+          .map((item) => item.category?.trim())
+          .filter((value): value is string => Boolean(value));
+        setCategoryOptions([...new Set(categories)].sort((a, b) => a.localeCompare(b, 'zh-Hant')));
+      })
+      .catch(() => setCategoryOptions([]));
+  }, [itemType]);
 
   useEffect(() => {
     if (!isEdit || !id) {
@@ -107,7 +124,7 @@ export default function InventoryItemFormPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/inventory/items')} className="p-2 rounded-lg hover:bg-gray-100">
+        <button onClick={() => navigate(backUrl)} className="p-2 rounded-lg hover:bg-gray-100">
           <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
         </button>
         <h1 className="text-2xl font-bold text-gray-800">
@@ -142,7 +159,11 @@ export default function InventoryItemFormPage() {
         <FormField label={<Bi k="field.itemType" />} required>
           <select
             value={itemType}
-            onChange={(e) => setItemType(e.target.value as ItemType)}
+            onChange={(e) => {
+              setItemType(e.target.value as ItemType);
+              setCategory('');
+              setCustomCategory(false);
+            }}
             className="input"
             required
           >
@@ -153,14 +174,36 @@ export default function InventoryItemFormPage() {
             ))}
           </select>
         </FormField>
-        <FormField label={<Bi k="field.subCategory" />} hint="自由文字，例如 肉類 / 調味料 / 蔬菜">
-          <input
-            type="text"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+        <FormField label={<Bi k="field.subCategory" />} hint="從現有子分類選擇，或新增其他子分類">
+          <select
+            value={customCategory ? '__custom__' : category}
+            onChange={(e) => {
+              if (e.target.value === '__custom__') {
+                setCategory('');
+                setCustomCategory(true);
+              } else {
+                setCategory(e.target.value);
+                setCustomCategory(false);
+              }
+            }}
             className="input"
-            placeholder="肉類 / 調味料 / 蔬菜（選填）"
-          />
+          >
+            <option value="">— 無子分類 —</option>
+            {[...new Set(category ? [...categoryOptions, category] : categoryOptions)].map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+            <option value="__custom__">＋ 新增其他子分類</option>
+          </select>
+          {customCategory && (
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="input mt-2"
+              placeholder="輸入新子分類"
+              autoFocus
+            />
+          )}
         </FormField>
         <FormField label={<Bi k="field.baseUnit" />} required>
           <select value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} className="input">
@@ -230,7 +273,7 @@ export default function InventoryItemFormPage() {
         )}
 
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={() => navigate('/inventory/items')} className="btn btn-secondary">
+          <button type="button" onClick={() => navigate(backUrl)} className="btn btn-secondary">
             <Bi k="btn.cancel" />
           </button>
           <button type="submit" disabled={saving} className="btn btn-primary">

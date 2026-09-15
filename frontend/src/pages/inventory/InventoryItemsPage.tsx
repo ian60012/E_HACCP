@@ -167,8 +167,11 @@ export default function InventoryItemsPage({ defaultItemType, basePath = '/inven
   };
 
   const newUrl = () => {
-    const returnTo = basePath !== '/inventory/items' ? `?returnTo=${encodeURIComponent(basePath)}` : '';
-    return `/inventory/items/new${returnTo}`;
+    const params = new URLSearchParams();
+    if (basePath !== '/inventory/items') params.set('returnTo', basePath);
+    if (itemTypeFilter) params.set('item_type', itemTypeFilter);
+    const query = params.toString();
+    return `/inventory/items/new${query ? `?${query}` : ''}`;
   };
 
   const enableMeatProduct = async (item: InvItem) => {

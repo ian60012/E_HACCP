@@ -251,6 +251,8 @@ Production Helper is Captain-only. It reads products, batches, and inventory ite
 
 Production plan stations are `面点`, `厨房A组`, `厨房B组`, and `肉加工`. The frontend maps legacy `厨房` plan records to `厨房A组` when loading so existing plans remain visible and can later be reassigned to B group.
 
+Production Helper bootstrap inventory items include their primary `item_type`. The plan editor uses that value to limit main-material suggestions to active raw materials, while recipe auxiliary-material selection remains available across active inventory items.
+
 Key files:
 
 - `backend/app/routers/api/v1/production_helper.py`
