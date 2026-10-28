@@ -9,6 +9,7 @@ import {
   ShieldCheckIcon,
   AdjustmentsHorizontalIcon,
   ExclamationTriangleIcon,
+  ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import Bi from '@/components/Bi';
@@ -53,6 +54,14 @@ const logCards = [
     color: 'bg-green-50 text-green-600 border-green-200',
     listTo: '/sanitising-logs',
     newTo: '/sanitising-logs/new',
+  },
+  {
+    titleKey: 'nav.cleaningChecklist',
+    descKey: 'dashboard.cleaningChecklist.desc',
+    icon: ClipboardDocumentCheckIcon,
+    color: 'bg-sky-50 text-sky-700 border-sky-200',
+    listTo: '/cleaning-checklists',
+    newTo: '/cleaning-checklists/new',
   },
   {
     titleKey: 'nav.assembly',

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheckIcon, CogIcon, ArchiveBoxIcon, ClipboardDocumentListIcon, TagIcon } from '@heroicons/react/24/outline';
+import { ShieldCheckIcon, CogIcon, ArchiveBoxIcon, ClipboardDocumentListIcon, TagIcon, ClipboardDocumentCheckIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
 import Bi, { bi } from '@/components/Bi';
 
@@ -28,6 +28,14 @@ const systems: SystemCard[] = [
     to: '/production',
     color: 'text-amber-600 bg-amber-50 border-amber-200 hover:border-amber-400',
     roles: ['Admin', 'QA', 'Production', 'Warehouse'],
+  },
+  {
+    titleKey: 'page.portal.cleaningChecklist',
+    descKey: 'page.portal.cleaningChecklistDesc',
+    icon: ClipboardDocumentCheckIcon,
+    to: '/cleaning-checklists',
+    color: 'text-sky-700 bg-sky-50 border-sky-200 hover:border-sky-400',
+    roles: ['Admin', 'QA', 'Production'],
   },
   {
     titleKey: 'page.portal.inventory',

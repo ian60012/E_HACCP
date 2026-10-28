@@ -1,6 +1,6 @@
 # E_HACCP Project Context
 
-Last updated: 2026-09-15.
+Last updated: 2026-10-28.
 
 ## Quick Load
 
@@ -67,7 +67,7 @@ Core routers:
 
 - Auth/users/admin: `auth.py`, `users.py`, `admin.py`.
 - Reference data: `suppliers.py`, `equipment.py`, `areas.py`.
-- HACCP logs: `receiving_logs.py`, `cooking_logs.py`, `cooling_logs.py`, `sanitising_logs.py`, `deviation_logs.py`, `ppe_compliance_logs.py`, `mixing_logs.py`, `assembly_packing_logs.py`.
+- HACCP logs: `receiving_logs.py`, `cooking_logs.py`, `cooling_logs.py`, `sanitising_logs.py`, `cleaning_checklists.py`, `deviation_logs.py`, `ppe_compliance_logs.py`, `mixing_logs.py`, `assembly_packing_logs.py`.
 - Inventory: `inventory_items.py`, `inventory_locations.py`, `inventory_docs.py`, `inventory_balance.py`, `inventory_lots.py`, `inventory_stocktake.py`.
 - Production: `production_products.py`, `production_pack_types.py`, `production_batches.py`, `production_repack.py`, `batch_sheets.py`.
 - Production Helper: `production_helper.py`.
@@ -104,7 +104,7 @@ Base schema includes:
 
 - Users and roles: `users`, enum `user_role_enum` with `Admin`, `QA`, `Production`, `Warehouse`, `Captain`.
 - Reference: `suppliers`, `equipment`, `areas`.
-- HACCP logs: `receiving_logs`, `cooking_logs`, `cooling_logs`, `sanitising_logs`, `assembly_packing_logs`, `ppe_compliance_logs`, `mixing_logs`.
+- HACCP logs: `receiving_logs`, `cooking_logs`, `cooling_logs`, `sanitising_logs`, `cleaning_checklists`, `assembly_packing_logs`, `ppe_compliance_logs`, `mixing_logs`.
 - CAPA/deviation: `deviation_logs`.
 - Audit: `audit_log`.
 - Production: `prod_products`, `prod_pack_types`, `prod_product_pack_config`, `prod_batches`, `prod_forming_trolleys`, `prod_packing_records`, `prod_packing_trim`, `prod_repack_*`, `prod_hot_inputs`, `prod_daily_batch_sheets`, `prod_batch_sheet_lines`.
@@ -128,7 +128,7 @@ Major pages:
 - `/haccp`: `DashboardPage`.
 - `/production*`: production dashboard, batches, packing, repack, products, pack types.
 - `/labelmaker`: LabelMaker.
-- `/cooking-logs`, `/receiving-logs`, `/cooling-logs`, `/sanitising-logs`, `/mixing-logs`, `/ppe-compliance-logs`, `/deviations`, `/assembly-logs`.
+- `/cooking-logs`, `/receiving-logs`, `/cooling-logs`, `/sanitising-logs`, `/cleaning-checklists`, `/mixing-logs`, `/ppe-compliance-logs`, `/deviations`, `/assembly-logs`.
 - `/batch-sheets`.
 - `/reference/suppliers`, `/reference/equipment`, `/reference/areas`.
 - `/users`, `/admin/activity`.
@@ -163,6 +163,15 @@ Cooking, cooling, receiving, sanitising, mixing, PPE, assembly, and deviation lo
 - Frontend pages: `frontend/src/pages/<module>/`.
 
 Before editing one module, compare a neighboring module with the same list/detail/form/lock/void pattern.
+
+### Daily Cleaning Checklists
+
+- FSP-LOG-CLN-003 (Dumpling Line) and FSP-LOG-CLN-005 (Cooking Line) are available from the main portal, HACCP dashboard and HACCP sidebar at `/cleaning-checklists`.
+- Both supplied source forms contain the same 22 bilingual equipment/scope items grouped under Cooking Room, Processing Room, General Area and Storage Area. The line type controls the title and form code; the saved checklist retains a full bilingual JSONB snapshot of every item, result and comment.
+- Results are `clean`, `needs_cleaning` or `damaged_faulty`; every item requires a result before create/update. The JWT user is the attributable operator, QA/Admin can lock, and Admin can void. Hard delete is blocked by a database trigger.
+- Backend: `backend/app/models/cleaning_checklist.py`, `backend/app/schemas/cleaning_checklist.py`, `backend/app/routers/api/v1/cleaning_checklists.py`, and `backend/app/services/cleaning_checklist_template.py`.
+- Frontend: `frontend/src/pages/cleaning`, `frontend/src/api/cleaning-checklists.ts`, and `frontend/src/types/cleaning-checklist.ts`.
+- Durable schema: `database/migrations/20261028_cleaning_checklists.sql`, mirrored by `backend/app/core/cleaning_checklists.sql` for startup migration and appended to `database/init.sql` for new installs.
 
 Core production/HACCP signature behavior:
 

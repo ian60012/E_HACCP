@@ -10,6 +10,7 @@ from app.models.sanitising_log import SanitisingLog
 from app.models.deviation_log import DeviationLog
 from app.models.ppe_compliance_log import PPEComplianceLog
 from app.models.mixing_log import MixingLog
+from app.models.cleaning_checklist import CleaningChecklist
 from app.models.audit_log import AuditLog
 from app.models.inventory import (
     InvItem, InvLot, InvLocation, InvStockDoc, InvStockLine,
@@ -25,7 +26,7 @@ from app.models.production import (
 __all__ = [
     "User", "Supplier", "Equipment", "Area", "AssemblyPackingLog",
     "CookingLog", "ReceivingLog", "CoolingLog",
-    "SanitisingLog", "DeviationLog", "PPEComplianceLog", "MixingLog", "AuditLog",
+    "SanitisingLog", "DeviationLog", "PPEComplianceLog", "MixingLog", "CleaningChecklist", "AuditLog",
     "InvItem", "InvLot", "InvLocation", "InvStockDoc", "InvStockLine",
     "InvStockBalance", "InvStockMovement",
     "ProdProduct", "ProdBatch", "ProdFormingTrolley",

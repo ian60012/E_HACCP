@@ -1,7 +1,7 @@
 """
 ALCOA+ audit fields mixin for all HACCP log tables.
 
-Every log table (receiving, cooking, cooling, sanitising, assembly, deviation)
+Every log table (receiving, cooking, cooling, sanitising, cleaning checklist, assembly, deviation)
 inherits this mixin to get standardized audit trail fields:
 
   operator_id   - WHO recorded the entry (Attributable)

@@ -56,6 +56,11 @@ import PPEComplianceLogsPage from '@/pages/ppe/PPEComplianceLogsPage';
 import PPEComplianceLogDetailPage from '@/pages/ppe/PPEComplianceLogDetailPage';
 import PPEComplianceLogFormPage from '@/pages/ppe/PPEComplianceLogFormPage';
 
+// Daily cleaning checklists
+import CleaningChecklistsPage from '@/pages/cleaning/CleaningChecklistsPage';
+import CleaningChecklistDetailPage from '@/pages/cleaning/CleaningChecklistDetailPage';
+import CleaningChecklistFormPage from '@/pages/cleaning/CleaningChecklistFormPage';
+
 // Admin
 import ActivityLogPage from '@/pages/admin/ActivityLogPage';
 
@@ -166,6 +171,12 @@ export default function App() {
           <Route path="/ppe-compliance-logs/new" element={<PPEComplianceLogFormPage />} />
           <Route path="/ppe-compliance-logs/:id" element={<PPEComplianceLogDetailPage />} />
           <Route path="/ppe-compliance-logs/:id/edit" element={<PPEComplianceLogFormPage />} />
+
+          {/* Daily cleaning checklists (FSP-LOG-CLN-003/005) */}
+          <Route path="/cleaning-checklists" element={<CleaningChecklistsPage />} />
+          <Route path="/cleaning-checklists/new" element={<CleaningChecklistFormPage />} />
+          <Route path="/cleaning-checklists/:id" element={<CleaningChecklistDetailPage />} />
+          <Route path="/cleaning-checklists/:id/edit" element={<CleaningChecklistFormPage />} />
 
           {/* Deviation logs */}
           <Route path="/deviations" element={<DeviationLogsPage />} />
