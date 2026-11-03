@@ -266,6 +266,8 @@ class ProdBatchResponse(BaseModel):
     process_type: Optional[str] = None
     meat_state: Optional[str] = None
     meat_totals: Optional[MeatTotals] = None
+    quality_status: str = "not_started"
+    quality_revision: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
 
     id: int

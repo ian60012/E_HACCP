@@ -21,6 +21,7 @@ import ProdRepackFormPage from '@/pages/production/ProdRepackFormPage';
 import ProdRepackDetailPage from '@/pages/production/ProdRepackDetailPage';
 import ProdProductsPage from '@/pages/production/ProdProductsPage';
 import ProdPackTypesPage from '@/pages/production/ProdPackTypesPage';
+import QualityInspectionPage from '@/pages/production/QualityInspectionPage';
 
 // Cooking logs
 import CookingLogsPage from '@/pages/cooking/CookingLogsPage';
@@ -63,6 +64,7 @@ import CleaningChecklistFormPage from '@/pages/cleaning/CleaningChecklistFormPag
 
 // Admin
 import ActivityLogPage from '@/pages/admin/ActivityLogPage';
+import QualityPermissionsPage from '@/pages/admin/QualityPermissionsPage';
 
 // Batch sheets (FSP-LOG-017)
 import BatchSheetListPage from '@/pages/batch-sheets/BatchSheetListPage';
@@ -121,6 +123,7 @@ export default function App() {
           <Route path="/production/batches/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdBatchFormPage /></RoleGuard>} />
           <Route path="/production/batches/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdBatchDetailPage /></RoleGuard>} />
           <Route path="/production/batches/:id/packing" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdPackingPage /></RoleGuard>} />
+          <Route path="/production/batches/:id/quality" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production', 'Warehouse']}><QualityInspectionPage /></RoleGuard>} />
           <Route path="/production/repack" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdRepackListPage /></RoleGuard>} />
           <Route path="/production/repack/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdRepackFormPage /></RoleGuard>} />
           <Route path="/production/repack/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdRepackDetailPage /></RoleGuard>} />
@@ -191,6 +194,7 @@ export default function App() {
           {/* System management - Admin only */}
           <Route path="/users" element={<RoleGuard allowedRoles={['Admin']}><UsersPage /></RoleGuard>} />
           <Route path="/admin/activity" element={<RoleGuard allowedRoles={['Admin']}><ActivityLogPage /></RoleGuard>} />
+          <Route path="/admin/quality-permissions" element={<RoleGuard allowedRoles={['Admin']}><QualityPermissionsPage /></RoleGuard>} />
 
           {/* Inventory module - Admin, QA, Warehouse */}
           <Route path="/inventory/balance" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Warehouse']}><InventoryBalancePage /></RoleGuard>} />

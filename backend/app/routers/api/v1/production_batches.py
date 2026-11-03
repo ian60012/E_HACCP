@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete, or_, and_
 from app.services.meat_processing import protect_legacy_meat, totals as meat_totals, value
 from app.models.meat_processing import MeatRecord
+from app.models.quality_control import ProdBatchQualityInspection
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
@@ -101,11 +102,14 @@ def _packing_trim_response(t: ProdPackingTrim) -> ProdPackingTrimResponse:
 
 
 def _to_response(batch: ProdBatch) -> ProdBatchResponse:
+    quality = batch.quality_inspections[-1] if batch.quality_inspections else None
     return ProdBatchResponse(
         id=batch.id,
         process_type=batch.process_type,
         meat_state=batch.meat_records[-1].state if batch.meat_records else ("draft" if batch.process_type == "meat_processing" else None),
         meat_totals=meat_totals(batch.meat_records[-1]) if batch.meat_records else None,
+        quality_status=quality.status if quality else "not_started",
+        quality_revision=quality.revision if quality else None,
         batch_code=batch.batch_code,
         product_code=batch.product_code,
         product_name=batch.product_name,
@@ -158,6 +162,7 @@ def _base_query():
         selectinload(ProdBatch.meat_records).selectinload(MeatRecord.inputs),
         selectinload(ProdBatch.meat_records).selectinload(MeatRecord.outputs),
         selectinload(ProdBatch.meat_records).selectinload(MeatRecord.losses),
+        selectinload(ProdBatch.quality_inspections),
         selectinload(ProdBatch.forming_trolleys),
         selectinload(ProdBatch.packing_records).selectinload(ProdPackingRecord.product),
         selectinload(ProdBatch.packing_records).selectinload(ProdPackingRecord.inv_item),

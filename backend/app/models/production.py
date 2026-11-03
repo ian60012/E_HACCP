@@ -86,6 +86,12 @@ class ProdBatch(Base):
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
 
     meat_records = relationship("MeatRecord", lazy="raise", order_by="MeatRecord.version")
+    quality_inspections = relationship(
+        "ProdBatchQualityInspection",
+        back_populates="batch",
+        lazy="raise",
+        order_by="ProdBatchQualityInspection.revision",
+    )
     forming_trolleys = relationship("ProdFormingTrolley", back_populates="batch", lazy="raise", cascade="all, delete-orphan")
     packing_records = relationship("ProdPackingRecord", back_populates="batch", lazy="raise", cascade="all, delete-orphan")
     packing_trims = relationship("ProdPackingTrim", back_populates="batch", lazy="raise", cascade="all, delete-orphan")

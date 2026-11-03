@@ -5,6 +5,7 @@ import { meatError } from '@/api/meatProcessing';
 import { ProdBatch, ProdProduct } from '@/types/production';
 import { meatStates, MeatState } from '@/types/meatProcessing';
 import RoleGate from '@/components/RoleGate';
+import QualityStatusBadge from '@/components/QualityStatusBadge';
 
 export default function MeatBatchListPage() {
   const [batches, setBatches] = useState<ProdBatch[]>([]);
@@ -36,12 +37,15 @@ export default function MeatBatchListPage() {
     </div>
     {error && <p role="alert" className="text-red-700">{error}</p>}
     {loading ? <p role="status">載入中 Loading…</p> : <div className="grid gap-3 lg:grid-cols-2">
-      {batches.map(b => <Link key={b.id} to={`/production/meat/${b.id}`} className="card block border border-l-4 border-l-violet-500 hover:border-violet-400 hover:bg-violet-50/40">
-        <div className="flex justify-between gap-3"><strong className="min-w-0 break-all">{b.batch_code}</strong><span>{b.is_voided ? '已作廢 Voided' : meatStates[(b.meat_state || 'draft') as MeatState]}</span></div>
-        <p>{b.product_name} · {b.production_date}</p><div className="mt-3 flex flex-wrap gap-4 text-sm">
-          <span>投入 Input: {b.meat_totals?.input_kg ?? '—'} kg</span><span>產出 Output: {b.meat_totals?.output_kg ?? '—'} kg</span>
-          <span>產出率 Yield: {b.meat_totals?.yield_pct ?? '—'}%</span></div>
-      </Link>)}{!batches.length && <p>尚無肉品加工批次 No batches found</p>}
+      {batches.map(b => <article key={b.id} className="card border border-l-4 border-l-violet-500">
+        <Link to={`/production/meat/${b.id}`} className="block rounded-lg hover:bg-violet-50/40 focus:outline-none focus:ring-2 focus:ring-violet-500">
+          <div className="flex justify-between gap-3"><strong className="min-w-0 break-all">{b.batch_code}</strong><span>{b.is_voided ? '已作廢 Voided' : meatStates[(b.meat_state || 'draft') as MeatState]}</span></div>
+          <p>{b.product_name} · {b.production_date}</p><div className="mt-3 flex flex-wrap gap-4 text-sm">
+            <span>投入 Input: {b.meat_totals?.input_kg ?? '—'} kg</span><span>產出 Output: {b.meat_totals?.output_kg ?? '—'} kg</span>
+            <span>產出率 Yield: {b.meat_totals?.yield_pct ?? '—'}%</span></div>
+        </Link>
+        <div className="mt-4 flex items-center justify-between gap-3 border-t pt-3"><span className="text-sm font-medium text-gray-700">品质检验 Quality</span><Link className="min-h-11 rounded-lg px-1 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500" to={`/production/batches/${b.id}/quality`}><QualityStatusBadge status={b.quality_status} /></Link></div>
+      </article>)}{!batches.length && <p>尚無肉品加工批次 No batches found</p>}
     </div>}
     <div className="flex items-center gap-4"><button className="btn btn-secondary" disabled={!page || loading} onClick={() => setPage(page - 1)}>上一頁 Previous</button>
       <span>{page + 1} / {Math.max(1, Math.ceil(total / 50))} · {total} 筆</span><button className="btn btn-secondary" disabled={(page + 1) * 50 >= total || loading} onClick={() => setPage(page + 1)}>下一頁 Next</button></div>

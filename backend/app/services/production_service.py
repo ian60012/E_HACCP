@@ -289,6 +289,9 @@ async def enter_batch_to_inventory(
     if not batch:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Batch not found")
 
+    from app.services.quality_control import ensure_released_for_stock
+    await ensure_released_for_stock(session, batch)
+
     batch_status = batch.status.value if hasattr(batch.status, "value") else batch.status
     if batch_status not in ("packed", "closed"):
         raise HTTPException(

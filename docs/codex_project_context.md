@@ -1,6 +1,6 @@
 # E_HACCP Project Context
 
-Last updated: 2026-10-28.
+Last updated: 2026-11-04.
 
 ## Quick Load
 
@@ -203,6 +203,19 @@ Key frontend files:
 - `frontend/src/pages/production/*`
 - `frontend/src/api/production.ts`
 - `frontend/src/types/production.ts`
+
+### Batch Quality Control
+
+- Every forming, hot-process, and meat-processing batch exposes a dedicated quality inspection at `/production/batches/:id/quality`; batch lists and detail pages display `not_started`, `draft`, `approved`, or `rejected` status.
+- The inspection records colour, aroma, and taste as `pass`, `fail`, or `not_applicable`; an N/A reason is mandatory when used, and any failed result requires corrective action before QA sign-off.
+- Retained-sample fields cover whether a sample was retained, auto-generated sample code, quantity/unit, sample time, storage condition/location, disposal due date, and a mandatory reason when no sample is retained. One optional JPEG/PNG/WebP photo up to 5 MB is stored outside PostgreSQL under `QUALITY_PHOTO_DIR`; Docker persists it in `quality_photo_data` / `quality_photo_data_prod`, while the database stores protected metadata only.
+- `prod_batch_quality_inspections` is revisioned per batch. Drafts remain editable; QA signing sets `approved` or `rejected` and a database trigger makes signed revisions immutable. A rejected result can start a new corrective revision without rewriting history. Hard deletion is blocked.
+- `quality_role_permissions` controls `can_view`, `can_edit`, and `can_verify` for QA, Production, and Warehouse. Admin and Captain remain fixed full-access roles to prevent lockout. Admins manage the matrix at `/admin/quality-permissions`; API authorization is enforced server-side by `services/quality_control.py`.
+- Default permissions: QA view/edit/verify; Production view/edit; Warehouse view; Admin and Captain full access. Edit or verify always requires view.
+- API routes under `/api/v1/production/batches/{batch_id}/quality-inspection` support context/read, draft save, corrective revision, QA verify, authenticated photo upload/read; `/api/v1/quality-control/permissions` manages the role matrix.
+- `quality_control_settings.enforcement_started_at` is seeded when the migration first runs. Batches created on or after that timestamp require an approved inspection before either legacy or meat stock entry; older batches remain compatible. The gate is enforced in backend stock services, not only in the UI.
+- Backend: `models/quality_control.py`, `schemas/quality_control.py`, `routers/api/v1/quality_control.py`, and `services/quality_control.py`. Frontend: `pages/production/QualityInspectionPage.tsx`, `pages/admin/QualityPermissionsPage.tsx`, `api/qualityControl.ts`, and `types/qualityControl.ts`.
+- Durable schema: `database/migrations/20261104_batch_quality_control.sql`, packaged startup migration `backend/app/core/quality_control.sql`, and the matching block in `database/init.sql`.
 
 ### Meat Processing
 

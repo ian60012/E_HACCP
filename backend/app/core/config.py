@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # Production Helper module
     PRODUCTION_HELPER_DATA_DIR: str = "/app/app/data/production_helper"
 
+    # Production quality retained-sample photos
+    QUALITY_PHOTO_DIR: str = "/app/app/data/quality_photos"
+
     # LabelMaker module
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-5.2"

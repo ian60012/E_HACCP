@@ -23,6 +23,7 @@ import Bi, { bi } from '@/components/Bi';
 import RoleGate from '@/components/RoleGate';
 import DateTimeInput from '@/components/DateTimeInput';
 import SignaturePad from '@/components/SignaturePad';
+import QualityStatusBadge from '@/components/QualityStatusBadge';
 import { toMelbourneInput, nowMelbourne, melbourneToUTC, formatMelbourne } from '@/utils/timezone';
 
 const num = (v: any): number => (v == null ? 0 : Number(v));
@@ -607,6 +608,9 @@ export default function ProdBatchDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button type="button" className="min-h-11 rounded-lg px-1 focus:outline-none focus:ring-2 focus:ring-primary-500" onClick={() => navigate(`/production/batches/${batch.id}/quality`)} aria-label="填写或查看品质检验">
+            <QualityStatusBadge status={batch.quality_status} />
+          </button>
           {batch.inv_stock_doc_id && !isVoided && (
             <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
               <Bi k="msg.stockEntered" />

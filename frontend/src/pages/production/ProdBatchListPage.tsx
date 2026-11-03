@@ -12,6 +12,7 @@ import Bi, { bi } from '@/components/Bi';
 import RoleGate from '@/components/RoleGate';
 import MeatBatchListPage from './MeatBatchListPage';
 import { meatStates } from '@/types/meatProcessing';
+import QualityStatusBadge from '@/components/QualityStatusBadge';
 
 const num = (v: any): number => (v == null ? 0 : Number(v));
 
@@ -240,6 +241,7 @@ function LegacyBatchListPage() {
                   <th className="pb-2 pr-4"><Bi k="field.productionDate" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.shift" /></th>
                   <th className="pb-2 pr-4"><Bi k="field.status" /></th>
+                  <th className="pb-2 pr-4">品质检验 Quality</th>
                   {productType === 'hot_process' ? (
                     <>
                       <th className="pb-2 pr-4 text-right">投料量</th>
@@ -285,6 +287,16 @@ function LegacyBatchListPage() {
                             {batch.process_type === 'meat_processing' ? meatStates[batch.meat_state || 'draft'] : statusLabels[batch.status] || batch.status}
                           </span>
                         )}
+                      </td>
+                      <td className="py-2 pr-4">
+                        <button
+                          type="button"
+                          className="min-h-11 rounded-lg px-1 text-left focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          aria-label={`填写或查看批次 ${batch.batch_code} 的品质检验`}
+                          onClick={(event) => { event.stopPropagation(); navigate(`/production/batches/${batch.id}/quality`); }}
+                        >
+                          <QualityStatusBadge status={batch.quality_status} />
+                        </button>
                       </td>
                       {productType === 'hot_process' ? (
                         <>

@@ -39,12 +39,14 @@ services:
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production-use-a-long-random-string}
       ENVIRONMENT: production
       PRODUCTION_HELPER_DATA_DIR: /app/app/data/production_helper
+      QUALITY_PHOTO_DIR: /app/app/data/quality_photos
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.2}
     ports:
       - "8001:8000"
     volumes:
       - production_helper_data_prod:/app/app/data/production_helper
+      - quality_photo_data_prod:/app/app/data/quality_photos
 
   frontend:
     build:
@@ -60,3 +62,4 @@ services:
 volumes:
   pgdata_prod:
   production_helper_data_prod:
+  quality_photo_data_prod:

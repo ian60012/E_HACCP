@@ -46,6 +46,7 @@ from app.routers.api.v1 import batch_sheets
 from app.routers.api.v1 import admin
 from app.routers.api.v1 import production_helper
 from app.routers.api.v1 import labelmaker
+from app.routers.api.v1 import quality_control
 
 
 @asynccontextmanager
@@ -592,11 +593,15 @@ async def lifespan(app: FastAPI):
     await migrate_inventory_lots(engine)
     from app.core.cleaning_checklist_migration import migrate_cleaning_checklists
     await migrate_cleaning_checklists(engine)
+    from app.core.quality_control_migration import migrate_quality_control
+    await migrate_quality_control(engine)
     async with engine.begin() as conn:
         await conn.execute(text("ALTER TABLE inv_stock_docs ADD COLUMN IF NOT EXISTS item_type_scope item_type_enum"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_inv_stock_docs_item_type_scope ON inv_stock_docs(item_type_scope)"))
     # Production Helper data directory (plans/recipes/purchase_status JSON files)
     production_helper.init_data_dir()
+    from pathlib import Path
+    Path(settings.QUALITY_PHOTO_DIR).mkdir(parents=True, exist_ok=True)
 
     yield
     # Shutdown: Close database connections
@@ -674,6 +679,10 @@ app.include_router(production_helper.router, prefix="/api/v1")
 
 # LabelMaker (product/pack labels and FSANZ nutrition)
 app.include_router(labelmaker.router, prefix="/api/v1")
+
+# Batch sensory quality, retained samples, photos, and permission control
+app.include_router(quality_control.router, prefix="/api/v1")
+app.include_router(quality_control.permissions_router, prefix="/api/v1")
 
 
 @app.get("/")

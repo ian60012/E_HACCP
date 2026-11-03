@@ -187,6 +187,8 @@ export interface ProdBatch {
   process_type: ProdProductType | null;
   meat_state: import("./meatProcessing").MeatState | null;
   meat_totals: import("./meatProcessing").MeatTotals | null;
+  quality_status: 'not_started' | 'draft' | 'approved' | 'rejected';
+  quality_revision: number | null;
   id: number;
   batch_code: string;
   product_code: string;

@@ -220,6 +220,8 @@ async def enter_stock(db, batch_id, data, user):
     batch, record = await lock_batch(db, batch_id, data.version)
     if not record or record.state != "verified":
         raise HTTPException(409, "須先經 QA 覆核 QA verification required")
+    from app.services.quality_control import ensure_released_for_stock
+    await ensure_released_for_stock(db, batch)
     input_refs, items, _ = await validate_refs(db, record)
     await db.execute(text("LOCK TABLE inv_stock_balance IN SHARE ROW EXCLUSIVE MODE"))
 

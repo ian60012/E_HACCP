@@ -33,6 +33,8 @@ __all__ = [
     "ProdPackingRecord", "ProdPackingTrim",
     "ProdHotInput",
     "ProdRepackJob", "ProdRepackInput", "ProdRepackOutput", "ProdRepackTrim",
+    "ProdBatchQualityInspection", "QualityRolePermission", "QualityControlSetting",
 ]
 
 from app.models.meat_processing import MeatRecord, MeatInput, MeatStep, MeatOutput, MeatLoss
+from app.models.quality_control import ProdBatchQualityInspection, QualityRolePermission, QualityControlSetting

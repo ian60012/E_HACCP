@@ -78,6 +78,7 @@ const haccpSections: NavSection[] = [
     items: [
       { to: '/users', label: '帳號管理', labelKey: 'nav.users', icon: UserGroupIcon },
       { to: '/admin/activity', label: '操作記錄', icon: DocumentTextIcon },
+      { to: '/admin/quality-permissions', label: '品质权限管控', icon: ShieldCheckIcon },
     ],
     roles: ['Admin'],
   },
@@ -114,6 +115,7 @@ const productionSections: NavSection[] = [
       { to: '/production/products', label: '產品管理', labelKey: 'nav.prodProducts', icon: Squares2X2Icon },
       { to: '/production/pack-types', label: '包裝類型', labelKey: 'nav.packTypes', icon: TagIcon },
       { to: '/labelmaker', label: 'LabelMaker', icon: TagIcon },
+      { to: '/admin/quality-permissions', label: '品质权限管控', icon: ShieldCheckIcon, roles: ['Admin'] },
     ],
   },
 ];

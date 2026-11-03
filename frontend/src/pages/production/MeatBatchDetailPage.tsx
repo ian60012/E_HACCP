@@ -8,6 +8,7 @@ import { ProdBatch, PackTypeConfig } from '@/types/production';
 import { InvItem, InvLocation, InvLot } from '@/types/inventory';
 import { useAuth } from '@/hooks/useAuth';
 import SignaturePad from '@/components/SignaturePad';
+import QualityStatusBadge from '@/components/QualityStatusBadge';
 import MeatLabelDialog from './MeatLabelDialog';
 import MeatFinishedLabelDialog from './MeatFinishedLabelDialog';
 import { toMelbourneInput, melbourneToUTC, formatMelbourne } from '@/utils/timezone';
@@ -119,6 +120,7 @@ export default function MeatBatchDetailPage() {
       <p className="text-sm text-gray-600">所有重量以公斤記錄；投入須包含醃料及水。 All weights in kg, including marinade and water.</p>
       {batch.operator_signature_data_url && <img className="h-16 border rounded" src={batch.operator_signature_data_url} alt="建立批次簽名 Batch creation signature" />}
       <div className="flex flex-wrap gap-2">
+      <Link className="btn btn-secondary inline-flex items-center gap-2" to={`/production/batches/${batch.id}/quality`}><QualityStatusBadge status={batch.quality_status} /><span>品质检验</span></Link>
       <button type="button" className="btn bg-violet-600 text-white hover:bg-violet-700"
         disabled={busy || dirty || historical || batch.is_voided || !record?.outputs.length}
         onClick={() => setShowLabel(true)}>箱貼 PDF／列印標籤 Print label</button>
