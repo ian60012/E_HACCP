@@ -6,7 +6,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { QualityPermissionsConfig, QualityRolePermission } from '@/types/qualityControl';
 
 const roleLabels: Record<string, string> = {
-  Admin: '管理员 Admin', QA: '品管 QA', Production: '生产 Production', Warehouse: '仓库 Warehouse', Captain: 'Captain',
+  Admin: '管理员 Admin', QA: '品质保证 QA', QC: '品质控管 QC', Production: '生产 Production', Warehouse: '仓库 Warehouse', Captain: 'Captain',
 };
 
 export default function QualityPermissionsPage() {

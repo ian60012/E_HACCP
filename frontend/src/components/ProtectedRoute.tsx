@@ -25,6 +25,11 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  const qcAllowedPath = location.pathname === '/' || location.pathname === '/quality-control' || /^\/production\/batches\/\d+\/quality$/.test(location.pathname);
+  if (user?.role === 'QC' && !qcAllowedPath) {
+    return <Navigate to="/quality-control" replace />;
+  }
+
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }

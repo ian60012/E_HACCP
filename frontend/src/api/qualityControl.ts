@@ -1,5 +1,5 @@
 import apiClient from './client';
-import { QualityInspection, QualityInspectionContext, QualityInspectionSave, QualityPermissionsConfig, QualityRolePermission } from '@/types/qualityControl';
+import { QualityBatchDashboardResponse, QualityInspection, QualityInspectionContext, QualityInspectionSave, QualityPermissionsConfig, QualityRolePermission, QualityStatus } from '@/types/qualityControl';
 
 export const qualityControlApi = {
   get: async (batchId: number): Promise<QualityInspectionContext> => (await apiClient.get(`/api/v1/production/batches/${batchId}/quality-inspection`)).data,
@@ -13,10 +13,12 @@ export const qualityControlApi = {
   getPhoto: async (batchId: number): Promise<Blob> => (await apiClient.get(`/api/v1/production/batches/${batchId}/quality-inspection/photo`, { responseType: 'blob' })).data,
   getPermissions: async (): Promise<QualityPermissionsConfig> => (await apiClient.get('/api/v1/quality-control/permissions')).data,
   updatePermissions: async (roles: QualityRolePermission[]): Promise<QualityPermissionsConfig> => {
-    const editable = roles.filter((row) => ['QA', 'Production', 'Warehouse'].includes(row.role))
+    const editable = roles.filter((row) => ['QA', 'QC', 'Production', 'Warehouse'].includes(row.role))
       .map(({ role, can_view, can_edit, can_verify }) => ({ role, can_view, can_edit, can_verify }));
     return (await apiClient.put('/api/v1/quality-control/permissions', { roles: editable })).data;
   },
+  listBatches: async (params: { skip?: number; limit?: number; quality_status?: QualityStatus | ''; process_type?: string; date_from?: string; date_to?: string; search?: string }): Promise<QualityBatchDashboardResponse> =>
+    (await apiClient.get('/api/v1/quality-control/batches', { params })).data,
 };
 
 export function qualityError(error: any): string {

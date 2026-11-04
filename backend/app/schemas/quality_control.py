@@ -99,7 +99,7 @@ class QualityRolePermissionResponse(QualityPermissionFlags):
 
 
 class QualityRolePermissionUpdate(QualityPermissionFlags):
-    role: Literal["QA", "Production", "Warehouse"]
+    role: Literal["QA", "QC", "Production", "Warehouse"]
 
     @model_validator(mode="after")
     def permission_dependencies(self):
@@ -115,3 +115,30 @@ class QualityPermissionsConfig(BaseModel):
 
 class QualityPermissionsUpdate(BaseModel):
     roles: list[QualityRolePermissionUpdate]
+
+
+class QualityBatchSummary(BaseModel):
+    batch_id: int
+    batch_code: str
+    product_code: str
+    product_name: str
+    production_date: date
+    process_type: Optional[str] = None
+    production_status: str
+    quality_status: Literal["not_started", "draft", "approved", "rejected"]
+    quality_revision: Optional[int] = None
+
+
+class QualityStatusCounts(BaseModel):
+    not_started: int = 0
+    draft: int = 0
+    approved: int = 0
+    rejected: int = 0
+
+
+class QualityBatchDashboardResponse(BaseModel):
+    items: list[QualityBatchSummary]
+    total: int
+    skip: int
+    limit: int
+    counts: QualityStatusCounts

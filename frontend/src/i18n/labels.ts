@@ -347,7 +347,8 @@ const labels: Record<string, BiLabelType> = {
 
   // ==================== Roles ====================
   'role.admin': { zh: '管理員', en: 'Admin' },
-  'role.qa': { zh: '品管', en: 'QA' },
+  'role.qa': { zh: '品質保證', en: 'QA' },
+  'role.qc': { zh: '品質控管', en: 'QC' },
   'role.production': { zh: '生產', en: 'Production' },
   'role.warehouse': { zh: '倉庫', en: 'Warehouse' },
 
@@ -521,6 +522,8 @@ const labels: Record<string, BiLabelType> = {
   'page.portal.subtitle': { zh: '請選擇您要使用的系統', en: 'Select a system to continue' },
   'page.portal.haccp': { zh: 'HACCP 食安系統', en: 'HACCP Food Safety' },
   'page.portal.haccpDesc': { zh: '烹飪、收貨、冷卻、清潔、組裝、偏差記錄', en: 'Cooking, receiving, cooling, sanitising, assembly & deviation logs' },
+  'page.portal.qualityControl': { zh: '品質控管', en: 'Quality Control' },
+  'page.portal.qualityControlDesc': { zh: '批次感官檢驗、留樣、照片與簽核放行', en: 'Batch inspection, retained samples, photos and release approval' },
   'page.portal.production': { zh: '生產系統', en: 'Production System' },
   'page.portal.productionDesc': { zh: '成型批次、熱加工投料、打包與分裝作業', en: 'Forming batches, hot process, packing & repack' },
   'page.portal.cleaningChecklist': { zh: '清潔查核', en: 'Cleaning Inspection' },

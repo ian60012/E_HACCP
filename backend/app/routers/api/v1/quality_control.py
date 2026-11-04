@@ -1,12 +1,13 @@
 """Batch sensory quality inspection, retained samples, photos, and permissions."""
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
+from typing import Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy import select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -25,6 +26,8 @@ from app.schemas.quality_control import (
     QualityInspectionResponse,
     QualityInspectionSave,
     QualityInspectionVerify,
+    QualityBatchDashboardResponse,
+    QualityBatchSummary,
     QualityPermissionFlags,
     QualityPermissionsConfig,
     QualityPermissionsUpdate,
@@ -40,6 +43,7 @@ from app.services.quality_control import (
 )
 
 router = APIRouter(prefix="/production/batches", tags=["Production Quality Control"])
+dashboard_router = APIRouter(prefix="/quality-control", tags=["Production Quality Control"])
 permissions_router = APIRouter(prefix="/quality-control/permissions", tags=["Production Quality Control"])
 
 MAX_PHOTO_BYTES = 5 * 1024 * 1024
@@ -345,6 +349,100 @@ async def get_quality_photo(
     )
 
 
+@dashboard_router.get("/batches", response_model=QualityBatchDashboardResponse)
+async def list_quality_batches(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(30, ge=1, le=100),
+    quality_status: Optional[str] = None,
+    process_type: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    search: Optional[str] = Query(None, max_length=100),
+    user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await require_permission(db, user, "view")
+    statuses = ("not_started", "draft", "approved", "rejected")
+    if quality_status and quality_status not in statuses:
+        raise HTTPException(422, "Invalid quality status")
+    if process_type and process_type not in ("forming", "hot_process", "meat_processing"):
+        raise HTTPException(422, "Invalid process type")
+
+    status_expr = func.coalesce(
+        select(ProdBatchQualityInspection.status)
+        .where(ProdBatchQualityInspection.batch_id == ProdBatch.id)
+        .order_by(ProdBatchQualityInspection.revision.desc())
+        .limit(1)
+        .correlate(ProdBatch)
+        .scalar_subquery(),
+        "not_started",
+    )
+    revision_expr = (
+        select(ProdBatchQualityInspection.revision)
+        .where(ProdBatchQualityInspection.batch_id == ProdBatch.id)
+        .order_by(ProdBatchQualityInspection.revision.desc())
+        .limit(1)
+        .correlate(ProdBatch)
+        .scalar_subquery()
+    )
+    filters = [ProdBatch.is_voided.is_(False)]
+    if process_type:
+        filters.append(ProdBatch.process_type == process_type)
+    if date_from:
+        filters.append(ProdBatch.production_date >= date_from)
+    if date_to:
+        filters.append(ProdBatch.production_date <= date_to)
+    if search and search.strip():
+        pattern = f"%{search.strip()}%"
+        filters.append(or_(ProdBatch.batch_code.ilike(pattern), ProdBatch.product_code.ilike(pattern), ProdBatch.product_name.ilike(pattern)))
+
+    counts = {}
+    for status_name in statuses:
+        counts[status_name] = int(await db.scalar(
+            select(func.count()).select_from(ProdBatch).where(*filters, status_expr == status_name)
+        ) or 0)
+
+    list_filters = list(filters)
+    if quality_status:
+        list_filters.append(status_expr == quality_status)
+    total = int(await db.scalar(select(func.count()).select_from(ProdBatch).where(*list_filters)) or 0)
+    priority = case(
+        (status_expr == "draft", 0),
+        (status_expr == "rejected", 1),
+        (status_expr == "not_started", 2),
+        else_=3,
+    )
+    rows = (await db.execute(
+        select(
+            ProdBatch.id,
+            ProdBatch.batch_code,
+            ProdBatch.product_code,
+            ProdBatch.product_name,
+            ProdBatch.production_date,
+            ProdBatch.process_type,
+            ProdBatch.status,
+            status_expr.label("quality_status"),
+            revision_expr.label("quality_revision"),
+        )
+        .where(*list_filters)
+        .order_by(priority, ProdBatch.production_date.desc(), ProdBatch.id.desc())
+        .offset(skip)
+        .limit(limit)
+    )).all()
+    items = [QualityBatchSummary(
+        batch_id=row.id,
+        batch_code=row.batch_code,
+        product_code=row.product_code,
+        product_name=row.product_name,
+        production_date=row.production_date,
+        process_type=row.process_type,
+        production_status=row.status.value if hasattr(row.status, "value") else str(row.status),
+        quality_status=row.quality_status,
+        quality_revision=row.quality_revision,
+    ) for row in rows]
+    return QualityBatchDashboardResponse(items=items, total=total, skip=skip, limit=limit, counts=counts)
+
+
 @permissions_router.get("", response_model=QualityPermissionsConfig)
 async def get_quality_permissions(
     user: User = Depends(require_role("Admin")),
@@ -353,7 +451,7 @@ async def get_quality_permissions(
     setting = await db.get(QualityControlSetting, 1)
     rows = {row.role: row for row in (await db.execute(select(QualityRolePermission))).scalars().all()}
     roles = []
-    for role in ("Admin", "QA", "Production", "Warehouse", "Captain"):
+    for role in ("Admin", "QA", "QC", "Production", "Warehouse", "Captain"):
         if role in ("Admin", "Captain"):
             roles.append(QualityRolePermissionResponse(role=role, can_view=True, can_edit=True, can_verify=True, fixed=True))
         else:
@@ -374,8 +472,8 @@ async def update_quality_permissions(
     db: AsyncSession = Depends(get_db),
 ):
     by_role = {item.role: item for item in data.roles}
-    if set(by_role) != {"QA", "Production", "Warehouse"}:
-        raise HTTPException(422, "QA, Production, and Warehouse permissions must all be supplied")
+    if set(by_role) != {"QA", "QC", "Production", "Warehouse"}:
+        raise HTTPException(422, "QA, QC, Production, and Warehouse permissions must all be supplied")
     for role, item in by_role.items():
         row = await db.get(QualityRolePermission, role)
         if not row:

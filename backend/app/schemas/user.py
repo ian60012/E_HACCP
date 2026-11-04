@@ -23,7 +23,7 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=8)
     full_name: str = Field(..., max_length=100)
     email: Optional[str] = None
-    role: str = Field(default="Production", description="Admin, QA, Production, or Warehouse")
+    role: str = Field(default="Production", description="Admin, QA, QC, Production, Warehouse, or Captain")
 
 
 class UserUpdate(BaseModel):

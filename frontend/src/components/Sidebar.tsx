@@ -134,7 +134,17 @@ const productionHelperSections: NavSection[] = [
   },
 ];
 
-function detectSystem(pathname: string): 'haccp' | 'inventory' | 'production' | 'production-helper' {
+const qualityControlSections: NavSection[] = [
+  {
+    title: '品質控管',
+    items: [
+      { to: '/quality-control', label: '批次品質工作台', icon: ShieldCheckIcon },
+    ],
+  },
+];
+
+function detectSystem(pathname: string): 'haccp' | 'inventory' | 'production' | 'production-helper' | 'quality-control' {
+  if (pathname.startsWith('/quality-control')) return 'quality-control';
   if (pathname.startsWith('/inventory') || pathname.startsWith('/inventory/raw-materials')) return 'inventory';
   if (pathname.startsWith('/production-helper')) return 'production-helper';
   if (pathname.startsWith('/labelmaker')) return 'production';
@@ -151,9 +161,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const { user } = useAuth();
   const { pathname } = useLocation();
 
-  const system = detectSystem(pathname);
+  const system = user?.role === 'QC' ? 'quality-control' : detectSystem(pathname);
   // /production-helper has its own dedicated sidebar (Captain only) — no other sections shown.
   const rawSections =
+    system === 'quality-control' ? qualityControlSections :
     system === 'production-helper' ? productionHelperSections :
     system === 'inventory' ? inventorySections :
     system === 'production' ? productionSections :

@@ -51,3 +51,13 @@ def test_permission_dependencies_are_validated():
         QualityRolePermissionUpdate(role="Production", can_view=False, can_edit=True, can_verify=False)
     valid = QualityRolePermissionUpdate(role="QA", can_view=True, can_edit=True, can_verify=True)
     assert valid.can_verify is True
+
+
+def test_qc_role_can_receive_full_quality_permissions():
+    permission = QualityRolePermissionUpdate(
+        role="QC",
+        can_view=True,
+        can_edit=True,
+        can_verify=True,
+    )
+    assert permission.role == "QC"

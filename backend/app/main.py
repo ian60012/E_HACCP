@@ -682,6 +682,7 @@ app.include_router(labelmaker.router, prefix="/api/v1")
 
 # Batch sensory quality, retained samples, photos, and permission control
 app.include_router(quality_control.router, prefix="/api/v1")
+app.include_router(quality_control.dashboard_router, prefix="/api/v1")
 app.include_router(quality_control.permissions_router, prefix="/api/v1")
 
 

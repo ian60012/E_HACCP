@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import QualityStatusBadge from '@/components/QualityStatusBadge';
 import SignaturePad from '@/components/SignaturePad';
 import { QualityInspection, QualityInspectionContext, QualityInspectionSave, QualityResult, StorageCondition } from '@/types/qualityControl';
+import { useAuth } from '@/hooks/useAuth';
 
 const emptyForm: QualityInspectionSave = { retained_sample: null };
 
@@ -50,6 +51,7 @@ function SensoryField({ id, label, value, disabled, onChange }: { id: string; la
 }
 
 export default function QualityInspectionPage() {
+  const { user } = useAuth();
   const batchId = Number(useParams().id);
   const [context, setContext] = useState<QualityInspectionContext | null>(null);
   const [form, setForm] = useState<QualityInspectionSave>(emptyForm);
@@ -75,7 +77,7 @@ export default function QualityInspectionPage() {
   const signable = Boolean(context?.permissions.can_verify && !context.is_voided && record?.status === 'draft');
   const hasNA = [form.color_result, form.aroma_result, form.taste_result].includes('not_applicable');
   const hasFailure = [form.color_result, form.aroma_result, form.taste_result].includes('fail');
-  const backTo = context?.process_type === 'meat_processing' ? `/production/meat/${batchId}` : `/production/batches/${batchId}`;
+  const backTo = user?.role === 'QC' ? '/quality-control' : context?.process_type === 'meat_processing' ? `/production/meat/${batchId}` : `/production/batches/${batchId}`;
 
   const saveDraft = async (): Promise<QualityInspection> => {
     const saved = await qualityControlApi.save(batchId, payload(form)); let result = saved;

@@ -19,6 +19,7 @@ from sqlalchemy import Enum as SAEnum
 class UserRole(str, enum.Enum):
     ADMIN = "Admin"
     QA = "QA"
+    QC = "QC"
     PRODUCTION = "Production"
     WAREHOUSE = "Warehouse"
     CAPTAIN = "Captain"

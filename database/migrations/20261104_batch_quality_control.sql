@@ -1,6 +1,8 @@
 -- Batch sensory quality inspection, retained samples, photo metadata, and role permissions.
 -- Keep synchronized with backend/app/core/quality_control.sql.
 
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'QC';
+
 CREATE TABLE IF NOT EXISTS quality_control_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     enforcement_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -20,6 +22,7 @@ CREATE TABLE IF NOT EXISTS quality_role_permissions (
 INSERT INTO quality_role_permissions (role, can_view, can_edit, can_verify) VALUES
     ('Admin', TRUE, TRUE, TRUE),
     ('QA', TRUE, TRUE, TRUE),
+    ('QC', TRUE, TRUE, TRUE),
     ('Production', TRUE, TRUE, FALSE),
     ('Warehouse', TRUE, FALSE, FALSE),
     ('Captain', TRUE, TRUE, TRUE)

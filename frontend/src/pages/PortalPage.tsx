@@ -20,6 +20,15 @@ const systems: SystemCard[] = [
     icon: ShieldCheckIcon,
     to: '/haccp',
     color: 'text-primary-600 bg-primary-50 border-primary-200 hover:border-primary-400',
+    roles: ['Admin', 'QA', 'Production', 'Warehouse'],
+  },
+  {
+    titleKey: 'page.portal.qualityControl',
+    descKey: 'page.portal.qualityControlDesc',
+    icon: ShieldCheckIcon,
+    to: '/quality-control',
+    color: 'text-cyan-700 bg-cyan-50 border-cyan-200 hover:border-cyan-400',
+    roles: ['Admin', 'QA', 'QC'],
   },
   {
     titleKey: 'page.portal.production',

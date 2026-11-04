@@ -26,7 +26,7 @@
 -- ============================================================================
 
 DO $$ BEGIN
-    CREATE TYPE user_role_enum AS ENUM ('Admin', 'QA', 'Production', 'Warehouse', 'Captain');
+    CREATE TYPE user_role_enum AS ENUM ('Admin', 'QA', 'QC', 'Production', 'Warehouse', 'Captain');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -1519,7 +1519,7 @@ CREATE TABLE IF NOT EXISTS quality_role_permissions (
     CONSTRAINT ck_quality_role_permission_dependency CHECK (can_view OR (NOT can_edit AND NOT can_verify))
 );
 INSERT INTO quality_role_permissions (role, can_view, can_edit, can_verify) VALUES
-    ('Admin', TRUE, TRUE, TRUE), ('QA', TRUE, TRUE, TRUE),
+    ('Admin', TRUE, TRUE, TRUE), ('QA', TRUE, TRUE, TRUE), ('QC', TRUE, TRUE, TRUE),
     ('Production', TRUE, TRUE, FALSE), ('Warehouse', TRUE, FALSE, FALSE), ('Captain', TRUE, TRUE, TRUE)
 ON CONFLICT (role) DO NOTHING;
 

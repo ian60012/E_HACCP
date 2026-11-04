@@ -1,6 +1,6 @@
 import { useAuth } from '@/hooks/useAuth';
 
-export type UserRole = 'Admin' | 'QA' | 'Production' | 'Warehouse' | 'Captain';
+export type UserRole = 'Admin' | 'QA' | 'QC' | 'Production' | 'Warehouse' | 'Captain';
 
 export function usePermissions() {
   const { user } = useAuth();
@@ -18,6 +18,7 @@ export function usePermissions() {
     canAccessProduction: hasRole('Admin', 'QA', 'Production'),
     canAccessInventory: hasRole('Admin', 'QA', 'Warehouse'),
     canAccessUsers: hasRole('Admin'),
+    canAccessQualityControl: hasRole('Admin', 'QA', 'QC'),
 
     // HACCP log permissions
     canCreateCookingLog: hasRole('Admin', 'QA', 'Production'),

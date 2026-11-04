@@ -22,6 +22,7 @@ import ProdRepackDetailPage from '@/pages/production/ProdRepackDetailPage';
 import ProdProductsPage from '@/pages/production/ProdProductsPage';
 import ProdPackTypesPage from '@/pages/production/ProdPackTypesPage';
 import QualityInspectionPage from '@/pages/production/QualityInspectionPage';
+import QualityControlDashboardPage from '@/pages/quality-control/QualityControlDashboardPage';
 
 // Cooking logs
 import CookingLogsPage from '@/pages/cooking/CookingLogsPage';
@@ -114,6 +115,7 @@ export default function App() {
           }
         >
           <Route path="/" element={<PortalPage />} />
+          <Route path="/quality-control" element={<RoleGuard allowedRoles={['Admin', 'QA', 'QC']}><QualityControlDashboardPage /></RoleGuard>} />
           <Route path="/haccp" element={<DashboardPage />} />
           {/* Production module - Admin, QA, Production */}
           <Route path="/production" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production', 'Warehouse']}><ProductionDashboardPage /></RoleGuard>} />
@@ -123,7 +125,7 @@ export default function App() {
           <Route path="/production/batches/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdBatchFormPage /></RoleGuard>} />
           <Route path="/production/batches/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdBatchDetailPage /></RoleGuard>} />
           <Route path="/production/batches/:id/packing" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdPackingPage /></RoleGuard>} />
-          <Route path="/production/batches/:id/quality" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production', 'Warehouse']}><QualityInspectionPage /></RoleGuard>} />
+          <Route path="/production/batches/:id/quality" element={<RoleGuard allowedRoles={['Admin', 'QA', 'QC', 'Production', 'Warehouse']}><QualityInspectionPage /></RoleGuard>} />
           <Route path="/production/repack" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdRepackListPage /></RoleGuard>} />
           <Route path="/production/repack/new" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdRepackFormPage /></RoleGuard>} />
           <Route path="/production/repack/:id" element={<RoleGuard allowedRoles={['Admin', 'QA', 'Production']}><ProdRepackDetailPage /></RoleGuard>} />

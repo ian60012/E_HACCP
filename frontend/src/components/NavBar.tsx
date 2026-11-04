@@ -5,6 +5,7 @@ import Bi from '@/components/Bi';
 const roleBadgeColors: Record<string, string> = {
   Admin: 'bg-purple-100 text-purple-700',
   QA: 'bg-green-100 text-green-700',
+  QC: 'bg-cyan-100 text-cyan-800',
   Production: 'bg-blue-100 text-blue-700',
   Warehouse: 'bg-amber-100 text-amber-700',
   Captain: 'bg-rose-100 text-rose-700',
@@ -13,6 +14,7 @@ const roleBadgeColors: Record<string, string> = {
 const roleLabelKeys: Record<string, string> = {
   Admin: 'role.admin',
   QA: 'role.qa',
+  QC: 'role.qc',
   Production: 'role.production',
   Warehouse: 'role.warehouse',
   Captain: 'role.captain',

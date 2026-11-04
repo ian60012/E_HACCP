@@ -35,7 +35,18 @@ export interface QualityInspectionContext {
 }
 
 export interface QualityRolePermission extends QualityPermissionFlags {
-  role: 'Admin' | 'QA' | 'Production' | 'Warehouse' | 'Captain'; fixed: boolean;
+  role: 'Admin' | 'QA' | 'QC' | 'Production' | 'Warehouse' | 'Captain'; fixed: boolean;
 }
 
 export interface QualityPermissionsConfig { enforcement_started_at: string; roles: QualityRolePermission[]; }
+
+export interface QualityBatchSummary {
+  batch_id: number; batch_code: string; product_code: string; product_name: string; production_date: string;
+  process_type: 'forming' | 'hot_process' | 'meat_processing' | null; production_status: string;
+  quality_status: QualityStatus; quality_revision: number | null;
+}
+
+export interface QualityBatchDashboardResponse {
+  items: QualityBatchSummary[]; total: number; skip: number; limit: number;
+  counts: Record<QualityStatus, number>;
+}
