@@ -1,4 +1,21 @@
+-- user_role_enum is created with QC in init.sql. Older databases need the
+-- type and any missing labels before the rest of this migration runs.
+DO $$ BEGIN
+    CREATE TYPE user_role_enum AS ENUM ('Admin', 'QA', 'QC', 'Production', 'Warehouse', 'Captain');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+-- statement
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'Admin';
+-- statement
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'QA';
+-- statement
 ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'QC';
+-- statement
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'Production';
+-- statement
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'Warehouse';
+-- statement
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'Captain';
 -- statement
 CREATE TABLE IF NOT EXISTS quality_control_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),

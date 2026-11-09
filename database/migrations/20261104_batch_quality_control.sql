@@ -1,7 +1,17 @@
 -- Batch sensory quality inspection, retained samples, photo metadata, and role permissions.
 -- Keep synchronized with backend/app/core/quality_control.sql.
+-- Enum changes are separate statements so a new label commits before later use.
 
+DO $$ BEGIN
+    CREATE TYPE user_role_enum AS ENUM ('Admin', 'QA', 'QC', 'Production', 'Warehouse', 'Captain');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'Admin';
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'QA';
 ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'QC';
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'Production';
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'Warehouse';
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'Captain';
 
 CREATE TABLE IF NOT EXISTS quality_control_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
