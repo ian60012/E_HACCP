@@ -1,6 +1,6 @@
 # E_HACCP Project Context
 
-Last updated: 2026-11-04.
+Last updated: 2026-11-09.
 
 ## Quick Load
 
@@ -39,6 +39,7 @@ docker exec haccp_backend pytest
 - `docs/cursor_project_brief.md` is an early MVP brief, not the current architecture.
 - Adminer is mapped to host port `9090` in current `docker-compose.yml`, although old docs mention `8080`.
 - `prod_batch_status_enum` differs across history. The 2026-09-15 meat migration idempotently adds `packed` to older installations; meat workflow states are separate from this enum.
+- Startup does not assume `item_type_enum` or `user_role_enum` already exist. `migrate_item_type` creates `item_type_enum` (`raw`, `intermediate`, `finished`, `packaging`) when missing, adds any missing label without reordering or dropping the type, then adds `inv_items.item_type` and `inv_stock_docs.item_type_scope`. Category backfill runs only the first time `item_type` is added and does not clear `category`. Existing `item_type` values and stock-document scopes are not rewritten. `QC` and the other canonical role labels are added with `ADD VALUE IF NOT EXISTS` in their own transactions. QA lock and audit triggers are not disabled. Durable copy: `database/migrations/20261109_ensure_item_type_enum.sql`.
 
 ## Repository Map
 
@@ -216,7 +217,7 @@ Key frontend files:
 - API routes under `/api/v1/production/batches/{batch_id}/quality-inspection` support context/read, draft save, corrective revision, QA verify, authenticated photo upload/read; `/api/v1/quality-control/permissions` manages the role matrix.
 - `quality_control_settings.enforcement_started_at` is seeded when the migration first runs. Batches created on or after that timestamp require an approved inspection before either legacy or meat stock entry; older batches remain compatible. The gate is enforced in backend stock services, not only in the UI.
 - Backend: `models/quality_control.py`, `schemas/quality_control.py`, `routers/api/v1/quality_control.py`, and `services/quality_control.py`. Frontend: `pages/quality-control/QualityControlDashboardPage.tsx`, `pages/production/QualityInspectionPage.tsx`, `pages/admin/QualityPermissionsPage.tsx`, `api/qualityControl.ts`, and `types/qualityControl.ts`.
-- Durable schema: `database/migrations/20261104_batch_quality_control.sql`, follow-up role migration `database/migrations/20261104_add_qc_role.sql`, packaged startup migration `backend/app/core/quality_control.sql`, and the matching block in `database/init.sql`.
+- Durable schema: `database/migrations/20261104_batch_quality_control.sql`, follow-up role migration `database/migrations/20261104_add_qc_role.sql`, packaged startup migration `backend/app/core/quality_control.sql`, and the matching block in `database/init.sql`. Startup creates `user_role_enum` when it is missing and adds `QC` with `ADD VALUE IF NOT EXISTS` in its own transaction before the quality tables are created. Existing role labels are not removed or reordered.
 
 ### Meat Processing
 
@@ -247,6 +248,7 @@ Key frontend files:
 Inventory supports item master data, locations, lot-aware stock documents, posted/voided stock movement, balances, receiving-log conversion to stock-in, allowed locations, and stocktake adjustment docs.
 
 - Manual stock documents persist nullable `item_type_scope` using `item_type_enum`. NULL is general/unrestricted; IN supports raw/packaging/intermediate/finished, OUT supports intermediate/finished. Creation, draft replacement and posting centrally validate the scope and every line in `inventory_service.validate_document_scope`. Raw dual-use meat items also qualify for their intermediate/finished output scope. Old and automatically generated documents remain NULL without backfill.
+- Startup migration `backend/app/core/item_type.sql` creates `item_type_enum` when an older database does not have it, then adds `inv_items.item_type` and `inv_stock_docs.item_type_scope`. The same script is `database/migrations/20261109_ensure_item_type_enum.sql`. `20260915_inventory_doc_scope.sql` also creates the enum before adding the scope column.
 - Stock-document list API accepts `item_type_scope` and `general_only` (general-only takes precedence), with direction/status filters applied to both rows and totals. The UI offers grouped quick-create links, scoped active-item selection, draft scope editing and scope badges. Direction remains immutable after creation.
 
 - `inv_items.lot_tracking_enabled` opts a SKU into lot stock. `meat_output_type` lets a raw SKU also appear as a meat-produced intermediate or finished item while preserving its `raw` classification for receiving and Batch Sheets.

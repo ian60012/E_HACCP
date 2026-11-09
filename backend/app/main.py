@@ -595,9 +595,10 @@ async def lifespan(app: FastAPI):
     await migrate_cleaning_checklists(engine)
     from app.core.quality_control_migration import migrate_quality_control
     await migrate_quality_control(engine)
-    async with engine.begin() as conn:
-        await conn.execute(text("ALTER TABLE inv_stock_docs ADD COLUMN IF NOT EXISTS item_type_scope item_type_enum"))
-        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_inv_stock_docs_item_type_scope ON inv_stock_docs(item_type_scope)"))
+    # item_type_enum is created by init.sql / 20260507. Databases that never
+    # received that migration do not have the type, so create it before use.
+    from app.core.item_type_migration import migrate_item_type
+    await migrate_item_type(engine)
     # Production Helper data directory (plans/recipes/purchase_status JSON files)
     production_helper.init_data_dir()
     from pathlib import Path
