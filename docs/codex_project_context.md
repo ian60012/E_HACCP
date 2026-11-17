@@ -1,6 +1,6 @@
 # E_HACCP Project Context
 
-Last updated: 2026-11-04.
+Last updated: 2026-11-17.
 
 ## Quick Load
 
@@ -58,6 +58,7 @@ docker exec haccp_backend pytest
 - `frontend/src/components`: layout, navigation, guards, shared UI.
 - `frontend/src/features/labelmaker`: LabelMaker domain logic, FSANZ data, recipe/nutrition/allergen utilities.
 - `docs/production_helper_integration.md`: Production Helper integration notes, useful but mojibake-damaged.
+- `mcp_server/`: optional read-only MCP service. It is not part of the FastAPI app. See `docs/mcp/README.md` and `docs/mcp/INVENTORY.md`.
 
 ## Backend Architecture
 
@@ -306,6 +307,15 @@ Key files:
 - `frontend/src/features/labelmaker/*`
 
 Settings include `OPENAI_API_KEY` and `OPENAI_MODEL` for AI-assisted label work.
+
+### Read-only MCP
+
+- `mcp_server/` is a separate Python 3.11 service using the official MCP SDK (`mcp` 1.22, FastMCP, streamable HTTP). It is started only with the compose profile `mcp`.
+- It calls the existing `/api/v1` GET routes with a normal service-account JWT. The client refuses every other write. Login is the only POST.
+- `HACCP_READONLY_DATABASE_URL` is optional. When set, traceability and `audit_log` counts use fixed SELECT statements. The role script is `mcp_server/sql/create_readonly_role.sql` and is not applied by startup or by a migration.
+- The published host defaults to `127.0.0.1`. On the NAS it should be the Tailscale address. The process rejects `MCP_PUBLISH_HOST=0.0.0.0`.
+- There is no NCR table. Deviation logs are the nonconformance records. There is no customer shipment table. OUT inventory movements are the dispatch record.
+- Do not add write tools, and do not expose this port on Railway or on a public interface.
 
 ## Development Rules For This Repo
 

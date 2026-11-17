@@ -75,7 +75,43 @@ services:
       - postgres
     restart: unless-stopped
 
+  # Opt-in read-only MCP. It is not started by plain `docker compose up`.
+  # Publish only to loopback or the NAS Tailscale IP. Never set MCP_PUBLISH_HOST=0.0.0.0.
+  mcp:
+    profiles: ["mcp"]
+    build:
+      context: ./mcp_server
+      dockerfile: Dockerfile
+    container_name: haccp_mcp
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      MCP_BIND_HOST: 0.0.0.0
+      MCP_PORT: "8765"
+      MCP_IN_DOCKER: "1"
+      MCP_PUBLISH_HOST: ${MCP_PUBLISH_HOST:-127.0.0.1}
+      MCP_BEARER_TOKEN: ${MCP_BEARER_TOKEN:-}
+      MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-127.0.0.1:*,localhost:*}
+      MCP_RESOURCE_URL: ${MCP_RESOURCE_URL:-http://127.0.0.1:8765}
+      HACCP_API_BASE_URL: http://backend:8000
+      HACCP_SERVICE_USERNAME: ${HACCP_SERVICE_USERNAME:-}
+      HACCP_SERVICE_PASSWORD: ${HACCP_SERVICE_PASSWORD:-}
+      HACCP_READONLY_DATABASE_URL: ${HACCP_READONLY_DATABASE_URL:-}
+      MCP_AUDIT_LOG_PATH: /var/log/ehaccp-mcp/audit.jsonl
+    ports:
+      - "${MCP_PUBLISH_HOST:-127.0.0.1}:${MCP_PUBLISH_PORT:-8765}:8765"
+    volumes:
+      - mcp_audit:/var/log/ehaccp-mcp
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 volumes:
   postgres_data:
   production_helper_data:
   quality_photo_data:
+  mcp_audit:
